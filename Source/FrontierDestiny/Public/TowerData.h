@@ -1,0 +1,34 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Engine/DataAsset.h"
+#include "TowerData.generated.h"
+
+/**
+ * 
+ */
+UCLASS()
+class FRONTIERDESTINY_API UTowerData : public UPrimaryDataAsset
+{
+	GENERATED_BODY()
+	
+public:
+	// 2D Thumbnail icon for the tower
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visuals")
+    UTexture2D* TowerIcon;
+
+    // The 3D model of the tower
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visuals")
+    UStaticMesh* TowerMesh;
+    
+	// The cell relative to the origin that serves as the pivot for placement
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Placement")
+    FIntPoint PivotPoint;
+
+    // The cells this tower occupies relative to the pivot (0,0)
+    // Example for 2x2: (0,0), (1,0), (0,1), (1,1)
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Placement")
+    TArray<FIntPoint> Footprint;
+};
