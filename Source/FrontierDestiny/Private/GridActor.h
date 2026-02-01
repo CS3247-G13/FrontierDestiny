@@ -7,6 +7,8 @@
 #include "GridActor.generated.h"
 
 class UBoxComponent;
+class UTowerData;
+class ATowerActor;
 
 UCLASS()
 class AGridActor : public AActor
@@ -20,7 +22,13 @@ public:
 	float ScaleY;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Settings")
 	float CellSize;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Settings")
+	FIntPoint GridSize;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Occupancy")
+	TArray<bool> Occupied;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Occupancy")
+	TArray<ATowerActor*> Towers;
 	// Sets default values for this actor's properties
 	AGridActor();
 
@@ -44,16 +52,28 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
 	bool GetWorldLocationFromGridIndex(const FIntPoint& GridIndex, const FRotator& Rotation, FVector& OutLocation) const;
+
+	/*
+	Get whether a tower can be placed at the pivot point
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
+	bool CanPlaceTower(const FIntPoint& PivotGridIndex, const FRotator& Rotation, UTowerData* TowerInfo);
+
+	/*
+	Fills the cells based on tower
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
+	bool PlaceTower(const FIntPoint& PivotGridIndex, const FRotator& Rotation, ATowerActor* Tower);
 protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	USceneComponent* Root;
+	TObjectPtr<USceneComponent> Root;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	UBoxComponent* CollisionBox;
+	TObjectPtr<UBoxComponent> CollisionBox;
 
 	virtual void OnConstruction(const FTransform& Transform) override;
 private:
 
-	
+
 };
