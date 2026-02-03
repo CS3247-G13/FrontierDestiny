@@ -17,11 +17,20 @@ public:
 	// Sets default values for this actor's properties
 	ATowerActor();
 
-protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = "true"), Category = "Setup")
+	bool bIsGhost = true;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = "true"), Category = "Setup")
+	bool bIsValidGhost = true;
 
-public:	
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Tower Properties")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (ExposeOnSpawn = "true"), Category = "Setup")
+	TObjectPtr<APlayerController> PlayerController;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = "true"), Category = "Setup")
 	TObjectPtr<UTowerData> TowerInfo;
+
+	/*
+	Decide on a target for the tower to attack.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Tower Functions")
+	virtual bool SelectTarget();
 };

@@ -28,7 +28,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Occupancy")
 	TArray<bool> Occupied;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Occupancy")
-	TArray<ATowerActor*> Towers;
+	TArray<TObjectPtr<ATowerActor>> Towers;
 	// Sets default values for this actor's properties
 	AGridActor();
 

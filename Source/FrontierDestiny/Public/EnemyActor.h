@@ -6,6 +6,8 @@
 #include "GameFramework/Actor.h"
 #include "EnemyActor.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnEnemyDied);
+
 UCLASS()
 class FRONTIERDESTINY_API AEnemyActor : public AActor
 {
@@ -15,12 +17,16 @@ public:
 	// Sets default values for this actor's properties
 	AEnemyActor();
 
-protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
+	UPROPERTY(BlueprintAssignable, Category = "Enemy Events")
+	FOnEnemyDied OnEnemyDied;
 
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy Properties")
+	int32 MaxHealth;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy Properties")
+	int32 CurrentHealth;
+
+	UFUNCTION(BlueprintCallable, Category = "Enemy Functions")
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent,
+		class AController* EventInstigator, AActor* DamageCauser) override;
 };

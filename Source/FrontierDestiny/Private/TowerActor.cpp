@@ -11,9 +11,7 @@ ATowerActor::ATowerActor()
 
 }
 
-// Called when the game starts or when spawned
-void ATowerActor::BeginPlay()
+bool ATowerActor::SelectTarget()
 {
-	Super::BeginPlay();
-	
+	return true;
 }

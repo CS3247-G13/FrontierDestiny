@@ -9,6 +9,9 @@
 /**
  * 
  */
+
+class ATowerActor;
+
 UCLASS()
 class FRONTIERDESTINY_API UTowerData : public UPrimaryDataAsset
 {
@@ -16,12 +19,12 @@ class FRONTIERDESTINY_API UTowerData : public UPrimaryDataAsset
 	
 public:
 	// 2D Thumbnail icon for the tower
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visuals")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tower")
     UTexture2D* TowerIcon;
 
-    // The 3D model of the tower
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Visuals")
-    UStaticMesh* TowerMesh;
+    // The blueprint of the tower
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tower")
+    TSubclassOf<ATowerActor> TowerBlueprint;
     
 	// The cell relative to the origin that serves as the pivot for placement
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Placement")

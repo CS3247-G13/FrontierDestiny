@@ -7,21 +7,22 @@
 AEnemyActor::AEnemyActor()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 
 }
 
-// Called when the game starts or when spawned
-void AEnemyActor::BeginPlay()
+float AEnemyActor::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	Super::BeginPlay();
+	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+
+	CurrentHealth = FMath::Clamp(CurrentHealth - FMath::RoundToInt(ActualDamage), 0, MaxHealth);
 	
+	if (CurrentHealth == 0) {
+		OnEnemyDied.Broadcast();
+		Destroy();
+	}
+
+	return ActualDamage;
 }
 
-// Called every frame
-void AEnemyActor::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-}
 
