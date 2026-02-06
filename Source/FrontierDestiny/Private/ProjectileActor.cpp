@@ -18,6 +18,8 @@ void AProjectileActor::BeginPlay()
         if (UPrimitiveComponent* RootPrim = Cast<UPrimitiveComponent>(GetRootComponent()))
         {
             RootPrim->IgnoreActorWhenMoving(MyOwner, true);
+			// Set the bullet to not collide with other projectiles (custom channel 2)
+            RootPrim->SetCollisionResponseToChannel(ECC_GameTraceChannel2, ECR_Ignore);
         }
     }
 }
