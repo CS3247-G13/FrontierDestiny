@@ -78,21 +78,23 @@ void AGridActor::OnConstruction(const FTransform& Transform)
 }
 
 // THIS FUNCTION ASSUMES VERTICAL GRIDS ONLY, IF WE ROTATE THE GRID, UPDATE THIS FUNCTION
-bool AGridActor::GetSnappedGridIndex(const FHitResult& HitResult, FIntPoint& OutGridIndex) const
+bool AGridActor::GetSnappedGridIndex(const FVector& HitLocation, FIntPoint& OutGridIndex) const
 {
     UE_LOG(LogTemp, Warning, TEXT("Details: ScaleX: %f, ScaleY: %f, CellSize: %f"), ScaleX, ScaleY, CellSize);
     UE_LOG(LogTemp, Warning, TEXT("Occupied: %d, Towers: %d"), Occupied.Num(), Towers.Num());
     FVector ActorLocation = GetActorLocation();
-    OutGridIndex.X = FMath::Floor((HitResult.Location.X - ActorLocation.X) / CellSize);
-    OutGridIndex.Y = FMath::Floor((HitResult.Location.Y - ActorLocation.Y) / CellSize);
+
+    FIntPoint TempIndex;
+    TempIndex.X = FMath::Floor((HitLocation.X - ActorLocation.X) / CellSize);
+    TempIndex.Y = FMath::Floor((HitLocation.Y - ActorLocation.Y) / CellSize);
 	
     // Out of bounds
-    if (OutGridIndex.X < 0 || OutGridIndex.X >= GridSize.X ||
-        OutGridIndex.Y < 0 || OutGridIndex.Y >= GridSize.Y)
+    if (TempIndex.X < 0 || TempIndex.X >= GridSize.X ||
+        TempIndex.Y < 0 || TempIndex.Y >= GridSize.Y)
     {
         return false;
     }
-
+	OutGridIndex = TempIndex;
 	return true;
 }
 

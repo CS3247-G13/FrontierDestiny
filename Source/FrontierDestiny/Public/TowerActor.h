@@ -47,6 +47,7 @@ public:
 	/** The specific class of actor this tower is allowed to target */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	TSubclassOf<AActor> TargetClassFilter;
+	/* Not in use, can remove */
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (ExposeOnSpawn = "true"), Category = "Setup")
 	TObjectPtr<APlayerController> PlayerController;

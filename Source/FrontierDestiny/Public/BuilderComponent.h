@@ -8,9 +8,6 @@ class UTowerData;
 class ATowerActor;
 class AGridActor;
 
-class UInputAction;
-class FInputActionValue;
-
 UENUM(BlueprintType)
 enum class ERotation : uint8
 {
@@ -20,7 +17,7 @@ enum class ERotation : uint8
 	ROT_270 UMETA(DisplayName = "270 Degrees")
 };
 
-UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent), Within = Pawn)
+UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class FRONTIERDESTINY_API UBuilderComponent : public UActorComponent
 {
 	GENERATED_BODY()
@@ -32,34 +29,56 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	/*
+	Sets the player to be in building mode, activating this component*/
+	UFUNCTION(BlueprintCallable, Category = "Tower Building")
+	void ActivateBuildingMode();
+
+	/*
+	Sets the player to be not in building mode, deactivating this component*/
+	UFUNCTION(BlueprintCallable, Category = "Tower Building")
+	void DeactivateBuildingMode();
+
+	/*
+	Toggles the player's buiding mode, activating it if it is deactivated and vice versa*/
+	UFUNCTION(BlueprintCallable, Category = "Tower Building")
+	void ToggleBuildingMode();
+
+	/*
 	Changes the current selected tower to the provided tower data,
 	updating the ghost structure. If no tower data is provided,
 	it clears the selection.*/
 	UFUNCTION(BlueprintCallable, Category = "Tower Building")
-	void ChangeTowerSelection(TOptional<UTowerData> NewTowerData);
+	void ChangeTowerSelection(UTowerData* NewTowerData);
 
 	/*
-	Builds the selected tower at the provided location based on the
-	ghost structure*/
+	Tries to build the selected tower at the provided location based on the
+	ghost structure, returns false if the location is invalid*/
 	UFUNCTION(BlueprintCallable, Category = "Tower Building")
-	void BuildTower();
+	bool TryBuildTower();
 
 	/*
-	Checks if there has been a change in the ghost structure. If the tower data
-	(blueprint) changed, then destroy and rebuild the ghost structure. Else,
-	update it accordingly*/
+	Destroy and rebuild the ghost structure with new blueprint.*/
 	UFUNCTION(BlueprintCallable, Category = "Tower Building")
-	void UpdateGhostStructureVisuals();
+	void UpdateGhostStructureBlueprint();
 
 	/*
-	Updates the ghost structure's location and rotation based on world location*/
+	Update the color of the ghost structure.*/
 	UFUNCTION(BlueprintCallable, Category = "Tower Building")
-	void UpdateGhostStructureLocationAndRotationByWorldLocation(FVector LookAtLocation);
+	void UpdateGhostStructureValid();
 
 	/*
-	Updates the ghost structure's location and rotation based on grid index*/
+	Check if tower can be placed*/
 	UFUNCTION(BlueprintCallable, Category = "Tower Building")
-	void UpdateGhostStructureLocationAndRotationByGridIndex(FIntPoint NewGridIndex);
+	bool CheckTowerCanBePlaced();
+
+	/*
+	Updates the ghost structure's location based on set grid index*/
+	UFUNCTION(BlueprintCallable, Category = "Tower Building")
+	void UpdateGhostStructureLocation();
+	/*
+	Updates the ghost structure's rotation based on player camera*/
+	UFUNCTION(BlueprintCallable, Category = "Tower Building")
+	void UpdateGhostStructureRotation();
 
 	/*
 	Sets the grid that is currently being used for building*/
@@ -68,53 +87,51 @@ public:
 
 	/*
 	Performs the raycast to find the grid and location to place the ghost tower. This should
-	only be called by pawn if it has a camera*/
+	only be called by pawn if it has a camera, else it will return false.*/
 	UFUNCTION(BlueprintCallable, Category = "Tower Building")
-	bool UpdateGhostStructureLocationByRaycast();
-
-	/*
-	The Input action that maps to building the tower*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
-	TObjectPtr<UInputAction> BuildInputAction;
-	/*
-	The Input action that maps to rotating the tower*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
-	TObjectPtr<UInputAction> RotateInputAction;
+	bool TryPerformRaycast(FHitResult& Hit);
 
 	/*
 	Whether the pawn is in building mode. This determines if this component
 	is active*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
 	bool bIsBuildingModeActive = false;
-private:
-	ERotation addedBuildingRotation;
-	ERotation buildingRotationWrtBuilder;
-
-	UPROPERTY()
-	TObjectPtr<ATowerActor> GhostTowerActor;
-	UPROPERTY()
-	TObjectPtr<UTowerData> SelectedTowerData;
-	UPROPERTY()
-	TObjectPtr<AGridActor> GridActor;
-
-	bool bCanPlaceBuilding = false;
-	FIntPoint CurrentGridLocationIndex;
 
 	/*
-	Get rotation relative to pawn using direction from building to player*/
-	ERotation GetBuildingRotationWithRegardsToBuilder();
-	
-	void OnRotateInput(const FInputActionValue& Value);
+	Range that the builder can build from*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
+	float buildRange = 10000.f;
 
-	void OnBuildInput(const FInputActionValue& Value);
+	/*
+	Whether the builder component is a raycasting builder.*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
+	bool bIsRaycastBuilder = true;
+
+	UFUNCTION(BlueprintCallable, Category = "Tower Building")
+	void RotateTower(bool Clockwise);
+private:
+	ERotation AddedBuildingRotation;
+	ERotation BuildingRotationRelativeToBuilder;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Debug")
+	TObjectPtr<ATowerActor> GhostTowerActor;
+	UPROPERTY(VisibleInstanceOnly, Category = "Debug")
+	TObjectPtr<UTowerData> SelectedTowerData;
+	UPROPERTY(VisibleInstanceOnly, Category = "Debug")
+	TObjectPtr<AGridActor> GridActor;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Debug")
+	bool bCanPlaceTower = false;
+	UPROPERTY(VisibleInstanceOnly, Category = "Debug")
+	FIntPoint CurrentGridLocationIndex;
 
 	// ========= Helpers ==========
 	
 	ERotation GetBuildingRotation() const
 	{
 		return static_cast<ERotation>(
-			((static_cast<uint8>(addedBuildingRotation) 
-				+ static_cast<uint8>(buildingRotationWrtBuilder)) % 4)
+			((static_cast<uint8>(AddedBuildingRotation) 
+				+ static_cast<uint8>(BuildingRotationRelativeToBuilder)) % 4)
 		);
 	}
 
@@ -122,7 +139,7 @@ private:
 	{
 		return FRotator{ 0.f, 90.f * static_cast<uint8>(GetBuildingRotation()), 0.f };
 	}
-
-
 	
+	UPROPERTY()
+	TObjectPtr<APawn> Pawn;
 };

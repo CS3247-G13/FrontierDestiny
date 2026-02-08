@@ -33,11 +33,11 @@ public:
 	AGridActor();
 
 	/* 
-	Takes a world hit result and returns a valid snapped grid position, and 2D index on the grid.
+	Takes a world location and returns a valid snapped grid position, and 2D index on the grid.
 	Returns true if the location is valid.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
-	bool GetSnappedGridIndex(const FHitResult& HitResult, FIntPoint& OutGridIndex) const;
+	bool GetSnappedGridIndex(const FVector& HitLocation, FIntPoint& OutGridIndex) const;
 
 	/*
 	Takes a Grid Index and returns the world location at the center of the cell.
