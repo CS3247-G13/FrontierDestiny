@@ -5,6 +5,7 @@
 
 #include "BuilderComponent.h"
 
+#include "EconomyComponent.h"
 #include "TowerActor.h"
 #include "TowerData.h"
 #include "GridActor.h"
@@ -18,6 +19,28 @@ UBuilderComponent::UBuilderComponent()
 void UBuilderComponent::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	APawn* Pawn = Cast<APawn>(GetOwner());
+	if (!Pawn)
+	{
+		UE_LOG(LogTemp, Error, 
+			TEXT("BuilderComponent on %s has an owner that is not a pawn, this component requires a pawn owner."), *GetName());
+		return;
+	}
+
+	APlayerController* PlayerController = Cast<APlayerController>(Pawn->GetController());
+	if (!IsValid(PlayerController))
+	{
+		return;
+	}
+
+	// Since this is a player controller, it should have an economy component
+	EconomyComponent = PlayerController->FindComponentByClass<UEconomyComponent>();
+	if (!IsValid(EconomyComponent))
+	{
+		UE_LOG(LogTemp, Warning, 
+			TEXT("BuilderComponent on %s could not find an economy component on its player controller owner."), *GetName());
+	}
 }
 
 void UBuilderComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -93,6 +116,11 @@ void UBuilderComponent::ToggleBuildingMode()
 
 void UBuilderComponent::ChangeTowerSelection(UTowerData* NewTowerData)
 {
+	if (!bIsBuildingModeActive)
+	{
+		return;
+	}
+
 	SelectedTowerData = NewTowerData;
 	UpdateGhostStructureBlueprint();
 
@@ -104,9 +132,21 @@ void UBuilderComponent::ChangeTowerSelection(UTowerData* NewTowerData)
 
 bool UBuilderComponent::TryBuildTower()
 {
+	if (!bIsBuildingModeActive)
+	{
+		return false;
+	}
 	if (!bCanPlaceTower || !SelectedTowerData)
 	{
 		return false;
+	}
+
+	if (IsValid(EconomyComponent))
+	{
+		if (EconomyComponent->TryDeductFunds(SelectedTowerData->TowerCost) == false)
+		{
+			return false;
+		}
 	}
 
 	FTransform SpawnTransform(GhostTowerActor->GetActorRotation(), GhostTowerActor->GetActorLocation());
@@ -124,6 +164,8 @@ bool UBuilderComponent::TryBuildTower()
 		NewTower->bIsGhost = false;
 		NewTower->TowerInfo = SelectedTowerData;
 		NewTower->FinishSpawning(SpawnTransform);
+		NewTower->GridActor = GridActor;
+		NewTower->GridLocationIndex = CurrentGridLocationIndex;
 	}
 
 	if (IsValid(GridActor))
@@ -164,6 +206,14 @@ bool UBuilderComponent::CheckTowerCanBePlaced()
 		return false;
 	}
 
+	if (IsValid(EconomyComponent))
+	{
+		if (SelectedTowerData->TowerCost > 0 && !(EconomyComponent->HasSufficientFunds(SelectedTowerData->TowerCost)))
+		{
+			return false;
+		}
+	}
+	
 	return true;
 
 	// TODO: Set to false in the case of overlap with a custom channel Tower Blockers (exclude projectiles)
@@ -235,6 +285,10 @@ bool UBuilderComponent::TryPerformRaycast(FHitResult& Hit)
 
 void UBuilderComponent::RotateTower(bool Clockwise)
 {
+	if (!bIsBuildingModeActive)
+	{
+		return;
+	}
 	uint8 Direction = Clockwise ? 1 : 3;
 	AddedBuildingRotation = static_cast<ERotation>(
 		// Add 4 to avoid negative numbers for our unsigned int

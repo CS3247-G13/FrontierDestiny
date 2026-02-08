@@ -34,4 +34,12 @@ public:
     // Example for 2x2: (0,0), (1,0), (0,1), (1,1)
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Placement")
     TArray<FIntPoint> Footprint;
+
+	// The cost to build the tower
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Economy")
+	int32 TowerCost;
+
+    // The upgraded version of this tower, if any
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrades")
+	TArray<UTowerData*> AvailableUpgrades;
 };

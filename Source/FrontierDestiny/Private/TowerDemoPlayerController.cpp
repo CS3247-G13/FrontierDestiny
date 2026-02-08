@@ -3,34 +3,57 @@
 
 #include "TowerDemoPlayerController.h"
 #include "BuilderComponent.h"
+#include "EditorComponent.h"
 
 #include "Blueprint/UserWidget.h"
 
 #include "InputActionValue.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
-
-#define LOG(Message) if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, Message)
+#include "InputMappingContext.h"
 
 void ATowerDemoPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	// Initialize the widget or other UI elements for the tower demo here
+    InitializeInputMappingContext();
+    InitializeHUD();
+    InitializeComponentReferences();
+}
 
-	if (MainHUDWidget)
-	{
-		UUserWidget* HUDWidgetInstance = CreateWidget<UUserWidget>(this, MainHUDWidget);
-		if (IsValid(HUDWidgetInstance))
-		{
-			HUDWidgetInstance->AddToViewport();
-		}
-	}
-
-    if (!(BuilderComponent = Cast<UBuilderComponent>(GetPawn()->GetComponentByClass(UBuilderComponent::StaticClass())))) 
+void ATowerDemoPlayerController::InitializeComponentReferences()
+{
+    if (GetPawn())
     {
-        UE_LOG(LogTemp, Error, 
-			TEXT("TowerDemoPlayerController on %s failed to find BuilderComponent. Are you sure the BuilderComponent is attached to the PlayerController's Pawn?"), *GetName());
+        BuilderComponent = GetPawn()->FindComponentByClass<UBuilderComponent>();
+        EditorComponent = GetPawn()->FindComponentByClass<UEditorComponent>();
+    }
+}
+
+void ATowerDemoPlayerController::InitializeHUD()
+{
+    // Initialize the widget or other UI elements for the tower demo here
+    if (MainHUDWidget)
+    {
+        UUserWidget* HUDWidgetInstance = CreateWidget<UUserWidget>(this, MainHUDWidget);
+        if (IsValid(HUDWidgetInstance))
+        {
+            HUDWidgetInstance->AddToViewport();
+        }
+    }
+}
+
+void ATowerDemoPlayerController::InitializeInputMappingContext()
+{
+    if (ULocalPlayer* LocalPlayer = GetLocalPlayer())
+    {
+        if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer))
+        {
+            if (TowerDemoInputMappingContext)
+            {
+                Subsystem->AddMappingContext(TowerDemoInputMappingContext, 0);
+            }
+        }
     }
 }
 
@@ -41,7 +64,24 @@ void ATowerDemoPlayerController::SetupInputComponent()
     // Cast the internal InputComponent to the Enhanced version
     if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent))
     {
-        // Bind the "Build" action
+        if (NumberKeyInputAction)
+        {
+            EnhancedInputComponent->BindAction(
+                NumberKeyInputAction,
+                ETriggerEvent::Started,
+                this,
+                &ATowerDemoPlayerController::OnNumberKeyAction
+            );
+            
+            EnhancedInputComponent->BindAction(
+                NumberKeyInputAction,
+                ETriggerEvent::Started,
+                this,
+                &ATowerDemoPlayerController::OnUpgradeAction
+            );
+            
+        }
+
         if (BuildInputAction)
         {
             EnhancedInputComponent->BindAction(
@@ -62,16 +102,6 @@ void ATowerDemoPlayerController::SetupInputComponent()
             );
 		}
 
-        if (NumberKeyInputAction)
-        {
-            EnhancedInputComponent->BindAction(
-                NumberKeyInputAction,
-                ETriggerEvent::Started,
-                this,
-                &ATowerDemoPlayerController::OnNumberKeyAction
-            );
-        }
-
         if (ToggleBuildModeInputAction)
         {
             EnhancedInputComponent->BindAction(
@@ -81,8 +111,46 @@ void ATowerDemoPlayerController::SetupInputComponent()
                 &ATowerDemoPlayerController::OnToggleBuildModeAction
             );
 		}
+
+        if (ToggleEditModeInputAction)
+        {
+            EnhancedInputComponent->BindAction(
+                ToggleEditModeInputAction,
+                ETriggerEvent::Started,
+                this,
+                &ATowerDemoPlayerController::OnToggleEditorModeAction
+            );
+        }
+
+        if (LockSelectionAction)
+        {
+            EnhancedInputComponent->BindAction(
+                LockSelectionAction,
+                ETriggerEvent::Started,
+                this,
+                &ATowerDemoPlayerController::OnSelectAction
+            );
+        }
+
+        if (DeleteSelectionAction)
+        {
+            EnhancedInputComponent->BindAction(
+                DeleteSelectionAction,
+                ETriggerEvent::Started,
+                this,
+                &ATowerDemoPlayerController::OnDeleteAction
+            );
+        }
     }
 }
+
+void ATowerDemoPlayerController::UpdateMode(EMode UpdatedMode)
+{
+    Mode = UpdatedMode;
+    OnModeUpdate.Broadcast(UpdatedMode);
+}
+
+// ======== BUILDING INPUT ACTIONS ======== //
 
 void ATowerDemoPlayerController::OnBuildAction(const FInputActionValue& Value)
 {
@@ -96,7 +164,6 @@ void ATowerDemoPlayerController::OnRotateAction(const FInputActionValue& Value)
 
 void ATowerDemoPlayerController::OnNumberKeyAction(const FInputActionValue& Value)
 {
-    BuilderComponent->ActivateBuildingMode();
 	int32 KeyNumber = FMath::RoundToInt(Value.Get<float>());
 	if (KeyNumber <= AvailableTowers.Num() && KeyNumber > 0)
     {
@@ -106,5 +173,48 @@ void ATowerDemoPlayerController::OnNumberKeyAction(const FInputActionValue& Valu
 
 void ATowerDemoPlayerController::OnToggleBuildModeAction(const FInputActionValue& Value)
 {
-	BuilderComponent->ToggleBuildingMode();
+    if (Mode != EMode::Builder)
+    {
+        BuilderComponent->ActivateBuildingMode();
+        EditorComponent->DeactivateEditorMode();
+        UpdateMode(EMode::Builder);
+    }
+    else
+    {
+        BuilderComponent->DeactivateBuildingMode();
+        UpdateMode(EMode::None);
+    }
+}
+
+
+// ======== EDITOR INPUT ACTIONS ======== //
+
+void ATowerDemoPlayerController::OnSelectAction(const FInputActionValue& Value)
+{
+    EditorComponent->ToggleLock();
+}
+
+void ATowerDemoPlayerController::OnUpgradeAction(const FInputActionValue& Value)
+{
+    EditorComponent->UpgradeSelectedTower(FMath::RoundToInt(Value.Get<float>()) - 1);
+}
+
+void ATowerDemoPlayerController::OnDeleteAction(const FInputActionValue& Value)
+{
+    EditorComponent->DeleteSelectedTower();
+}
+
+void ATowerDemoPlayerController::OnToggleEditorModeAction(const FInputActionValue& Value)
+{
+    if (Mode != EMode::Editor)
+    {
+        EditorComponent->ActivateEditorMode();
+        BuilderComponent->DeactivateBuildingMode();
+        UpdateMode(EMode::Editor);
+    }
+    else
+    {
+        EditorComponent->DeactivateEditorMode();
+        UpdateMode(EMode::None);
+    }
 }

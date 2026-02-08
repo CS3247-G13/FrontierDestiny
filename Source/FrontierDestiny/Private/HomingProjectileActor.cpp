@@ -2,7 +2,7 @@
 
 
 #include "HomingProjectileActor.h"
-#include "Kismet/KismetMathLibrary.h"
+#include "TowerUtilities.h"
 
 AHomingProjectileActor::AHomingProjectileActor()
 {
@@ -53,7 +53,11 @@ void AHomingProjectileActor::GetNextVelocityAndRotation_Implementation(float Del
         }
         else
         {
+            // If no valid target, we should drive straight
+            OutVelocity = CurrentVelocity;
+            OutRotation = CurrentVelocity.Rotation();
             TargetCurrentLocation = LastTargetLocation;
+            return;
         }
 
         // Calculate Target Velocity (how fast and where the target is moving)
@@ -83,7 +87,7 @@ void AHomingProjectileActor::GetNextVelocityAndRotation_Implementation(float Del
         FRotator TargetRot = DesiredDirection.Rotation();
 
         // Smoothly interpolate rotation based on RotationalSpeed
-        FRotator SteeredRot = UKismetMathLibrary::RInterpTo_Constant(CurrentRot, TargetRot, DeltaTime, RotationalSpeed);
+        FRotator SteeredRot = UTowerUtilities::QuaternionSlerp(CurrentRot, TargetRot, DeltaTime, RotationalSpeed);
 
         // Update the persistent velocity (maintaining the original speed)
         CurrentVelocity = SteeredRot.Vector() * RocketSpeed;

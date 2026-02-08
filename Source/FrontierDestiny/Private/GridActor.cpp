@@ -128,7 +128,7 @@ bool AGridActor::GetWorldLocationFromGridIndex(const FIntPoint& GridIndex, const
     return true;
 }
 
-bool AGridActor::CanPlaceTower(const FIntPoint& PivotGridIndex, const FRotator& Rotation, UTowerData* TowerInfo)
+bool AGridActor::CanPlaceTower(const FIntPoint& CornerGridIndex, const FRotator& Rotation, UTowerData* TowerInfo)
 {
     if (Rotation.Pitch != 0.f || Rotation.Roll != 0.f)
     {
@@ -141,7 +141,7 @@ bool AGridActor::CanPlaceTower(const FIntPoint& PivotGridIndex, const FRotator& 
         FVector VectorOffset = FVector{ float(Offset.X), float(Offset.Y), 0.f };
 		FVector RotatedVectorOffset = Rotation.RotateVector(VectorOffset);
 		FIntPoint RotatedVectorOffsetInt = FIntPoint{ FMath::RoundToInt32(RotatedVectorOffset.X), FMath::RoundToInt32(RotatedVectorOffset.Y) };
-        FIntPoint TargetIndex = PivotGridIndex + RotatedVectorOffsetInt;
+        FIntPoint TargetIndex = CornerGridIndex + RotatedVectorOffsetInt;
 
         if (TargetIndex.X < 0 || TargetIndex.X >= GridSize.X ||
             TargetIndex.Y < 0 || TargetIndex.Y >= GridSize.Y)
@@ -158,17 +158,18 @@ bool AGridActor::CanPlaceTower(const FIntPoint& PivotGridIndex, const FRotator& 
     return true;
 }
 
-bool AGridActor::PlaceTower(const FIntPoint& PivotGridIndex, const FRotator& Rotation, ATowerActor* TowerPtr)
+bool AGridActor::PlaceTower(const FIntPoint& CornerGridIndex, const FRotator& Rotation, ATowerActor* TowerPtr)
 {
     if (Rotation.Pitch != 0.f || Rotation.Roll != 0.f)
     {
         // Currently only supports rotation around Z axis
         return false;
     }
-	if (!CanPlaceTower(PivotGridIndex, Rotation, TowerPtr->TowerInfo))
-    {
-        return false;
-    }
+	// if (!CanPlaceTower(CornerGridIndex, Rotation, TowerPtr->TowerInfo))
+    // {
+        // Allow overwrite, should check CanPlaceTower first if you want to avoid this
+        // return false;
+    // }
 	if (!TowerPtr || !TowerPtr->TowerInfo)
     {
         return false;
@@ -178,7 +179,7 @@ bool AGridActor::PlaceTower(const FIntPoint& PivotGridIndex, const FRotator& Rot
         FVector VectorOffset = FVector{ float(Offset.X), float(Offset.Y), 0.f };
         FVector RotatedVectorOffset = Rotation.RotateVector(VectorOffset);
         FIntPoint RotatedVectorOffsetInt = FIntPoint{ FMath::RoundToInt32(RotatedVectorOffset.X), FMath::RoundToInt32(RotatedVectorOffset.Y) };
-        FIntPoint TargetIndex = PivotGridIndex + RotatedVectorOffsetInt;
+        FIntPoint TargetIndex = CornerGridIndex + RotatedVectorOffsetInt;
 
         int CalculatedIndex = TargetIndex.Y * GridSize.X + TargetIndex.X;
 

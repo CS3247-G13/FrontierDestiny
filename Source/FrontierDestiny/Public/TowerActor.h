@@ -9,6 +9,7 @@
 class UTowerData;
 class USphereComponent;
 class UMaterialInterface;
+class AGridActor;
 
 UCLASS()
 class FRONTIERDESTINY_API ATowerActor : public AActor
@@ -47,8 +48,8 @@ public:
 	/** The specific class of actor this tower is allowed to target */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	TSubclassOf<AActor> TargetClassFilter;
-	/* Not in use, can remove */
 
+	/* Not in use, can remove */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (ExposeOnSpawn = "true"), Category = "Setup")
 	TObjectPtr<APlayerController> PlayerController;
 
@@ -65,6 +66,14 @@ public:
 	/** Time interval between overlap checks (Optimization) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	float OverlapCheckInterval;
+
+	UFUNCTION()
+	TArray<UTowerData*> GetUpgrades();
+
+	UPROPERTY()
+	TObjectPtr<AGridActor> GridActor;
+	UPROPERTY()
+	FIntPoint GridLocationIndex;
 
 private:
 	UFUNCTION()

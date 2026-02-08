@@ -5,6 +5,7 @@
 #include "BuilderComponent.generated.h"
 
 class UTowerData;
+class UEconomyComponent;
 class ATowerActor;
 class AGridActor;
 
@@ -124,7 +125,7 @@ private:
 	bool bCanPlaceTower = false;
 	UPROPERTY(VisibleInstanceOnly, Category = "Debug")
 	FIntPoint CurrentGridLocationIndex;
-
+	
 	// ========= Helpers ==========
 	
 	ERotation GetBuildingRotation() const
@@ -140,6 +141,6 @@ private:
 		return FRotator{ 0.f, 90.f * static_cast<uint8>(GetBuildingRotation()), 0.f };
 	}
 	
-	UPROPERTY()
-	TObjectPtr<APawn> Pawn;
+	UPROPERTY(VisibleInstanceOnly, Category = "References")
+	TObjectPtr<UEconomyComponent> EconomyComponent;
 };

@@ -5,6 +5,7 @@
 #include "Components/SphereComponent.h"
 #include "Components/PrimitiveComponent.h"
 #include "Materials/MaterialInterface.h"
+#include "TowerData.h"
 
 ATowerActor::ATowerActor()
 {
@@ -125,6 +126,11 @@ void ATowerActor::UpdateGhostMaterials()
 void ATowerActor::SelectTarget()
 {
 	// Default implementation: no target selection logic
+}
+
+TArray<UTowerData*> ATowerActor::GetUpgrades()
+{
+	return TowerInfo->AvailableUpgrades;
 }
 
 void ATowerActor::OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)

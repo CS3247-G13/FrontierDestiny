@@ -31,7 +31,7 @@ public:
     float RotationalSpeed;
 
     /** Time in seconds the projectile moves straight before homing begins. */
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Projectile")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = true), Category = "Projectile")
     float ClearanceDuration;
 
 protected:
