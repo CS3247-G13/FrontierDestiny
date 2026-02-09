@@ -7,6 +7,7 @@
 #include "EnhancedInputComponent.h"
 #include "InputActionValue.h"
 #include "EnhancedInputSubsystems.h"
+#include "Camera/CameraComponent.h"
 #include "EthanCharacter.generated.h"
 
 class UInputMappingContext;
@@ -21,6 +22,10 @@ class FRONTIERDESTINY_API AEthanCharacter : public ACharacter
 public:
 	// Sets default values for this character's properties
 	AEthanCharacter();
+	
+	// First Person animations
+	UPROPERTY(EditAnywhere, Category = Animation)
+	TObjectPtr<UAnimBlueprint> FirstPersonDefaultAnim;
 
 protected:
 	// Called when the game starts or when spawned
@@ -51,5 +56,28 @@ public:
 
 	UFUNCTION()
 	void MoveCamera(const FInputActionValue& Value);
-
+	
+	// First Person camera
+	UPROPERTY(VisibleAnywhere, Category = Camera)
+	TObjectPtr<UCameraComponent> FirstPersonCameraComponent;
+ 
+	// Offset for the first-person camera
+	UPROPERTY(EditAnywhere, Category = Camera)
+	FVector FirstPersonCameraOffset = FVector(0.0f, 0.0f, 8.0f);
+ 
+	// First-person primitives field of view
+	UPROPERTY(EditAnywhere, Category = Camera)
+	float FirstPersonFieldOfView = 70.0f;
+ 
+	// First-person primitives view scale
+	UPROPERTY(EditAnywhere, Category = Camera)
+	float FirstPersonScale = 0.6f;
+ 
+	// First-person mesh, visible only to the owning player
+	UPROPERTY(VisibleAnywhere, Category = Mesh)
+	TObjectPtr<USkeletalMeshComponent> FirstPersonMeshComponent;
+	
+private:
+	void ConstructFirstPersonMesh();
+	void ConstructCamera();
 };

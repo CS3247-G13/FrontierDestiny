@@ -3,12 +3,43 @@
 
 #include "EthanCharacter.h"
 
+#include "GameplayTagsSettings.h"
+
 // Sets default values
 AEthanCharacter::AEthanCharacter()
 {
  	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
+	
+	ConstructFirstPersonMesh();
+	ConstructCamera();
+}
 
+void AEthanCharacter::ConstructCamera()
+{
+	FirstPersonCameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
+	check(FirstPersonCameraComponent != nullptr)
+	
+	
+	FirstPersonCameraComponent->bUsePawnControlRotation = true;
+	FirstPersonCameraComponent->bEnableFirstPersonFieldOfView = true;
+	FirstPersonCameraComponent->bEnableFirstPersonScale = true;
+	FirstPersonCameraComponent->FirstPersonFieldOfView = FirstPersonFieldOfView;
+	FirstPersonCameraComponent->FirstPersonScale = FirstPersonScale;
+}
+
+void AEthanCharacter::ConstructFirstPersonMesh()
+{
+	FirstPersonMeshComponent = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FirstPersonMesh"));
+	check(FirstPersonMeshComponent != nullptr);
+	
+	FirstPersonMeshComponent->SetupAttachment(GetMesh());
+	
+	FirstPersonMeshComponent->FirstPersonPrimitiveType = EFirstPersonPrimitiveType::FirstPerson;
+	FirstPersonMeshComponent->SetCollisionProfileName(FName("NoCollision"));
+	
+	// Treat the 3rd-person mesh as a regular world object
+	GetMesh()->FirstPersonPrimitiveType = EFirstPersonPrimitiveType::WorldSpaceRepresentation;
 }
 
 // Called when the game starts or when spawned
@@ -17,6 +48,15 @@ void AEthanCharacter::BeginPlay()
 	Super::BeginPlay();
 	check(GEngine != nullptr);
 
+	// Position the camera slightly above the eyes and rotate it to behind the player's head
+	FirstPersonCameraComponent->SetupAttachment(FirstPersonMeshComponent, FName("Head"));
+	FirstPersonCameraComponent->SetRelativeLocationAndRotation(FirstPersonCameraOffset, FRotator(0.0f, 90.0f, 90.0f));
+	
+	FirstPersonMeshComponent->SetOnlyOwnerSee(true);
+	GetMesh()->SetOwnerNoSee(true);
+	GetMesh()->CastShadow = true;
+	GetMesh()->bCastHiddenShadow = true;
+	
 	// Convert Controller to Enhanced Input Local Player Subsystem and Update with Mapping Context
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
 	{
