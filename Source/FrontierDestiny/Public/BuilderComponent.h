@@ -125,7 +125,9 @@ private:
 	bool bCanPlaceTower = false;
 	UPROPERTY(VisibleInstanceOnly, Category = "Debug")
 	FIntPoint CurrentGridLocationIndex;
-	
+	UPROPERTY(VisibleInstanceOnly, Category = "Debug")
+	bool bDebugMode = false;
+
 	// ========= Helpers ==========
 	
 	ERotation GetBuildingRotation() const

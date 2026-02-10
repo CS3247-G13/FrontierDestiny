@@ -57,13 +57,19 @@ public:
 	Get whether a tower can be placed at the pivot point
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
-	bool CanPlaceTower(const FIntPoint& PivotGridIndex, const FRotator& Rotation, UTowerData* TowerInfo);
+	bool CanPlaceTower(const FIntPoint& CornerGridIndex, const FRotator& Rotation, UTowerData* TowerInfo);
 
 	/*
 	Fills the cells based on tower
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
-	bool PlaceTower(const FIntPoint& PivotGridIndex, const FRotator& Rotation, ATowerActor* Tower);
+	bool PlaceTower(const FIntPoint& CornerGridIndex, const FRotator& Rotation, ATowerActor* TowerPtr);
+
+	/*
+	Clears the cells based on tower
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
+	bool RemoveTower(const FIntPoint& CornerGridIndex, const FRotator& Rotation, ATowerActor* TowerPtr);
 protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
@@ -73,6 +79,8 @@ protected:
 	TObjectPtr<UBoxComponent> CollisionBox;
 
 	virtual void OnConstruction(const FTransform& Transform) override;
+
+	FIntPoint RotateOffset(FIntPoint Offset, FRotator Rotation);
 private:
 
 

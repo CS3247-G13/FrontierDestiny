@@ -73,7 +73,7 @@ public:
 	UPROPERTY()
 	TObjectPtr<AGridActor> GridActor;
 	UPROPERTY()
-	FIntPoint GridLocationIndex;
+	FIntPoint CornerGridIndex;
 
 private:
 	UFUNCTION()

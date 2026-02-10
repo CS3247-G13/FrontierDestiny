@@ -52,9 +52,6 @@ void UBuilderComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 		FHitResult Hit;
 		if (!TryPerformRaycast(Hit))
 		{
-			// There is no camera to perform the raycast from, this component cannot be a raycast builder
-			UE_LOG(LogTemp, Error, 
-				TEXT("BuilderComponent on %s failed to perform raycast. Did you forget to attach a camera?"), *GetName());
 			return;
 		}
 
@@ -74,6 +71,7 @@ void UBuilderComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 		SetGrid(HitGridActor);
 
 		GridActor->GetSnappedGridIndex(Hit.Location, CurrentGridLocationIndex);
+
 		UpdateGhostStructureRotation();
 		UpdateGhostStructureLocation();
 
@@ -165,7 +163,7 @@ bool UBuilderComponent::TryBuildTower()
 		NewTower->TowerInfo = SelectedTowerData;
 		NewTower->FinishSpawning(SpawnTransform);
 		NewTower->GridActor = GridActor;
-		NewTower->GridLocationIndex = CurrentGridLocationIndex;
+		NewTower->CornerGridIndex = CurrentGridLocationIndex;
 	}
 
 	if (IsValid(GridActor))

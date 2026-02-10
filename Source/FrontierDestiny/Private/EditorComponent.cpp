@@ -53,7 +53,7 @@ void UEditorComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActo
 		SelectAndHighlightTower(HitTower);
 	}
 	
-	if (SelectedTower)
+	if (IsValid(SelectedTower))
 	{
 		if (FVector::Dist(SelectedTower->GetActorLocation(), GetOwner()->GetActorLocation()) > InteractionRange)
 		{
@@ -237,18 +237,18 @@ void UEditorComponent::UpgradeSelectedTower(int32 Index)
 		NewTower->TowerInfo = Upgrade;
 		NewTower->FinishSpawning(SelectedTower->GetActorTransform());
 		NewTower->GridActor = SelectedTower->GridActor;
-		NewTower->GridLocationIndex = SelectedTower->GridLocationIndex;
+		NewTower->CornerGridIndex = SelectedTower->CornerGridIndex;
 	}
 
 	if (IsValid(SelectedTower->GridActor))
 	{
 		SelectedTower->
 			GridActor->
-			PlaceTower(SelectedTower->GridLocationIndex, SelectedTower->GetActorRotation(), NewTower);
+			PlaceTower(SelectedTower->CornerGridIndex, SelectedTower->GetActorRotation(), NewTower);
 	}
 	
 	SelectedTower->Destroy();
-	UpdateSelectedTower(NewTower);
+	SelectAndHighlightTower(NewTower);
 }
 
 
@@ -260,6 +260,7 @@ void UEditorComponent::DeleteSelectedTower()
 	}
 	if (!SelectedTower) return;
 
+	SelectedTower->GridActor->RemoveTower(SelectedTower->CornerGridIndex, SelectedTower->GetActorRotation(), SelectedTower);
 	// Logic for refunding goes here before destruction
 	SelectedTower->Destroy();
 	UpdateSelectedTower(nullptr);
