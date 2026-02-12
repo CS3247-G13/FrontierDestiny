@@ -22,12 +22,21 @@ public:
 	// Called when the actor is spawned or properties are changed in the editor
 	virtual void OnConstruction(const FTransform& Transform) override;
 
+	UFUNCTION()
+	virtual void Tick(float DeltaSeconds) override;
 protected:
+	UFUNCTION()
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Tower")
+	void OnTowerActive();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Tower")
+	void OnTowerTick(float DeltaTime);
+
 	/** The detection radius for finding enemies */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	UPROPERTY()
 	TObjectPtr<USphereComponent> RangeComponent;
 
 	/** List of actors currently inside the range */
@@ -42,16 +51,12 @@ public:
 	bool bIsValidGhost = true;
 
 	/** The range of the tower in world units */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = "true"), Category = "Setup")
 	float TowerRange = 500.0f;
 
 	/** The specific class of actor this tower is allowed to target */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	TSubclassOf<AActor> TargetClassFilter;
-
-	/* Not in use, can remove */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (ExposeOnSpawn = "true"), Category = "Setup")
-	TObjectPtr<APlayerController> PlayerController;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = "true"), Category = "Setup")
 	TObjectPtr<UTowerData> TowerInfo;
@@ -60,11 +65,11 @@ public:
 	void SetGhostValidity(bool bNewIsValid);
 
 	/** Logic to select a target from OverlappingTargets */
-	UFUNCTION(BlueprintCallable, Category = "Tower Functions")
+	UFUNCTION(Category = "Tower Functions")
 	virtual void SelectTarget();
 
 	/** Time interval between overlap checks (Optimization) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
+	UPROPERTY(EditAnywhere, Category = "Setup")
 	float OverlapCheckInterval;
 
 	UFUNCTION()
@@ -88,4 +93,14 @@ private:
 	void UpdateGhostMaterials();
 
 	FTimerHandle OverlapCheckTimerHandle;
+
+	FTimerHandle BuildTimerHandle;
+
+	void InitializeGhostTower();
+
+	void InitializeTower();
+
+	void ActivateTower();
+
+	bool bIsBuilding = true;
 };

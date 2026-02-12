@@ -9,6 +9,9 @@ class UEconomyComponent;
 class ATowerActor;
 class AGridActor;
 
+class UPostProcessComponent;
+class UCameraComponent;
+
 UENUM(BlueprintType)
 enum class ERotation : uint8
 {
@@ -16,6 +19,16 @@ enum class ERotation : uint8
 	ROT_90  UMETA(DisplayName = "90 Degrees"),
 	ROT_180 UMETA(DisplayName = "180 Degrees"),
 	ROT_270 UMETA(DisplayName = "270 Degrees")
+};
+
+UENUM(BlueprintType)
+enum class EGridVisualState : uint8
+{
+	FadingIn	UMETA(DisplayName = "Fading in"),
+	Presenting	UMETA(DisplayName = "Presenting"),
+	FadingOut	UMETA(DisplayName = "Fading out"),
+	Completed	UMETA(DisplayName = "Completed"),
+	Invalid		UMETA(DisplayName = "Invalid")
 };
 
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
@@ -27,7 +40,41 @@ public:
 	UBuilderComponent();
 
 	virtual void BeginPlay() override;
+	void InitializeReferences();
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
+	// ====== BUIDLING VISUALS ====== //
+	UPROPERTY(VisibleAnywhere, Category = "Grid Visual")
+	EGridVisualState GridVisualState = EGridVisualState::Completed;
+
+	UFUNCTION(BlueprintCallable, Category = "Grid Visual")
+	void EnterGridVisual();
+	UFUNCTION(BlueprintCallable, Category = "Grid Visual")
+	void ExitGridVisual();
+	UFUNCTION()
+	void UpdateGridVisualState(float DeltaSeconds);
+	UFUNCTION()
+	void InitializePostProcessMaterial();
+	UFUNCTION()
+	void UpdatePostProcessComponent();
+
+	UPROPERTY()
+	TObjectPtr<UPostProcessComponent> PostProcessComponent;
+	UPROPERTY(EditAnywhere, Category = "Grid Visual")
+	UMaterialInterface* GridVisualMaterial;
+	UPROPERTY(VisibleAnywhere, Category = "Grid Visual")
+	UMaterialInstanceDynamic* GridVisualMID;
+	UPROPERTY(EditAnywhere, Category = "Grid Visual")
+	TObjectPtr<UCurveFloat> FadeCurve;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Grid Visual")
+	float NormalizedGridVisualProgress = 0.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Visual")
+	float FadeInSpeed = 1.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Visual")
+	float FadeOutSpeed = 1.f;
+
+	// ====== BUILDING MODE ====== //
 
 	/*
 	Sets the player to be in building mode, activating this component*/
@@ -43,6 +90,14 @@ public:
 	Toggles the player's buiding mode, activating it if it is deactivated and vice versa*/
 	UFUNCTION(BlueprintCallable, Category = "Tower Building")
 	void ToggleBuildingMode();
+
+	/*
+	Whether the pawn is in building mode. This determines if this component
+	is active*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
+	bool bIsBuildingModeActive = false;
+
+	// ====== TOWER BUILDING ====== //
 
 	/*
 	Changes the current selected tower to the provided tower data,
@@ -92,24 +147,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Tower Building")
 	bool TryPerformRaycast(FHitResult& Hit);
 
-	/*
-	Whether the pawn is in building mode. This determines if this component
-	is active*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
-	bool bIsBuildingModeActive = false;
+	UFUNCTION(BlueprintCallable, Category = "Tower Building")
+	void RotateTower(bool Clockwise);
+
+	// ====== Configurations ====== //
 
 	/*
 	Range that the builder can build from*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
-	float buildRange = 10000.f;
+	float BuildRange = 10000.f;
 
 	/*
 	Whether the builder component is a raycasting builder.*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
 	bool bIsRaycastBuilder = true;
 
-	UFUNCTION(BlueprintCallable, Category = "Tower Building")
-	void RotateTower(bool Clockwise);
 private:
 	ERotation AddedBuildingRotation;
 	ERotation BuildingRotationRelativeToBuilder;
@@ -145,4 +197,7 @@ private:
 	
 	UPROPERTY(VisibleInstanceOnly, Category = "References")
 	TObjectPtr<UEconomyComponent> EconomyComponent;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "References")
+	TObjectPtr<UCameraComponent> Camera;
 };

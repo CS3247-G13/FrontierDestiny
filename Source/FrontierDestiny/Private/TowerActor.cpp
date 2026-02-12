@@ -38,6 +38,54 @@ void ATowerActor::OnConstruction(const FTransform& Transform)
 	}
 }
 
+void ATowerActor::InitializeGhostTower()
+{
+	SetActorTickEnabled(false);
+	RangeComponent->SetGenerateOverlapEvents(false);
+	UpdateGhostMaterials();
+
+	TArray<UPrimitiveComponent*> Components;
+	GetComponents<UPrimitiveComponent>(Components);
+
+	for (UPrimitiveComponent* PrimComp : Components)
+	{
+		if (PrimComp)
+		{
+			// This stops overlaps, blocks, and raycasts (line traces)
+			PrimComp->SetCollisionResponseToAllChannels(ECR_Ignore);
+			PrimComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			PrimComp->SetGenerateOverlapEvents(false);
+		}
+	}
+}
+
+void ATowerActor::InitializeTower()
+{
+	GetWorldTimerManager().SetTimer(
+		BuildTimerHandle,
+		this,
+		&ATowerActor::ActivateTower,
+		2.0f,
+		false
+	);
+}
+
+void ATowerActor::ActivateTower()
+{
+	bIsBuilding = false;
+	RangeComponent->OnComponentBeginOverlap.AddDynamic(this, &ATowerActor::OnRangeBeginOverlap);
+	RangeComponent->OnComponentEndOverlap.AddDynamic(this, &ATowerActor::OnRangeEndOverlap);
+
+	FTimerManagerTimerParameters TimerParams;
+	TimerParams.bLoop = true;
+	TimerParams.bMaxOncePerFrame = true;
+	TimerParams.FirstDelay = -1.f;
+	// Optimization: Instead of checking every tick, we check every X seconds
+	GetWorldTimerManager().SetTimer(OverlapCheckTimerHandle, this, &ATowerActor::CheckAllOverlaps, OverlapCheckInterval, TimerParams);
+
+	OnTowerActive();
+}
+
 void ATowerActor::BeginPlay()
 {
 	Super::BeginPlay();
@@ -47,35 +95,12 @@ void ATowerActor::BeginPlay()
 
 	if (bIsGhost)
 	{
-		SetActorTickEnabled(false);
-		RangeComponent->SetGenerateOverlapEvents(false);
-		UpdateGhostMaterials();
-
-		TArray<UPrimitiveComponent*> Components;
-		GetComponents<UPrimitiveComponent>(Components);
-
-		for (UPrimitiveComponent* PrimComp : Components)
-		{
-			if (PrimComp)
-			{
-				// This stops overlaps, blocks, and raycasts (line traces)
-				PrimComp->SetCollisionResponseToAllChannels(ECR_Ignore);
-				PrimComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-				PrimComp->SetGenerateOverlapEvents(false);
-			}
-		}
+		InitializeGhostTower();
 	}
 	else
 	{
-		RangeComponent->OnComponentBeginOverlap.AddDynamic(this, &ATowerActor::OnRangeBeginOverlap);
-		RangeComponent->OnComponentEndOverlap.AddDynamic(this, &ATowerActor::OnRangeEndOverlap);
-
-		FTimerManagerTimerParameters TimerParams;
-		TimerParams.bLoop = true;
-		TimerParams.bMaxOncePerFrame = true;
-		TimerParams.FirstDelay = -1.f;
-		// Optimization: Instead of checking every tick, we check every X seconds
-		GetWorldTimerManager().SetTimer(OverlapCheckTimerHandle, this, &ATowerActor::CheckAllOverlaps, OverlapCheckInterval, TimerParams);
+		bIsBuilding = true;
+		InitializeTower();
 	}
 }
 
@@ -85,7 +110,20 @@ void ATowerActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	if (!bIsGhost)
 	{
 		GetWorldTimerManager().ClearTimer(OverlapCheckTimerHandle);
+		GetWorldTimerManager().ClearTimer(BuildTimerHandle);
 	}
+}
+
+void ATowerActor::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	if (bIsGhost || bIsBuilding)
+	{
+		return;
+	}
+
+	OnTowerTick(DeltaSeconds);
 }
 
 void ATowerActor::SetGhostValidity(bool bNewIsValid)

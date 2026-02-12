@@ -15,13 +15,6 @@ ASingleTargetTowerActor::ASingleTargetTowerActor()
 	TargetClassFilter = AEnemyActor::StaticClass();
 }
 
-void ASingleTargetTowerActor::BeginPlay()
-{
-	Super::BeginPlay();
-
-	// Overlap bindings are now handled in ATowerActor::BeginPlay
-}
-
 void ASingleTargetTowerActor::SelectTarget()
 {
 	// Note: Super::SelectTarget() is optional here as we override the logic below

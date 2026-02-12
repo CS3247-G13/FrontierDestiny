@@ -95,7 +95,6 @@ void UEditorComponent::InitializeOutlineMaterial()
 			FPostProcessSettings& Settings = PlayerCamera->PostProcessSettings;
 
 			// Add your Dynamic Material to the blendables
-			Settings.WeightedBlendables.Array.Empty();
 			Settings.WeightedBlendables.Array.Add(FWeightedBlendable(1.0f, OutlineMID));
 
 			UpdateOutlineColor(FLinearColor(1.f, 0.306f, 0.f, 1.f));

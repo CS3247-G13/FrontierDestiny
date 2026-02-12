@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Camera/CameraComponent.h"
+#include "Components/PostProcessComponent.h"
 #include "DrawDebugHelpers.h"
 
 #include "BuilderComponent.h"
@@ -20,13 +21,21 @@ void UBuilderComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	InitializeReferences();
+	InitializePostProcessMaterial();
+}
+
+void UBuilderComponent::InitializeReferences()
+{
 	APawn* Pawn = Cast<APawn>(GetOwner());
 	if (!Pawn)
 	{
-		UE_LOG(LogTemp, Error, 
+		UE_LOG(LogTemp, Error,
 			TEXT("BuilderComponent on %s has an owner that is not a pawn, this component requires a pawn owner."), *GetName());
 		return;
 	}
+
+	Camera = Cast<APawn>(GetOwner())->FindComponentByClass<UCameraComponent>();
 
 	APlayerController* PlayerController = Cast<APlayerController>(Pawn->GetController());
 	if (!IsValid(PlayerController))
@@ -38,7 +47,7 @@ void UBuilderComponent::BeginPlay()
 	EconomyComponent = PlayerController->FindComponentByClass<UEconomyComponent>();
 	if (!IsValid(EconomyComponent))
 	{
-		UE_LOG(LogTemp, Warning, 
+		UE_LOG(LogTemp, Warning,
 			TEXT("BuilderComponent on %s could not find an economy component on its player controller owner."), *GetName());
 	}
 }
@@ -47,6 +56,8 @@ void UBuilderComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	
+	UpdateGridVisualState(DeltaTime);
+
 	if (bIsBuildingModeActive && bIsRaycastBuilder && GhostTowerActor && SelectedTowerData)
 	{
 		FHitResult Hit;
@@ -80,10 +91,70 @@ void UBuilderComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 	}
 }
 
+void UBuilderComponent::EnterGridVisual()
+{
+	GridVisualState = EGridVisualState::FadingIn;
+}
+
+void UBuilderComponent::ExitGridVisual()
+{
+	GridVisualState = EGridVisualState::FadingOut;
+}
+
+void UBuilderComponent::UpdateGridVisualState(float DeltaSeconds)
+{
+	switch (GridVisualState)
+	{
+	case EGridVisualState::FadingIn:
+		NormalizedGridVisualProgress += DeltaSeconds * FadeInSpeed;
+		NormalizedGridVisualProgress = FMath::Clamp(NormalizedGridVisualProgress, 0.f, 1.f);
+		break;
+	case EGridVisualState::FadingOut:
+		NormalizedGridVisualProgress -= DeltaSeconds * FadeOutSpeed;
+		NormalizedGridVisualProgress = FMath::Clamp(NormalizedGridVisualProgress, 0.f, 1.f);
+		break;
+	}
+	UpdatePostProcessComponent();
+}
+
+void UBuilderComponent::InitializePostProcessMaterial()
+{
+	// Create the Dynamic Material Instance
+	GridVisualMID = UMaterialInstanceDynamic::Create(GridVisualMaterial, this);
+
+	// Create the Post Process Component
+	PostProcessComponent = NewObject<UPostProcessComponent>(GetOwner());
+	PostProcessComponent->RegisterComponent();
+
+	PostProcessComponent->bUnbound = true;
+	PostProcessComponent->Priority = 10.f;
+
+	PostProcessComponent->Settings.WeightedBlendables.Array.Add(FWeightedBlendable(1.f, GridVisualMID));
+	UpdatePostProcessComponent();
+}
+
+void UBuilderComponent::UpdatePostProcessComponent()
+{
+	if (!IsValid(PostProcessComponent))
+	{
+		return;
+	}
+
+	if (IsValid(FadeCurve))
+	{
+		GridVisualMID->SetScalarParameterValue(TEXT("Alpha"), FadeCurve->GetFloatValue(NormalizedGridVisualProgress));
+	}
+	else
+	{
+		GridVisualMID->SetScalarParameterValue(TEXT("Alpha"), NormalizedGridVisualProgress);
+	}
+
+}
+
 void UBuilderComponent::ActivateBuildingMode()
 {
 	bIsBuildingModeActive = true;
-
+	EnterGridVisual();
 	if (GhostTowerActor)
 	{
 		GhostTowerActor->SetActorHiddenInGame(false);
@@ -93,7 +164,7 @@ void UBuilderComponent::ActivateBuildingMode()
 void UBuilderComponent::DeactivateBuildingMode()
 {
 	bIsBuildingModeActive = false;
-
+	ExitGridVisual();
 	if (GhostTowerActor)
 	{
 		GhostTowerActor->SetActorHiddenInGame(true);
@@ -165,10 +236,18 @@ bool UBuilderComponent::TryBuildTower()
 		NewTower->GridActor = GridActor;
 		NewTower->CornerGridIndex = CurrentGridLocationIndex;
 	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Failed to spawn NewTower on %s"), *GetName());
+	}
 
 	if (IsValid(GridActor))
 	{
 		GridActor->PlaceTower(CurrentGridLocationIndex, GetBuildingRotator(), NewTower);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Failed to get GridActor to spawn NewTower on %s"), *GetName());
 	}
 	return true;
 }
@@ -239,14 +318,20 @@ void UBuilderComponent::UpdateGhostStructureLocation()
 
 void UBuilderComponent::UpdateGhostStructureRotation()
 {
-	// Update the ghost tower rotation based on player location
-	UCameraComponent* Camera = Cast<APawn>(GetOwner())->FindComponentByClass<UCameraComponent>();
-	if (!Camera) return;
+	float LookAtYawRotation;
 
-	float CameraYawRotation = Camera->GetComponentRotation().Yaw;
+	// Update the ghost tower rotation based on player location
+	if (IsValid(Camera))
+	{
+		LookAtYawRotation = Camera->GetComponentRotation().Yaw;
+	}
+	else
+	{
+		LookAtYawRotation = GetOwner()->GetActorRotation().Yaw;
+	}
 
 	// Snap to 90 degree increments
-	uint8 Increments = FMath::RoundToInt(CameraYawRotation / 90.f) % 4;
+	uint8 Increments = FMath::RoundToInt(LookAtYawRotation / 90.f) % 4;
 	BuildingRotationRelativeToBuilder = static_cast<ERotation>(Increments);
 	GhostTowerActor->SetActorRotation(GetBuildingRotator());
 }
@@ -258,13 +343,11 @@ void UBuilderComponent::SetGrid(AGridActor* NewGrid)
 
 bool UBuilderComponent::TryPerformRaycast(FHitResult& Hit)
 {
-	if (!IsValid(Cast<APawn>(GetOwner()))) return false;
-	UCameraComponent* Camera = Cast<APawn>(GetOwner())->FindComponentByClass<UCameraComponent>();
-	if (!Camera) return false;
+	if (!IsValid(Camera)) return false;
 
 	FVector Start = Camera->GetComponentLocation();
 	FVector ForwardVector = Camera->GetForwardVector();
-	float TraceDistance = buildRange;
+	float TraceDistance = BuildRange;
 	FVector End = Start + (ForwardVector * TraceDistance);
 
 	FCollisionQueryParams TraceParams;

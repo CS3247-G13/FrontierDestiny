@@ -32,8 +32,6 @@ class FRONTIERDESTINY_API ASingleTargetTowerActor : public ATowerActor
 public:
 	ASingleTargetTowerActor();
 
-	virtual void BeginPlay() override;
-
 	/** Logic to evaluate and pick the best target based on the current TargetingMode */
 	virtual void SelectTarget() override;
 
