@@ -38,6 +38,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	TObjectPtr<UInputAction> CameraAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	TObjectPtr<UInputAction> ClickAction;
+	// For Click Linetrace, hits all in visibility channel
+	UPROPERTY(EditAnywhere, Category = "Collision")
+	TEnumAsByte<ECollisionChannel> TraceChannelProperty = ECC_Pawn;
 
 public:	
 	// Called every frame
@@ -52,4 +57,6 @@ public:
 	UFUNCTION()
 	void MoveCamera(const FInputActionValue& Value);
 
+	UFUNCTION()
+	void Click();
 };

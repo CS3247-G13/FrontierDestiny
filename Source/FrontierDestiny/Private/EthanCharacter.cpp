@@ -51,6 +51,8 @@ void AEthanCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 
+		// Clicking
+		EnhancedInputComponent->BindAction(ClickAction, ETriggerEvent::Started, this, &AEthanCharacter::Click);
 	}
 }
 
@@ -75,5 +77,23 @@ void AEthanCharacter::MoveCamera(const FInputActionValue& Value)
 	{
 		AddControllerYawInput(CameraVector.X);
 		AddControllerPitchInput(CameraVector.Y);
+	}
+}
+
+void AEthanCharacter::Click()
+{
+	FHitResult Hit;
+	FVector TraceStart = GetActorLocation();
+	FVector Direction = GetControlRotation().Vector();
+	FVector TraceEnd = GetActorLocation() + Direction * 1000.0f;	//TODO replace magic number
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this);
+	GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, TraceChannelProperty, QueryParams);
+	DrawDebugLine(GetWorld(), TraceStart, TraceEnd, Hit.bBlockingHit ? FColor::Blue : FColor::Red, false, 5.0f, 0, 10.0f);
+
+	if (Hit.bBlockingHit && IsValid(Hit.GetActor()))
+	{
+		FString hit = *Hit.GetActor()->GetName();
+		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("hit ") + hit);
 	}
 }
