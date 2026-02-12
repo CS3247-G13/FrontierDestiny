@@ -1,10 +1,12 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+#include "BuilderComponent.h"
+
 #include "Camera/CameraComponent.h"
 #include "Components/PostProcessComponent.h"
-#include "DrawDebugHelpers.h"
-
-#include "BuilderComponent.h"
+#include "EnhancedInputSubsystems.h"
+#include "EnhancedInputComponent.h"
+#include "InputMappingContext.h"
 
 #include "EconomyComponent.h"
 #include "TowerActor.h"
@@ -14,9 +16,9 @@
 UBuilderComponent::UBuilderComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
-	PrimaryComponentTick.bStartWithTickEnabled = true;
 }
 
+// INITIALIZATION
 void UBuilderComponent::BeginPlay()
 {
 	Super::BeginPlay();
@@ -27,23 +29,6 @@ void UBuilderComponent::BeginPlay()
 
 void UBuilderComponent::InitializeReferences()
 {
-	APawn* Pawn = Cast<APawn>(GetOwner());
-	if (!Pawn)
-	{
-		UE_LOG(LogTemp, Error,
-			TEXT("BuilderComponent on %s has an owner that is not a pawn, this component requires a pawn owner."), *GetName());
-		return;
-	}
-
-	Camera = Cast<APawn>(GetOwner())->FindComponentByClass<UCameraComponent>();
-
-	APlayerController* PlayerController = Cast<APlayerController>(Pawn->GetController());
-	if (!IsValid(PlayerController))
-	{
-		return;
-	}
-
-	// Since this is a player controller, it should have an economy component
 	EconomyComponent = PlayerController->FindComponentByClass<UEconomyComponent>();
 	if (!IsValid(EconomyComponent))
 	{
@@ -52,13 +37,56 @@ void UBuilderComponent::InitializeReferences()
 	}
 }
 
+void UBuilderComponent::SetupInput(UInputComponent* InputComponent)
+{
+	Super::SetupInput(InputComponent);
+
+	// Cast the internal InputComponent to the Enhanced version
+	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent))
+	{
+		if (SelectTowerAction)
+		{
+			EnhancedInputComponent->BindAction(
+				SelectTowerAction,
+				ETriggerEvent::Started,
+				this,
+				&UBuilderComponent::OnSelectTowerAction
+			);
+		}
+
+		if (BuildTowerAction)
+		{
+			EnhancedInputComponent->BindAction(
+				BuildTowerAction,
+				ETriggerEvent::Started,
+				this,
+				&UBuilderComponent::OnBuildTowerAction
+			);
+		}
+
+		if (RotateTowerAction)
+		{
+			EnhancedInputComponent->BindAction(
+				RotateTowerAction,
+				ETriggerEvent::Started,
+				this,
+				&UBuilderComponent::OnRotateTowerAction
+			);
+		}
+	}
+}
+
+// TICK
 void UBuilderComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	
 	UpdateGridVisualState(DeltaTime);
+}
 
-	if (bIsBuildingModeActive && bIsRaycastBuilder && GhostTowerActor && SelectedTowerData)
+void UBuilderComponent::TickWhenActive()
+{
+	if (bIsRaycastBuilder && GhostTowerActor && SelectedTowerData)
 	{
 		FHitResult Hit;
 		if (!TryPerformRaycast(Hit))
@@ -91,6 +119,7 @@ void UBuilderComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 	}
 }
 
+// GRID VISUALS
 void UBuilderComponent::EnterGridVisual()
 {
 	GridVisualState = EGridVisualState::FadingIn;
@@ -114,6 +143,7 @@ void UBuilderComponent::UpdateGridVisualState(float DeltaSeconds)
 		NormalizedGridVisualProgress = FMath::Clamp(NormalizedGridVisualProgress, 0.f, 1.f);
 		break;
 	}
+
 	UpdatePostProcessComponent();
 }
 
@@ -151,9 +181,10 @@ void UBuilderComponent::UpdatePostProcessComponent()
 
 }
 
-void UBuilderComponent::ActivateBuildingMode()
+// MODE ACTIVATION
+void UBuilderComponent::ActivateMode()
 {
-	bIsBuildingModeActive = true;
+	Super::ActivateMode();
 	EnterGridVisual();
 	if (GhostTowerActor)
 	{
@@ -161,35 +192,42 @@ void UBuilderComponent::ActivateBuildingMode()
 	}
 }
 
-void UBuilderComponent::DeactivateBuildingMode()
+void UBuilderComponent::DeactivateMode()
 {
-	bIsBuildingModeActive = false;
+	Super::DeactivateMode();
 	ExitGridVisual();
 	if (GhostTowerActor)
 	{
 		GhostTowerActor->SetActorHiddenInGame(true);
 	}
+	UE_LOG(LogTemp, Display, TEXT("Exit"));
 }
 
-void UBuilderComponent::ToggleBuildingMode()
+// INPUT ACTIONS
+void UBuilderComponent::OnBuildTowerAction(const FInputActionValue& Value)
 {
-	if (bIsBuildingModeActive)
+	TryBuildTower();
+}
+
+void UBuilderComponent::OnSelectTowerAction(const FInputActionValue& Value)
+{
+	int32 KeyNumber = FMath::RoundToInt(Value.Get<float>());
+	UE_LOG(LogTemp, Display, TEXT("Key pressed: %d"), KeyNumber);
+	if (KeyNumber <= AvailableTowers.Num() && KeyNumber > 0)
 	{
-		DeactivateBuildingMode();
-	}
-	else
-	{
-		ActivateBuildingMode();
+		UE_LOG(LogTemp, Display, TEXT("Tower"));
+		ChangeTowerSelection(AvailableTowers[KeyNumber - 1]);
 	}
 }
 
+void UBuilderComponent::OnRotateTowerAction(const FInputActionValue& Value)
+{
+	RotateTower(Value.Get<float>() > 0);
+}
+
+// TOWER BUILDING
 void UBuilderComponent::ChangeTowerSelection(UTowerData* NewTowerData)
 {
-	if (!bIsBuildingModeActive)
-	{
-		return;
-	}
-
 	SelectedTowerData = NewTowerData;
 	UpdateGhostStructureBlueprint();
 
@@ -201,10 +239,6 @@ void UBuilderComponent::ChangeTowerSelection(UTowerData* NewTowerData)
 
 bool UBuilderComponent::TryBuildTower()
 {
-	if (!bIsBuildingModeActive)
-	{
-		return false;
-	}
 	if (!bCanPlaceTower || !SelectedTowerData)
 	{
 		return false;
@@ -366,10 +400,6 @@ bool UBuilderComponent::TryPerformRaycast(FHitResult& Hit)
 
 void UBuilderComponent::RotateTower(bool Clockwise)
 {
-	if (!bIsBuildingModeActive)
-	{
-		return;
-	}
 	uint8 Direction = Clockwise ? 1 : 3;
 	AddedBuildingRotation = static_cast<ERotation>(
 		// Add 4 to avoid negative numbers for our unsigned int
