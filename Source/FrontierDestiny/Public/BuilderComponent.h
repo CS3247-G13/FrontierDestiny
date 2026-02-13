@@ -163,13 +163,23 @@ private:
 	UPROPERTY()
 	FIntPoint CurrentGridLocationIndex;
 
+	// ====== DELETE TOWER ====== //
+private:
+	UPROPERTY()
+	TObjectPtr<ATowerActor> HoveredTower;
+	UFUNCTION()
+	void DeleteHoveredTower();
+	UFUNCTION()
+	void UpdateHoveredTower(ATowerActor* NewHoveredTower);
+
 	// ====== Configurations ====== //
 public:
 	/*
 	Range that the builder can build from*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
 	float BuildRange = 10000.f;
-
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
+	float BuildZCheck = 10000.f;
 	/*
 	Whether the builder component is a raycasting builder.*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")

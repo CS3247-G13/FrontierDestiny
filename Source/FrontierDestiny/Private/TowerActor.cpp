@@ -1,11 +1,14 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "TowerActor.h"
+
 #include "GlobalTowerSettings.h"
 #include "Components/SphereComponent.h"
 #include "Components/PrimitiveComponent.h"
 #include "Materials/MaterialInterface.h"
+
 #include "TowerData.h"
+#include "GridActor.h"
 
 ATowerActor::ATowerActor()
 {
@@ -68,11 +71,26 @@ void ATowerActor::InitializeTower()
 		2.0f,
 		false
 	);
+
+	TArray<UPrimitiveComponent*> Components;
+	GetComponents<UPrimitiveComponent>(Components);
+
+	for (UPrimitiveComponent* PrimComp : Components)
+	{
+		if (PrimComp)
+		{
+			if (PrimComp == RangeComponent)
+			{
+				continue;
+			}
+			PrimComp->SetCollisionResponseToChannel(ECC_GameTraceChannel1, ECR_Block);
+		}
+	}
 }
 
 void ATowerActor::ActivateTower()
 {
-	bIsBuilding = false;
+	bTowerIsInactive = false;
 	RangeComponent->OnComponentBeginOverlap.AddDynamic(this, &ATowerActor::OnRangeBeginOverlap);
 	RangeComponent->OnComponentEndOverlap.AddDynamic(this, &ATowerActor::OnRangeEndOverlap);
 
@@ -84,6 +102,57 @@ void ATowerActor::ActivateTower()
 	GetWorldTimerManager().SetTimer(OverlapCheckTimerHandle, this, &ATowerActor::CheckAllOverlaps, OverlapCheckInterval, TimerParams);
 
 	OnTowerActive();
+}
+
+void ATowerActor::SetValidOverlayMaterial()
+{
+	const UGlobalTowerSettings* Settings = UGlobalTowerSettings::Get();
+
+	if (!Settings) return;
+
+	TArray<UMeshComponent*> Components;
+	GetComponents<UMeshComponent>(Components);
+
+	UMaterialInterface* ValidGhostOverlayMaterial = Settings->GhostMaterialValid.LoadSynchronous();
+
+	for (UMeshComponent* MeshComp : Components)
+	{
+		if (ValidGhostOverlayMaterial)
+		{
+			MeshComp->SetOverlayMaterial(ValidGhostOverlayMaterial);
+		}
+	}
+}
+
+void ATowerActor::SetInvalidOverlayMaterial()
+{
+	const UGlobalTowerSettings* Settings = UGlobalTowerSettings::Get();
+
+	if (!Settings) return;
+
+	TArray<UMeshComponent*> Components;
+	GetComponents<UMeshComponent>(Components);
+
+	UMaterialInterface* InvalidGhostOverlayMaterial = Settings->GhostMaterialInvalid.LoadSynchronous();
+
+	for (UMeshComponent* MeshComp : Components)
+	{
+		if (InvalidGhostOverlayMaterial)
+		{
+			MeshComp->SetOverlayMaterial(InvalidGhostOverlayMaterial);
+		}
+	}
+}
+
+void ATowerActor::ClearOverlayMaterial()
+{
+	TArray<UMeshComponent*> Components;
+	GetComponents<UMeshComponent>(Components);
+	
+	for (UMeshComponent* MeshComp : Components)
+	{
+		MeshComp->SetOverlayMaterial(nullptr);
+	}
 }
 
 void ATowerActor::BeginPlay()
@@ -99,7 +168,7 @@ void ATowerActor::BeginPlay()
 	}
 	else
 	{
-		bIsBuilding = true;
+		bTowerIsInactive = true;
 		InitializeTower();
 	}
 }
@@ -118,12 +187,24 @@ void ATowerActor::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-	if (bIsGhost || bIsBuilding)
+	if (bIsGhost || bTowerIsInactive)
 	{
 		return;
 	}
 
 	OnTowerTick(DeltaSeconds);
+}
+
+void ATowerActor::DestroyTower()
+{
+	bTowerIsInactive = true;
+	// TODO: Do something to schedule a delete
+	GridActor->RemoveTower(
+		CornerGridIndex,
+		GetActorRotation(),
+		this
+	);
+	Destroy();
 }
 
 void ATowerActor::SetGhostValidity(bool bNewIsValid)
@@ -139,25 +220,13 @@ void ATowerActor::UpdateGhostMaterials()
 {
 	if (!bIsGhost) return;
 
-	const UGlobalTowerSettings* Settings = UGlobalTowerSettings::Get();
-	if (!Settings) return;
-
-	TSoftObjectPtr<UMaterialInterface> MaterialPtr = bIsValidGhost ? Settings->GhostMaterialValid : Settings->GhostMaterialInvalid;
-	UMaterialInterface* TargetMat = MaterialPtr.LoadSynchronous();
-
-	if (!TargetMat) return;
-
-	TArray<UPrimitiveComponent*> Components;
-	GetComponents<UPrimitiveComponent>(Components);
-
-	for (UPrimitiveComponent* PrimComp : Components)
+	if (bIsValidGhost)
 	{
-		if (PrimComp == RangeComponent) continue;
-
-		for (int32 i = 0; i < PrimComp->GetNumMaterials(); ++i)
-		{
-			PrimComp->SetMaterial(i, TargetMat);
-		}
+		SetValidOverlayMaterial();
+	}
+	else
+	{
+		SetInvalidOverlayMaterial();
 	}
 }
 
