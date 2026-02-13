@@ -31,14 +31,14 @@ void ASingleTargetTowerActor::SelectTarget()
 
 		if (!IsValid(Enemy) || Enemy->CurrentHealth <= 0)
 		{
-			// Note: We don't remove from OverlappingTargets here; the base class manages that.
-			// However, for local evaluation, we just skip invalid ones.
+			// Removing it here will cause issues, just let the overlap check
+			// handle it
 			continue;
 		}
 
 		float DistanceToTower = FVector::Distance(Enemy->GetActorLocation(), GetActorLocation());
 		float Health = Enemy->CurrentHealth;
-		float Progress = 0.0f; // To be implemented in EnemyActor
+		float Progress = 0.0f; // To be implemented in Enemy representing distance to base
 
 		switch (TargetingMode)
 		{

@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "ModeComponent.h"
 #include "BuilderComponent.generated.h"
 
 class UTowerData;
@@ -11,6 +12,8 @@ class AGridActor;
 
 class UPostProcessComponent;
 class UCameraComponent;
+class UInputMappingContext;
+class UInputAction;
 
 UENUM(BlueprintType)
 enum class ERotation : uint8
@@ -32,126 +35,136 @@ enum class EGridVisualState : uint8
 };
 
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
-class FRONTIERDESTINY_API UBuilderComponent : public UActorComponent
+class FRONTIERDESTINY_API UBuilderComponent : public UModeComponent
 {
 	GENERATED_BODY()
+	
+	// STANDARD
 public:
 	
 	UBuilderComponent();
 
 	virtual void BeginPlay() override;
-	void InitializeReferences();
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	virtual void TickWhenActive() override;
+
+	virtual void SetupInput(UInputComponent* Input) override;
+	void InitializeReferences();
 
 	// ====== BUIDLING VISUALS ====== //
+public:
 	UPROPERTY(VisibleAnywhere, Category = "Grid Visual")
 	EGridVisualState GridVisualState = EGridVisualState::Completed;
 
-	UFUNCTION(BlueprintCallable, Category = "Grid Visual")
-	void EnterGridVisual();
-	UFUNCTION(BlueprintCallable, Category = "Grid Visual")
-	void ExitGridVisual();
-	UFUNCTION()
-	void UpdateGridVisualState(float DeltaSeconds);
-	UFUNCTION()
-	void InitializePostProcessMaterial();
-	UFUNCTION()
-	void UpdatePostProcessComponent();
-
-	UPROPERTY()
-	TObjectPtr<UPostProcessComponent> PostProcessComponent;
+protected:
 	UPROPERTY(EditAnywhere, Category = "Grid Visual")
 	UMaterialInterface* GridVisualMaterial;
 	UPROPERTY(VisibleAnywhere, Category = "Grid Visual")
 	UMaterialInstanceDynamic* GridVisualMID;
 	UPROPERTY(EditAnywhere, Category = "Grid Visual")
 	TObjectPtr<UCurveFloat> FadeCurve;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Grid Visual")
 	float NormalizedGridVisualProgress = 0.f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Visual")
 	float FadeInSpeed = 1.f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Visual")
 	float FadeOutSpeed = 1.f;
+	UPROPERTY()
+	TObjectPtr<UPostProcessComponent> PostProcessComponent;
+
+private:
+	void EnterGridVisual();
+	void ExitGridVisual();
+	void UpdateGridVisualState(float DeltaSeconds);
+	void InitializePostProcessMaterial();
+	void UpdatePostProcessComponent();
 
 	// ====== BUILDING MODE ====== //
+protected:
+	virtual void ActivateMode() override;
+	virtual void DeactivateMode() override;
 
-	/*
-	Sets the player to be in building mode, activating this component*/
-	UFUNCTION(BlueprintCallable, Category = "Tower Building")
-	void ActivateBuildingMode();
-
-	/*
-	Sets the player to be not in building mode, deactivating this component*/
-	UFUNCTION(BlueprintCallable, Category = "Tower Building")
-	void DeactivateBuildingMode();
-
-	/*
-	Toggles the player's buiding mode, activating it if it is deactivated and vice versa*/
-	UFUNCTION(BlueprintCallable, Category = "Tower Building")
-	void ToggleBuildingMode();
-
-	/*
-	Whether the pawn is in building mode. This determines if this component
-	is active*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
-	bool bIsBuildingModeActive = false;
 
 	// ====== TOWER BUILDING ====== //
+protected:
+	/*
+	Array of Tower Data that the player can use*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tower")
+	TArray<TObjectPtr<UTowerData>> AvailableTowers;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	TObjectPtr<UInputAction> BuildTowerAction;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	TObjectPtr<UInputAction> SelectTowerAction;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	TObjectPtr<UInputAction> RotateTowerAction;
+
+private:
+	UFUNCTION()
+	void OnBuildTowerAction(const FInputActionValue& Value);
+	UFUNCTION()
+	void OnSelectTowerAction(const FInputActionValue& Value);
+	UFUNCTION()
+	void OnRotateTowerAction(const FInputActionValue& Value);
 
 	/*
 	Changes the current selected tower to the provided tower data,
 	updating the ghost structure. If no tower data is provided,
 	it clears the selection.*/
-	UFUNCTION(BlueprintCallable, Category = "Tower Building")
 	void ChangeTowerSelection(UTowerData* NewTowerData);
 
 	/*
 	Tries to build the selected tower at the provided location based on the
 	ghost structure, returns false if the location is invalid*/
-	UFUNCTION(BlueprintCallable, Category = "Tower Building")
 	bool TryBuildTower();
 
 	/*
 	Destroy and rebuild the ghost structure with new blueprint.*/
-	UFUNCTION(BlueprintCallable, Category = "Tower Building")
 	void UpdateGhostStructureBlueprint();
 
 	/*
 	Update the color of the ghost structure.*/
-	UFUNCTION(BlueprintCallable, Category = "Tower Building")
 	void UpdateGhostStructureValid();
 
 	/*
 	Check if tower can be placed*/
-	UFUNCTION(BlueprintCallable, Category = "Tower Building")
 	bool CheckTowerCanBePlaced();
 
 	/*
 	Updates the ghost structure's location based on set grid index*/
-	UFUNCTION(BlueprintCallable, Category = "Tower Building")
 	void UpdateGhostStructureLocation();
 	/*
 	Updates the ghost structure's rotation based on player camera*/
-	UFUNCTION(BlueprintCallable, Category = "Tower Building")
 	void UpdateGhostStructureRotation();
 
 	/*
 	Sets the grid that is currently being used for building*/
-	UFUNCTION(BlueprintCallable, Category = "Tower Building")
 	void SetGrid(AGridActor* NewGrid);
 
 	/*
 	Performs the raycast to find the grid and location to place the ghost tower. This should
 	only be called by pawn if it has a camera, else it will return false.*/
-	UFUNCTION(BlueprintCallable, Category = "Tower Building")
 	bool TryPerformRaycast(FHitResult& Hit);
 
-	UFUNCTION(BlueprintCallable, Category = "Tower Building")
+	// Rotate the tower
 	void RotateTower(bool Clockwise);
 
-	// ====== Configurations ====== //
+	ERotation AddedBuildingRotation;
+	ERotation BuildingRotationRelativeToBuilder;
 
+	UPROPERTY()
+	TObjectPtr<ATowerActor> GhostTowerActor;
+	UPROPERTY()
+	TObjectPtr<UTowerData> SelectedTowerData;
+	UPROPERTY()
+	TObjectPtr<AGridActor> GridActor;
+
+	UPROPERTY()
+	bool bCanPlaceTower = false;
+	UPROPERTY()
+	FIntPoint CurrentGridLocationIndex;
+
+	// ====== Configurations ====== //
+public:
 	/*
 	Range that the builder can build from*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
@@ -161,24 +174,6 @@ public:
 	Whether the builder component is a raycasting builder.*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
 	bool bIsRaycastBuilder = true;
-
-private:
-	ERotation AddedBuildingRotation;
-	ERotation BuildingRotationRelativeToBuilder;
-
-	UPROPERTY(VisibleInstanceOnly, Category = "Debug")
-	TObjectPtr<ATowerActor> GhostTowerActor;
-	UPROPERTY(VisibleInstanceOnly, Category = "Debug")
-	TObjectPtr<UTowerData> SelectedTowerData;
-	UPROPERTY(VisibleInstanceOnly, Category = "Debug")
-	TObjectPtr<AGridActor> GridActor;
-
-	UPROPERTY(VisibleInstanceOnly, Category = "Debug")
-	bool bCanPlaceTower = false;
-	UPROPERTY(VisibleInstanceOnly, Category = "Debug")
-	FIntPoint CurrentGridLocationIndex;
-	UPROPERTY(VisibleInstanceOnly, Category = "Debug")
-	bool bDebugMode = false;
 
 	// ========= Helpers ==========
 	
@@ -197,7 +192,4 @@ private:
 	
 	UPROPERTY(VisibleInstanceOnly, Category = "References")
 	TObjectPtr<UEconomyComponent> EconomyComponent;
-
-	UPROPERTY(VisibleInstanceOnly, Category = "References")
-	TObjectPtr<UCameraComponent> Camera;
 };
