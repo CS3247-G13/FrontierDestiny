@@ -21,10 +21,10 @@ public:
 	FOnEnemyDied OnEnemyDied;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy Properties")
-	int32 MaxHealth;
+	int32 MaxHealth = 100;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Enemy Properties")
-	int32 CurrentHealth;
+	int32 CurrentHealth = 100;
 
 	UFUNCTION(BlueprintCallable, Category = "Enemy Functions")
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent,
