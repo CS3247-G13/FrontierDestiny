@@ -23,7 +23,7 @@ ATowerActor::ATowerActor()
 	// Change to overlap all channels
 	RangeComponent->SetCollisionResponseToAllChannels(ECR_Overlap);
 	RangeComponent->SetGenerateOverlapEvents(true);
-
+	
 	OverlapCheckInterval = 0.2f;
 }
 

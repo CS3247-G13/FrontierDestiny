@@ -16,8 +16,8 @@ void ATowerDemoPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-    InitializeHUD();
     InitializeComponentReferences();
+    InitializeHUD();
     InitializeIMC();
 }
 

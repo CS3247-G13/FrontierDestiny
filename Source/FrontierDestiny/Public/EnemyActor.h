@@ -3,13 +3,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Actor.h"
+#include "GameFramework/Character.h"
 #include "EnemyActor.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnEnemyDied);
 
 UCLASS()
-class FRONTIERDESTINY_API AEnemyActor : public AActor
+class FRONTIERDESTINY_API AEnemyActor : public ACharacter
 {
 	GENERATED_BODY()
 	
