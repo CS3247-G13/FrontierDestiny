@@ -86,36 +86,40 @@ void UBuilderComponent::TickComponent(float DeltaTime, ELevelTick TickType, FAct
 
 void UBuilderComponent::TickWhenActive()
 {
-	if (bIsRaycastBuilder && GhostTowerActor && SelectedTowerData)
+	if (bIsRaycastBuilder)
 	{
 		FHitResult Hit;
 		if (!TryPerformRaycast(Hit))
 		{
-			return;
-		}
-
-		if (!Hit.bBlockingHit)
-		{
-			// No hit detected
+			UpdateHoveredTower(nullptr);
 			return;
 		}
 
 		// Check if the raycast collided with the grid
 		AGridActor* HitGridActor = Cast<AGridActor>(Hit.GetActor());
-		if (!HitGridActor)
+		if (HitGridActor && SelectedTowerData && IsValid(GhostTowerActor))
 		{
-			return;
+			SetGrid(HitGridActor);
+
+			GridActor->GetSnappedGridIndex(Hit.Location, CurrentGridLocationIndex);
+
+			UpdateGhostStructureRotation();
+			UpdateGhostStructureLocation();
+
+			bCanPlaceTower = CheckTowerCanBePlaced();
+			UpdateGhostStructureValid();
 		}
 
-		SetGrid(HitGridActor);
+		ATowerActor* HitTowerActor = Cast<ATowerActor>(Hit.GetActor());
+		if (HitTowerActor && !SelectedTowerData)
+		{
+			UpdateHoveredTower(HitTowerActor);
+		}
+		else
+		{
+			UpdateHoveredTower(nullptr);
+		}
 
-		GridActor->GetSnappedGridIndex(Hit.Location, CurrentGridLocationIndex);
-
-		UpdateGhostStructureRotation();
-		UpdateGhostStructureLocation();
-
-		bCanPlaceTower = CheckTowerCanBePlaced();
-		UpdateGhostStructureValid();
 	}
 }
 
@@ -206,16 +210,27 @@ void UBuilderComponent::DeactivateMode()
 // INPUT ACTIONS
 void UBuilderComponent::OnBuildTowerAction(const FInputActionValue& Value)
 {
-	TryBuildTower();
+	if (IsValid(SelectedTowerData))
+	{
+		TryBuildTower();
+	}
+	else if (IsValid(HoveredTower))
+	{
+		DeleteHoveredTower();
+	}
 }
 
 void UBuilderComponent::OnSelectTowerAction(const FInputActionValue& Value)
 {
 	int32 KeyNumber = FMath::RoundToInt(Value.Get<float>());
-	UE_LOG(LogTemp, Display, TEXT("Key pressed: %d"), KeyNumber);
 	if (KeyNumber <= AvailableTowers.Num() && KeyNumber > 0)
 	{
-		UE_LOG(LogTemp, Display, TEXT("Tower"));
+		if (AvailableTowers[KeyNumber - 1] == SelectedTowerData)
+		{
+			// Deselect if the same tower is selected again
+			ChangeTowerSelection(nullptr);
+			return;
+		}
 		ChangeTowerSelection(AvailableTowers[KeyNumber - 1]);
 	}
 }
@@ -229,17 +244,27 @@ void UBuilderComponent::OnRotateTowerAction(const FInputActionValue& Value)
 void UBuilderComponent::ChangeTowerSelection(UTowerData* NewTowerData)
 {
 	SelectedTowerData = NewTowerData;
+
+	if (!IsValid(SelectedTowerData))
+	{
+		if (IsValid(GhostTowerActor))
+		{
+			GhostTowerActor->Destroy();
+			GhostTowerActor = nullptr;
+		}
+		return;
+	}
+
 	UpdateGhostStructureBlueprint();
 
 	bCanPlaceTower = CheckTowerCanBePlaced();
 	UpdateGhostStructureValid();
-
 	UpdateGhostStructureLocation();
 }
 
 bool UBuilderComponent::TryBuildTower()
 {
-	if (!bCanPlaceTower || !SelectedTowerData)
+	if (!bCanPlaceTower || !IsValid(SelectedTowerData))
 	{
 		return false;
 	}
@@ -311,7 +336,10 @@ bool UBuilderComponent::CheckTowerCanBePlaced()
 	{
 		return false;
 	}
-
+	if (!SelectedTowerData)
+	{
+		return false;
+	}
 	if (!GridActor->CanPlaceTower(CurrentGridLocationIndex, GetBuildingRotator(), SelectedTowerData))
 	{
 		return false;
@@ -386,15 +414,33 @@ bool UBuilderComponent::TryPerformRaycast(FHitResult& Hit)
 
 	FCollisionQueryParams TraceParams;
 	TraceParams.AddIgnoredActor(Cast<APawn>(GetOwner()));
-
+	
 	bool bHit = GetWorld()->LineTraceSingleByChannel(
 		Hit,
 		Start,
 		End,
-		ECC_GameTraceChannel1,
+		ECC_Visibility,
 		TraceParams
 	);
 
+	if (!bHit)
+	{
+		return false;
+	}
+
+	// Delete mode
+	if (!IsValid(SelectedTowerData))
+	{
+		return true;
+	}
+
+	bHit = GetWorld()->LineTraceSingleByChannel(
+		Hit,
+		Hit.Location + FVector(0.f, 0.f, BuildZCheck),
+		Hit.Location + FVector(0.f, 0.f, -BuildZCheck),
+		ECC_GameTraceChannel1, // Grid only
+		TraceParams
+	);
 	return bHit;
 }
 
@@ -407,3 +453,25 @@ void UBuilderComponent::RotateTower(bool Clockwise)
 		);
 }
 
+void UBuilderComponent::DeleteHoveredTower()
+{
+	HoveredTower->DestroyTower();
+	UpdateHoveredTower(nullptr);
+}
+
+void UBuilderComponent::UpdateHoveredTower(ATowerActor* NewHoveredTower)
+{
+	if (HoveredTower == NewHoveredTower)
+	{
+		return;
+	}
+	if (IsValid(HoveredTower))
+	{
+		HoveredTower->ClearOverlayMaterial();
+	}
+	HoveredTower = NewHoveredTower;
+	if (IsValid(HoveredTower))
+	{
+		HoveredTower->SetInvalidOverlayMaterial();
+	}
+}

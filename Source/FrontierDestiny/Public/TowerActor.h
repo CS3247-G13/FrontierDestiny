@@ -24,6 +24,17 @@ public:
 
 	UFUNCTION()
 	virtual void Tick(float DeltaSeconds) override;
+
+	UFUNCTION(BlueprintCallable)
+	virtual void DestroyTower();
+
+	UFUNCTION(BlueprintCallable)
+	void SetValidOverlayMaterial();
+
+	UFUNCTION(BlueprintCallable)
+	void SetInvalidOverlayMaterial();
+	UFUNCTION(BlueprintCallable)
+	void ClearOverlayMaterial();
 protected:
 	UFUNCTION()
 	virtual void BeginPlay() override;
@@ -102,5 +113,5 @@ private:
 
 	void ActivateTower();
 
-	bool bIsBuilding = true;
+	bool bTowerIsInactive = true;
 };

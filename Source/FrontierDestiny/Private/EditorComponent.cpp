@@ -259,7 +259,11 @@ void UEditorComponent::DeleteSelectedTower()
 	}
 	if (!SelectedTower) return;
 
-	SelectedTower->GridActor->RemoveTower(SelectedTower->CornerGridIndex, SelectedTower->GetActorRotation(), SelectedTower);
+	SelectedTower->GridActor->RemoveTower(
+		SelectedTower->CornerGridIndex, 
+		SelectedTower->GetActorRotation(), 
+		SelectedTower
+	);
 	// Logic for refunding goes here before destruction
 	SelectedTower->Destroy();
 	UpdateSelectedTower(nullptr);
