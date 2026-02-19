@@ -27,6 +27,8 @@ void ATowerDemoPlayerController::InitializeComponentReferences()
     {
         ModeMap.Add(EMode::Builder, GetPawn()->FindComponentByClass<UBuilderComponent>());
         ModeMap.Add(EMode::Combat, GetPawn()->FindComponentByClass<UCombatComponent>());
+
+        ModeMap[Mode]->SetAsDefaultMode();
     }
 }
 
