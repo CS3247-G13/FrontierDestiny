@@ -62,8 +62,7 @@ void UTowerManagerSubsystem::UpgradeTower(const FUpgradeData& Upgrade)
 	}
 	if (!TowerDataMap.Contains(TowerID))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Tower ID %s not found in TowerDataMap. This should not happen! Make sure to add the tower stats to the data table. For now, this will initialize with default stats."), *TowerID.ToString());
-		TowerDataMap.Add(TowerID, FTowerData());
+		return;
 	}
 
 	// Apply the direct stats from the upgrade to the tower's stats

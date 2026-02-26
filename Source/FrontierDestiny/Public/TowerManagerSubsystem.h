@@ -25,7 +25,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	bool GetTowerBaseStats(const FName& TowerID, FTowerData& TowerData);
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, BlueprintReadonly)
 	TMap<FName, FTowerData> TowerDataMap;
 
 	UPROPERTY(BlueprintAssignable)
