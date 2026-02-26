@@ -1,5 +1,6 @@
 #pragma once
 
+#include "TowerData.h"
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "ModeComponent.h"
@@ -43,7 +44,7 @@ class FRONTIERDESTINY_API UBuilderComponent : public UModeComponent
 public:
 	
 	UBuilderComponent();
-
+	
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual void TickWhenActive() override;
@@ -53,25 +54,24 @@ public:
 
 	// ====== BUIDLING VISUALS ====== //
 public:
-	UPROPERTY(VisibleAnywhere, Category = "Grid Visual")
+	UPROPERTY(VisibleAnywhere, Category = "Setup")
 	EGridVisualState GridVisualState = EGridVisualState::Completed;
 
 protected:
-	UPROPERTY(EditAnywhere, Category = "Grid Visual")
+	UPROPERTY(EditAnywhere, Category = "Setup")
 	UMaterialInterface* GridVisualMaterial;
-	UPROPERTY(VisibleAnywhere, Category = "Grid Visual")
-	UMaterialInstanceDynamic* GridVisualMID;
-	UPROPERTY(EditAnywhere, Category = "Grid Visual")
+	UPROPERTY(EditAnywhere, Category = "Setup")
 	TObjectPtr<UCurveFloat> FadeCurve;
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Grid Visual")
-	float NormalizedGridVisualProgress = 0.f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Visual")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	float FadeInSpeed = 1.f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Visual")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	float FadeOutSpeed = 1.f;
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Debug")
+	float NormalizedGridVisualProgress = 0.f;
+	UPROPERTY(VisibleAnywhere, Category = "Debug")
+	UMaterialInstanceDynamic* GridVisualMID;
 	UPROPERTY()
 	TObjectPtr<UPostProcessComponent> PostProcessComponent;
-
 private:
 	void EnterGridVisual();
 	void ExitGridVisual();
@@ -87,15 +87,17 @@ protected:
 
 	// ====== TOWER BUILDING ====== //
 protected:
+	UPROPERTY(EditAnywhere, Category = "Setup")
+	TObjectPtr<USoundBase> BuildSound;
 	/*
 	Array of Tower Data that the player can use*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tower")
-	TArray<TObjectPtr<UTowerData>> AvailableTowers;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
+	TArray<FName> AvailableTowers;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	TObjectPtr<UInputAction> BuildTowerAction;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	TObjectPtr<UInputAction> SelectTowerAction;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	TObjectPtr<UInputAction> RotateTowerAction;
 
 private:
@@ -110,7 +112,7 @@ private:
 	Changes the current selected tower to the provided tower data,
 	updating the ghost structure. If no tower data is provided,
 	it clears the selection.*/
-	void ChangeTowerSelection(UTowerData* NewTowerData);
+	void ChangeTowerSelection(TOptional<FName> NewTower);
 
 	/*
 	Tries to build the selected tower at the provided location based on the
@@ -154,7 +156,7 @@ private:
 	UPROPERTY()
 	TObjectPtr<ATowerActor> GhostTowerActor;
 	UPROPERTY()
-	TObjectPtr<UTowerData> SelectedTowerData;
+	TOptional<FName> SelectedTower;
 	UPROPERTY()
 	TObjectPtr<AGridActor> GridActor;
 
@@ -172,6 +174,10 @@ private:
 	UFUNCTION()
 	void UpdateHoveredTower(ATowerActor* NewHoveredTower);
 
+	void GetSelectedTowerData(FTowerData& TowerData);
+
+	FName LoadedTower;
+	FTowerData CachedTowerData;
 	// ====== Configurations ====== //
 public:
 	/*

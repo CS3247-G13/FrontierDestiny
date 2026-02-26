@@ -127,7 +127,7 @@ FIntPoint AGridActor::RotateOffset(FIntPoint Offset, FRotator Rotation)
     return RotatedVectorOffsetInt;
 }
 
-bool AGridActor::CanPlaceTower(const FIntPoint& PivotPointIndex, const FRotator& Rotation, UTowerData* TowerInfo)
+bool AGridActor::CanPlaceTower(const FIntPoint& PivotPointIndex, const FRotator& Rotation, FTowerData TowerData)
 {
     if (Rotation.Pitch != 0.f || Rotation.Roll != 0.f)
     {
@@ -136,9 +136,9 @@ bool AGridActor::CanPlaceTower(const FIntPoint& PivotPointIndex, const FRotator&
     }
     
 
-    FIntPoint CornerGridIndex = PivotPointIndex - RotateOffset(TowerInfo->PivotPoint, Rotation);
+    FIntPoint CornerGridIndex = PivotPointIndex - RotateOffset(TowerData.PivotPoint, Rotation);
 
-    for (const FIntPoint& Offset : TowerInfo->Footprint)
+    for (const FIntPoint& Offset : TowerData.Footprint)
     {
         FIntPoint TargetIndex = CornerGridIndex + RotateOffset(Offset, Rotation);
 
@@ -169,14 +169,14 @@ bool AGridActor::PlaceTower(const FIntPoint& PivotPointIndex, const FRotator& Ro
         // Allow overwrite, should check CanPlaceTower first if you want to avoid this
         // return false;
     // }
-	if (!TowerPtr || !TowerPtr->TowerInfo)
+	if (!TowerPtr)
     {
         return false;
     }
 
-    FIntPoint CornerGridIndex = PivotPointIndex - RotateOffset(TowerPtr->TowerInfo->PivotPoint, Rotation);
+    FIntPoint CornerGridIndex = PivotPointIndex - RotateOffset(TowerPtr->CachedTowerData.PivotPoint, Rotation);
 
-    for (const FIntPoint& Offset : TowerPtr->TowerInfo->Footprint)
+    for (const FIntPoint& Offset : TowerPtr->CachedTowerData.Footprint)
     {
         FIntPoint TargetIndex = CornerGridIndex + RotateOffset(Offset, Rotation);
 
@@ -195,8 +195,8 @@ bool AGridActor::RemoveTower(const FIntPoint& PivotPointIndex, const FRotator& R
         // Currently only supports rotation around Z axis
         return false;
     }
-    FIntPoint CornerGridIndex = PivotPointIndex - RotateOffset(TowerPtr->TowerInfo->PivotPoint, Rotation);
-    for (const FIntPoint& Offset : TowerPtr->TowerInfo->Footprint)
+    FIntPoint CornerGridIndex = PivotPointIndex - RotateOffset(TowerPtr->CachedTowerData.PivotPoint, Rotation);
+    for (const FIntPoint& Offset : TowerPtr->CachedTowerData.Footprint)
     {
         FIntPoint TargetIndex = CornerGridIndex + RotateOffset(Offset, Rotation);
 

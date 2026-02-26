@@ -82,11 +82,26 @@ void ATowerDemoPlayerController::SetupInputComponent()
                 );
             }
         }
+
+        if (OpenUpgradeMenuAction)
+        {
+            EnhancedInputComponent->BindAction(
+                OpenUpgradeMenuAction,
+                ETriggerEvent::Triggered,
+                this,
+                &ATowerDemoPlayerController::OnOpenUpgradeMenuAction
+            );
+        }
     }
 }
 
 void ATowerDemoPlayerController::UpdateMode(EMode UpdatedMode)
 {
+    if (bIsUpgradeMenuOpen)
+    {
+        return;
+    }
+
     if (UpdatedMode == Mode)
     {
         // Set to default mode
@@ -98,4 +113,65 @@ void ATowerDemoPlayerController::UpdateMode(EMode UpdatedMode)
     ModeMap[Mode]->ActivateMode();
 
     OnModeUpdate.Broadcast(UpdatedMode);
+}
+
+void ATowerDemoPlayerController::OnOpenUpgradeMenuAction(const FInputActionValue& Value)
+{
+    if (bIsUpgradeMenuOpen)
+    {
+		CloseUpgradeMenu();
+    }
+    else
+    {
+        OpenUpgradeMenu();
+    }
+}
+
+void ATowerDemoPlayerController::OpenUpgradeMenu()
+{
+    UE_LOG(LogTemp, Display, TEXT("Opening Upgrade Menu"));
+	// Free the cursor and disable the mode so the player can interact with the menu
+    ModeMap[Mode]->DeactivateMode();
+	OnUpgradeMenuOpened.Broadcast();
+
+    bIsUpgradeMenuOpen = true;
+}
+
+void ATowerDemoPlayerController::CloseUpgradeMenu()
+{
+    UE_LOG(LogTemp, Display, TEXT("Closing Upgrade Menu"));
+    // Lock the cursor and reenable the mode
+    ModeMap[Mode]->ActivateMode();
+    OnUpgradeMenuClosed.Broadcast();
+
+    bIsUpgradeMenuOpen = false;
+}
+
+void ATowerDemoPlayerController::FreeMouse(UUserWidget *WidgetToFocus)
+{
+	FInputModeGameAndUI InputMode;
+    if (WidgetToFocus)
+    {
+		InputMode.SetWidgetToFocus(WidgetToFocus->TakeWidget());
+    }
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::LockAlways);
+    InputMode.SetHideCursorDuringCapture(false);
+
+    int32 SizeX, SizeY;
+    GetViewportSize(SizeX, SizeY);
+    SetMouseLocation(SizeX / 2, SizeY / 2);
+
+    SetInputMode(InputMode);
+	// FlushPressedKeys();
+	bShowMouseCursor = true;
+
+    GEngine->GameViewport->SetMouseCaptureMode(EMouseCaptureMode::NoCapture);
+}
+
+void ATowerDemoPlayerController::LockMouse()
+{
+    FInputModeGameOnly InputMode;
+    SetInputMode(InputMode);
+    bShowMouseCursor = false;
+    GEngine->GameViewport->SetMouseCaptureMode(EMouseCaptureMode::CapturePermanently);
 }

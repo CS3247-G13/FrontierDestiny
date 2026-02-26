@@ -2,12 +2,12 @@
 
 #pragma once
 
+#include "TowerData.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "GridActor.generated.h"
 
 class UBoxComponent;
-class UTowerData;
 class ATowerActor;
 
 UCLASS()
@@ -57,7 +57,7 @@ public:
 	Get whether a tower can be placed at the pivot point
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
-	bool CanPlaceTower(const FIntPoint& CornerGridIndex, const FRotator& Rotation, UTowerData* TowerInfo);
+	bool CanPlaceTower(const FIntPoint& CornerGridIndex, const FRotator& Rotation, FTowerData TowerData);
 
 	/*
 	Fills the cells based on tower

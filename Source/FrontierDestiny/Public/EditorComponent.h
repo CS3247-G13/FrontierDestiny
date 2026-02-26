@@ -11,7 +11,7 @@ class ATowerActor;
 class ATowerDemoPlayerController;
 class UEconomyComponent;
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTowerSelected, UTowerData*, TowerData);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTowerSelected, FName, TowerID);
 
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class FRONTIERDESTINY_API UEditorComponent : public UActorComponent
@@ -44,10 +44,6 @@ public:
 	// For controller to call when the lock/unlock button is pressed
 	UFUNCTION(BlueprintCallable, Category = "Tower Editor")
 	void ToggleLock();
-
-	/** Upgrades the currently selected tower if funds allow */
-	UFUNCTION(BlueprintCallable, Category = "Tower Editor")
-	void UpgradeSelectedTower(int32 Index);
 
 	void UpdateSelectedTower(ATowerActor* NewTower);
 

@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "TowerData.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "TowerActor.generated.h"
@@ -17,6 +18,9 @@ class FRONTIERDESTINY_API ATowerActor : public AActor
 	GENERATED_BODY()
 
 public:
+	UPROPERTY(EditAnywhere, Category = "Setup")
+	FName TowerID;
+
 	ATowerActor();
 
 	// Called when the actor is spawned or properties are changed in the editor
@@ -35,6 +39,21 @@ public:
 	void SetInvalidOverlayMaterial();
 	UFUNCTION(BlueprintCallable)
 	void ClearOverlayMaterial();
+	UPROPERTY()
+	FTowerData CachedTowerData;
+
+	UFUNCTION(BlueprintCallable)
+	virtual void UpdateStats(FName ID);
+
+	UFUNCTION(BlueprintCallable)
+	int32 GetDamage();
+	UFUNCTION(BlueprintCallable)
+	float GetCooldown();
+	UFUNCTION(BlueprintCallable)
+	int32 GetHealth();
+	UFUNCTION(BlueprintCallable)
+	int32 GetRange();
+
 protected:
 	UFUNCTION()
 	virtual void BeginPlay() override;
@@ -53,7 +72,6 @@ protected:
 	/** List of actors currently inside the range */
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Combat")
 	TArray<AActor*> OverlappingTargets;
-
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = "true"), Category = "Setup")
 	bool bIsGhost = true;
@@ -61,16 +79,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = "true"), Category = "Setup")
 	bool bIsValidGhost = true;
 
-	/** The range of the tower in world units */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = "true"), Category = "Setup")
-	float TowerRange = 500.0f;
-
 	/** The specific class of actor this tower is allowed to target */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	TSubclassOf<AActor> TargetClassFilter;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = "true"), Category = "Setup")
-	TObjectPtr<UTowerData> TowerInfo;
 
 	UFUNCTION(BlueprintCallable, Category = "Tower Functions|Ghost")
 	void SetGhostValidity(bool bNewIsValid);
@@ -82,9 +94,6 @@ public:
 	/** Time interval between overlap checks (Optimization) */
 	UPROPERTY(EditAnywhere, Category = "Setup")
 	float OverlapCheckInterval;
-
-	UFUNCTION()
-	TArray<UTowerData*> GetUpgrades();
 
 	UPROPERTY()
 	TObjectPtr<AGridActor> GridActor;

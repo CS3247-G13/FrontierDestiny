@@ -3,6 +3,7 @@
 #include "TowerActor.h"
 
 #include "GlobalTowerSettings.h"
+#include "TowerManagerSubsystem.h"
 #include "Components/SphereComponent.h"
 #include "Components/PrimitiveComponent.h"
 #include "Materials/MaterialInterface.h"
@@ -21,7 +22,7 @@ ATowerActor::ATowerActor()
 	TargetClassFilter = AActor::StaticClass();
 
 	// Initial detection settings in constructor
-	RangeComponent->SetSphereRadius(TowerRange);
+	RangeComponent->SetSphereRadius(CachedTowerData.Stats.GetRange());
 
 	// Change to overlap all channels
 	RangeComponent->SetCollisionResponseToAllChannels(ECR_Overlap);
@@ -37,7 +38,7 @@ void ATowerActor::OnConstruction(const FTransform& Transform)
 	// Update sphere radius in the editor when TowerRange is changed
 	if (RangeComponent)
 	{
-		RangeComponent->SetSphereRadius(TowerRange);
+		RangeComponent->SetSphereRadius(CachedTowerData.Stats.GetRange());
 	}
 }
 
@@ -159,8 +160,10 @@ void ATowerActor::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Final sync of radius at runtime
-	RangeComponent->SetSphereRadius(TowerRange);
+	UTowerManagerSubsystem* TowerManager = GetWorld()->GetGameInstance()->GetSubsystem<UTowerManagerSubsystem>();
+	TowerManager->OnTowerUpgraded.AddDynamic(this, &ATowerActor::UpdateStats);
+
+	UpdateStats(TowerID);
 
 	if (bIsGhost)
 	{
@@ -181,6 +184,53 @@ void ATowerActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		GetWorldTimerManager().ClearTimer(OverlapCheckTimerHandle);
 		GetWorldTimerManager().ClearTimer(BuildTimerHandle);
 	}
+
+	if (UTowerManagerSubsystem* TowerManager = GetWorld()->GetGameInstance()->GetSubsystem<UTowerManagerSubsystem>())
+	{
+		TowerManager->OnTowerUpgraded.RemoveDynamic(this, &ATowerActor::UpdateStats);
+	}
+}
+
+// When the tower is upgraded, this is called to sync the tower. This is
+// overridable so that children can also update any special stats that they have.
+void ATowerActor::UpdateStats(FName ID)
+{
+	if (ID != TowerID)
+	{
+		return;
+	}
+
+	UTowerManagerSubsystem* TowerManager = GetWorld()->GetGameInstance()->GetSubsystem<UTowerManagerSubsystem>();
+	TowerManager->GetTowerBaseStats(TowerID, CachedTowerData);
+
+	if (RangeComponent)
+	{
+		RangeComponent->SetSphereRadius(CachedTowerData.Stats.GetRange());
+	}
+}
+
+int32 ATowerActor::GetDamage()
+{
+	FTowerStats& Stats = CachedTowerData.Stats;
+	return Stats.GetDamage();
+}
+
+float ATowerActor::GetCooldown()
+{
+	FTowerStats& Stats = CachedTowerData.Stats;
+	return Stats.GetCooldown();
+}
+
+int32 ATowerActor::GetHealth()
+{
+	FTowerStats& Stats = CachedTowerData.Stats;
+	return Stats.GetHealth();
+}
+
+int32 ATowerActor::GetRange()
+{
+	FTowerStats& Stats = CachedTowerData.Stats;
+	return Stats.GetRange();
 }
 
 void ATowerActor::Tick(float DeltaSeconds)
@@ -233,11 +283,6 @@ void ATowerActor::UpdateGhostMaterials()
 void ATowerActor::SelectTarget()
 {
 	// Default implementation: no target selection logic
-}
-
-TArray<UTowerData*> ATowerActor::GetUpgrades()
-{
-	return TowerInfo->AvailableUpgrades;
 }
 
 void ATowerActor::OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)

@@ -202,55 +202,6 @@ void UEditorComponent::ToggleLock()
 	}
 }
 
-void UEditorComponent::UpgradeSelectedTower(int32 Index)
-{
-	if (!bIsComponentActive)
-	{
-		return;
-	}
-	if (!SelectedTower || !EconomyComponent) return;
-
-	TArray<UTowerData*> Upgrades = SelectedTower->GetUpgrades();
-	if (Index >= Upgrades.Num())
-	{
-		return;
-	}
-
-	UTowerData* Upgrade = Upgrades[Index];
-	if (!EconomyComponent->TryDeductFunds(Upgrade->TowerCost))
-	{
-		return;
-	}
-
-	ATowerActor* NewTower = GetWorld()->SpawnActorDeferred<ATowerActor>(
-		Upgrade->TowerBlueprint,
-		SelectedTower->GetActorTransform(),
-		GetOwner(),
-		Cast<APawn>(GetOwner()),
-		ESpawnActorCollisionHandlingMethod::AlwaysSpawn
-	);
-
-	if (NewTower)
-	{
-		NewTower->bIsGhost = false;
-		NewTower->TowerInfo = Upgrade;
-		NewTower->FinishSpawning(SelectedTower->GetActorTransform());
-		NewTower->GridActor = SelectedTower->GridActor;
-		NewTower->CornerGridIndex = SelectedTower->CornerGridIndex;
-	}
-
-	if (IsValid(SelectedTower->GridActor))
-	{
-		SelectedTower->
-			GridActor->
-			PlaceTower(SelectedTower->CornerGridIndex, SelectedTower->GetActorRotation(), NewTower);
-	}
-	
-	SelectedTower->Destroy();
-	SelectAndHighlightTower(NewTower);
-}
-
-
 void UEditorComponent::DeleteSelectedTower()
 {
 	if (!bIsComponentActive)
@@ -275,10 +226,10 @@ void UEditorComponent::UpdateSelectedTower(ATowerActor* NewTower)
 
 	if (NewTower)
 	{
-		OnTowerSelected.Broadcast(NewTower->TowerInfo);
+		OnTowerSelected.Broadcast(NewTower->TowerID);
 	}
 	else
 	{
-		OnTowerSelected.Broadcast(nullptr);
+		OnTowerSelected.Broadcast(NAME_None);
 	}
 }

@@ -2,6 +2,8 @@
 
 #include "BuilderComponent.h"
 
+#include "Kismet/GameplayStatics.h"
+#include "TowerManagerSubsystem.h"
 #include "Camera/CameraComponent.h"
 #include "Components/PostProcessComponent.h"
 #include "EnhancedInputSubsystems.h"
@@ -97,7 +99,7 @@ void UBuilderComponent::TickWhenActive()
 
 		// Check if the raycast collided with the grid
 		AGridActor* HitGridActor = Cast<AGridActor>(Hit.GetActor());
-		if (HitGridActor && SelectedTowerData && IsValid(GhostTowerActor))
+		if (HitGridActor && SelectedTower.IsSet() && IsValid(GhostTowerActor))
 		{
 			SetGrid(HitGridActor);
 
@@ -111,7 +113,7 @@ void UBuilderComponent::TickWhenActive()
 		}
 
 		ATowerActor* HitTowerActor = Cast<ATowerActor>(Hit.GetActor());
-		if (HitTowerActor && !SelectedTowerData)
+		if (HitTowerActor && !SelectedTower.IsSet())
 		{
 			UpdateHoveredTower(HitTowerActor);
 		}
@@ -204,13 +206,17 @@ void UBuilderComponent::DeactivateMode()
 	{
 		GhostTowerActor->SetActorHiddenInGame(true);
 	}
+	
+	ChangeTowerSelection(TOptional<FName>());
+	UpdateHoveredTower(nullptr);
+
 	UE_LOG(LogTemp, Display, TEXT("Exit"));
 }
 
 // INPUT ACTIONS
 void UBuilderComponent::OnBuildTowerAction(const FInputActionValue& Value)
 {
-	if (IsValid(SelectedTowerData))
+	if (SelectedTower.IsSet())
 	{
 		TryBuildTower();
 	}
@@ -225,10 +231,10 @@ void UBuilderComponent::OnSelectTowerAction(const FInputActionValue& Value)
 	int32 KeyNumber = FMath::RoundToInt(Value.Get<float>());
 	if (KeyNumber <= AvailableTowers.Num() && KeyNumber > 0)
 	{
-		if (AvailableTowers[KeyNumber - 1] == SelectedTowerData)
+		if (SelectedTower.IsSet() && AvailableTowers[KeyNumber - 1] == SelectedTower.GetValue())
 		{
 			// Deselect if the same tower is selected again
-			ChangeTowerSelection(nullptr);
+			ChangeTowerSelection(TOptional<FName>());
 			return;
 		}
 		ChangeTowerSelection(AvailableTowers[KeyNumber - 1]);
@@ -241,11 +247,11 @@ void UBuilderComponent::OnRotateTowerAction(const FInputActionValue& Value)
 }
 
 // TOWER BUILDING
-void UBuilderComponent::ChangeTowerSelection(UTowerData* NewTowerData)
+void UBuilderComponent::ChangeTowerSelection(TOptional<FName> NewTower)
 {
-	SelectedTowerData = NewTowerData;
+	SelectedTower = NewTower;
 
-	if (!IsValid(SelectedTowerData))
+	if (!NewTower.IsSet())
 	{
 		if (IsValid(GhostTowerActor))
 		{
@@ -264,14 +270,17 @@ void UBuilderComponent::ChangeTowerSelection(UTowerData* NewTowerData)
 
 bool UBuilderComponent::TryBuildTower()
 {
-	if (!bCanPlaceTower || !IsValid(SelectedTowerData))
+	if (!bCanPlaceTower || !SelectedTower.IsSet())
 	{
 		return false;
 	}
 
+	FTowerData SelectedTowerData;
+	GetSelectedTowerData(SelectedTowerData);
+
 	if (IsValid(EconomyComponent))
 	{
-		if (EconomyComponent->TryDeductFunds(SelectedTowerData->TowerCost) == false)
+		if (EconomyComponent->TryDeductFunds(SelectedTowerData.Cost) == false)
 		{
 			return false;
 		}
@@ -280,7 +289,7 @@ bool UBuilderComponent::TryBuildTower()
 	FTransform SpawnTransform(GhostTowerActor->GetActorRotation(), GhostTowerActor->GetActorLocation());
 
 	ATowerActor* NewTower = GetWorld()->SpawnActorDeferred<ATowerActor>(
-		SelectedTowerData->TowerBlueprint,
+		SelectedTowerData.Class.LoadSynchronous(),
 		SpawnTransform,
 		GetOwner(),
 		Cast<APawn>(GetOwner()),
@@ -290,10 +299,11 @@ bool UBuilderComponent::TryBuildTower()
 	if (NewTower)
 	{
 		NewTower->bIsGhost = false;
-		NewTower->TowerInfo = SelectedTowerData;
 		NewTower->FinishSpawning(SpawnTransform);
 		NewTower->GridActor = GridActor;
 		NewTower->CornerGridIndex = CurrentGridLocationIndex;
+
+		UGameplayStatics::PlaySound2D(GetWorld(), BuildSound);
 	}
 	else
 	{
@@ -318,10 +328,13 @@ void UBuilderComponent::UpdateGhostStructureBlueprint()
 		GhostTowerActor->Destroy();
 	}
 
+	FTowerData SelectedTowerData;
+	GetSelectedTowerData(SelectedTowerData);
+
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = GetOwner();
 	SpawnParams.Instigator = Cast<APawn>(GetOwner());
-	GhostTowerActor = GetWorld()->SpawnActor<ATowerActor>(SelectedTowerData->TowerBlueprint);
+	GhostTowerActor = GetWorld()->SpawnActor<ATowerActor>(SelectedTowerData.Class.LoadSynchronous());
 	GhostTowerActor->bIsGhost = true;
 }
 
@@ -336,10 +349,15 @@ bool UBuilderComponent::CheckTowerCanBePlaced()
 	{
 		return false;
 	}
-	if (!SelectedTowerData)
+	if (!SelectedTower.IsSet())
 	{
 		return false;
 	}
+
+
+	FTowerData SelectedTowerData;
+	GetSelectedTowerData(SelectedTowerData);
+
 	if (!GridActor->CanPlaceTower(CurrentGridLocationIndex, GetBuildingRotator(), SelectedTowerData))
 	{
 		return false;
@@ -347,7 +365,7 @@ bool UBuilderComponent::CheckTowerCanBePlaced()
 
 	if (IsValid(EconomyComponent))
 	{
-		if (SelectedTowerData->TowerCost > 0 && !(EconomyComponent->HasSufficientFunds(SelectedTowerData->TowerCost)))
+		if (SelectedTowerData.Cost > 0 && !(EconomyComponent->HasSufficientFunds(SelectedTowerData.Cost)))
 		{
 			return false;
 		}
@@ -360,9 +378,12 @@ bool UBuilderComponent::CheckTowerCanBePlaced()
 
 void UBuilderComponent::UpdateGhostStructureLocation()
 {
+	FTowerData SelectedTowerData;
+	GetSelectedTowerData(SelectedTowerData);
+
 	// We get the correct corner index by making an int vector from the pivot point to the bottom left corner
 	// then rotating this by the building rotation, and adding that to the pivot point index
-	FVector PivotPointToCornerIndexVector = -FVector(SelectedTowerData->PivotPoint);
+	FVector PivotPointToCornerIndexVector = -FVector(SelectedTowerData.PivotPoint);
 	PivotPointToCornerIndexVector = GetBuildingRotator().RotateVector(PivotPointToCornerIndexVector);
 	FIntPoint CornerIndex = CurrentGridLocationIndex + FIntPoint(
 		FMath::RoundToInt(PivotPointToCornerIndexVector.X),
@@ -429,7 +450,7 @@ bool UBuilderComponent::TryPerformRaycast(FHitResult& Hit)
 	}
 
 	// Delete mode
-	if (!IsValid(SelectedTowerData))
+	if (!SelectedTower.IsSet())
 	{
 		return true;
 	}
@@ -474,4 +495,22 @@ void UBuilderComponent::UpdateHoveredTower(ATowerActor* NewHoveredTower)
 	{
 		HoveredTower->SetInvalidOverlayMaterial();
 	}
+}
+
+void UBuilderComponent::GetSelectedTowerData(FTowerData& TowerData)
+{
+	if (!SelectedTower.IsSet())
+	{
+		return;
+	}
+
+	if (SelectedTower.GetValue()  == LoadedTower)
+	{
+		TowerData = CachedTowerData;
+	}
+
+	UTowerManagerSubsystem* TowerManager = GetWorld()->GetGameInstance()->GetSubsystem<UTowerManagerSubsystem>();
+	TowerManager->GetTowerBaseStats(SelectedTower.GetValue(), CachedTowerData);
+	LoadedTower = SelectedTower.GetValue();
+	TowerData = CachedTowerData;
 }
