@@ -248,9 +248,12 @@ void UCombatComponent::OnTriggerAction(const FInputActionValue& Value)
 	{
 		return;
 	}
+	if (!TryConsumeBullets())
+	{
+		return;
+	}
 
 	Shoot();
-	ConsumeBullets();
 	PlayTriggerSound();
 	Recoil();
 	PutOnCooldown();
@@ -313,10 +316,15 @@ void UCombatComponent::ShootDirection(FVector Direction)
 	}
 }
 
-void UCombatComponent::ConsumeBullets()
+bool UCombatComponent::TryConsumeBullets()
 {
+	if (CurrentBullets < WeaponDataMap[CurrentWeapon].AmmoCost)
+	{
+		return false;
+	}
 	CurrentBullets = FMath::Max(0, CurrentBullets - WeaponDataMap[CurrentWeapon].AmmoCost);
 	OnCurrentBulletsChange.Broadcast(CurrentBullets, MaxBullets);
+	return true;
 }
 
 void UCombatComponent::PlayTriggerSound()

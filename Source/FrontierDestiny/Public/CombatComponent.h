@@ -147,7 +147,7 @@ protected:
 	void RecoverRecoil(float DeltaTime);
 	void Shoot();
 	void ShootDirection(FVector Direction);
-	void ConsumeBullets();
+	bool TryConsumeBullets();
 	void PlayTriggerSound();
 	void PutOnCooldown();
 
