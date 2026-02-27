@@ -24,12 +24,12 @@ struct FRONTIERDESTINY_API FWeaponData
 	GENERATED_BODY()
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-	EWeaponType Type;
+	EWeaponType Type = EWeaponType::Rifle;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-	int32 Damage;
+	int32 Damage = 0;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-	int32 DamageAdded;
+	int32 DamageAdded = 0;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
 	float DamageMultiplier = 1.f;
 	
@@ -39,9 +39,9 @@ public:
 	}
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-	float FireRate;
+	float FireRate = 1.f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-	float FireRateAdded;
+	float FireRateAdded = 0.f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
 	float FireRateMultiplier = 1.f;
 
@@ -51,9 +51,9 @@ public:
 	}
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-	float Spread;
+	float Spread = 1.5f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-	float SpreadReduction;
+	float SpreadReduction = 0.f;
 
 	float GetSpread()
 	{
@@ -68,10 +68,10 @@ public:
 	FVector2D OffsetRecoverySpeed{ 1.f, 3.f };
 
 	UPROPERTY(EditAnywhere, Category = "Weapon")
-	float Range;
+	float Range = 10000.f;
 	
 	UPROPERTY(EditAnywhere, Category = "Weapon")
-	int32 AmmoCost;
+	int32 AmmoCost = 1;
 
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	TObjectPtr<USoundBase> TriggerSound;

@@ -39,20 +39,12 @@ public:
 	void SetInvalidOverlayMaterial();
 	UFUNCTION(BlueprintCallable)
 	void ClearOverlayMaterial();
-	UPROPERTY()
-	FTowerData CachedTowerData;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadonly)
+	FTowerData TowerData;
 
 	UFUNCTION(BlueprintCallable)
-	virtual void UpdateStats(FName ID);
-
-	UFUNCTION(BlueprintCallable)
-	int32 GetDamage();
-	UFUNCTION(BlueprintCallable)
-	float GetCooldown();
-	UFUNCTION(BlueprintCallable)
-	int32 GetHealth();
-	UFUNCTION(BlueprintCallable)
-	int32 GetRange();
+	void UpdateStats();
 
 protected:
 	UFUNCTION()
@@ -71,7 +63,7 @@ protected:
 
 	/** List of actors currently inside the range */
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Combat")
-	TArray<AActor*> OverlappingTargets;
+	TSet<AActor*> OverlappingTargets;
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = "true"), Category = "Setup")
 	bool bIsGhost = true;
@@ -87,9 +79,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Tower Functions|Ghost")
 	void SetGhostValidity(bool bNewIsValid);
 
-	/** Logic to select a target from OverlappingTargets */
+	/** Called when an actor enters or leaves the range of the tower */
 	UFUNCTION(Category = "Tower Functions")
-	virtual void SelectTarget();
+	virtual void OnTargetEnterOrLeaveRange();
+
+	/** The corresponding blueprint event for blueprints to implement */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Tower Functions")
+	void OnTargetEnterOrLeaveRangeBP();
 
 	/** Time interval between overlap checks (Optimization) */
 	UPROPERTY(EditAnywhere, Category = "Setup")

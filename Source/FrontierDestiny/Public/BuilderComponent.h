@@ -72,12 +72,20 @@ protected:
 	UMaterialInstanceDynamic* GridVisualMID;
 	UPROPERTY()
 	TObjectPtr<UPostProcessComponent> PostProcessComponent;
+	UPROPERTY(VisibleAnywhere, Category = "Debug")
+	TObjectPtr<UTexture2D> OccupancyTexture;
+	UPROPERTY(VisibleAnywhere, Category = "Debug")
+	TObjectPtr<AGridActor> ClosestGridActor;
+
 private:
 	void EnterGridVisual();
 	void ExitGridVisual();
 	void UpdateGridVisualState(float DeltaSeconds);
 	void InitializePostProcessMaterial();
-	void UpdatePostProcessComponent();
+	void CheckForClosestGridActor();
+	void UpdatePostProcessComponentProgress();
+	void UpdatePostProcessComponentOffset();
+	void UpdatePostProcessComponentOccupancyBitmask();
 
 	// ====== BUILDING MODE ====== //
 protected:
@@ -145,7 +153,11 @@ private:
 	/*
 	Performs the raycast to find the grid and location to place the ghost tower. This should
 	only be called by pawn if it has a camera, else it will return false.*/
-	bool TryPerformRaycast(FHitResult& Hit);
+	bool TryRaycastToGrid(FHitResult& Hit, AGridActor*& HitGridActor);
+
+	/*
+	Performs the raycast to check for tower to destroy*/
+	bool TryRaycastToTower(FHitResult& Hit, ATowerActor*& HitTowerActor);
 
 	// Rotate the tower
 	void RotateTower(bool Clockwise);

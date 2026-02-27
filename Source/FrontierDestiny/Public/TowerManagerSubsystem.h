@@ -8,8 +8,6 @@
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "TowerManagerSubsystem.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTowerUpgraded, FName, TowerID);
-
 UCLASS()
 class FRONTIERDESTINY_API UTowerManagerSubsystem : public UGameInstanceSubsystem
 {
@@ -20,16 +18,10 @@ public:
 	virtual void Deinitialize() override;
 
 	UFUNCTION(BlueprintCallable)
-	void UpgradeTower(const FUpgradeData& Upgrade);
-
-	UFUNCTION(BlueprintCallable)
-	bool GetTowerBaseStats(const FName& TowerID, FTowerData& TowerData);
+	bool GetTowerData(const FName& TowerID, FTowerData& TowerData);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadonly)
 	TMap<FName, FTowerData> TowerDataMap;
-
-	UPROPERTY(BlueprintAssignable)
-	FOnTowerUpgraded OnTowerUpgraded;
 
 protected:
 	void LoadTowerDataFromDataTable();

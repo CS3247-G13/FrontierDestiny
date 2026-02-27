@@ -313,6 +313,7 @@ void UCombatComponent::ShootDirection(FVector Direction)
 		FTransform SpawnTransform((-Direction).Rotation(), TraceStart + Direction * 100.f);
 		DrawDebugBox(GetWorld(), Hit.Location, FVector(5.f, 5.f, 5.f), FColor::Red, true, 1.f, 0, 1.f);
 		DrawDebugLine(GetWorld(), TraceStart, Hit.Location, FColor::Green, true, 1.f, 0, 0.1f);
+		UGameplayStatics::ApplyDamage(Hit.GetActor(), WeaponDataMap[CurrentWeapon].GetDamage(), PlayerController, Pawn, UDamageType::StaticClass());
 	}
 }
 

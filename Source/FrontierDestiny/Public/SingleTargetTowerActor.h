@@ -33,7 +33,9 @@ public:
 	ASingleTargetTowerActor();
 
 	/** Logic to evaluate and pick the best target based on the current TargetingMode */
-	virtual void SelectTarget() override;
+	void SelectTarget();
+
+	virtual void OnTargetEnterOrLeaveRange() override;
 
 protected:
 

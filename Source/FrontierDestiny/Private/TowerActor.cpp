@@ -13,7 +13,9 @@
 
 ATowerActor::ATowerActor()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
+
+	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
 
 	RangeComponent = CreateDefaultSubobject<USphereComponent>(TEXT("RangeComponent"));
 	RangeComponent->SetupAttachment(RootComponent);
@@ -22,11 +24,12 @@ ATowerActor::ATowerActor()
 	TargetClassFilter = AActor::StaticClass();
 
 	// Initial detection settings in constructor
-	RangeComponent->SetSphereRadius(CachedTowerData.Stats.GetRange());
+	RangeComponent->SetSphereRadius(TowerData.Range);
 
 	// Change to overlap all channels
 	RangeComponent->SetCollisionResponseToAllChannels(ECR_Overlap);
 	RangeComponent->SetGenerateOverlapEvents(true);
+
 	
 	OverlapCheckInterval = 0.2f;
 }
@@ -38,7 +41,7 @@ void ATowerActor::OnConstruction(const FTransform& Transform)
 	// Update sphere radius in the editor when TowerRange is changed
 	if (RangeComponent)
 	{
-		RangeComponent->SetSphereRadius(CachedTowerData.Stats.GetRange());
+		RangeComponent->SetSphereRadius(TowerData.Range);
 	}
 }
 
@@ -84,7 +87,6 @@ void ATowerActor::InitializeTower()
 			{
 				continue;
 			}
-			PrimComp->SetCollisionResponseToChannel(ECC_GameTraceChannel1, ECR_Block);
 		}
 	}
 }
@@ -160,10 +162,7 @@ void ATowerActor::BeginPlay()
 {
 	Super::BeginPlay();
 
-	UTowerManagerSubsystem* TowerManager = GetWorld()->GetGameInstance()->GetSubsystem<UTowerManagerSubsystem>();
-	TowerManager->OnTowerUpgraded.AddDynamic(this, &ATowerActor::UpdateStats);
-
-	UpdateStats(TowerID);
+	UpdateStats();
 
 	if (bIsGhost)
 	{
@@ -184,53 +183,19 @@ void ATowerActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		GetWorldTimerManager().ClearTimer(OverlapCheckTimerHandle);
 		GetWorldTimerManager().ClearTimer(BuildTimerHandle);
 	}
-
-	if (UTowerManagerSubsystem* TowerManager = GetWorld()->GetGameInstance()->GetSubsystem<UTowerManagerSubsystem>())
-	{
-		TowerManager->OnTowerUpgraded.RemoveDynamic(this, &ATowerActor::UpdateStats);
-	}
 }
 
 // When the tower is upgraded, this is called to sync the tower. This is
 // overridable so that children can also update any special stats that they have.
-void ATowerActor::UpdateStats(FName ID)
+void ATowerActor::UpdateStats()
 {
-	if (ID != TowerID)
-	{
-		return;
-	}
-
 	UTowerManagerSubsystem* TowerManager = GetWorld()->GetGameInstance()->GetSubsystem<UTowerManagerSubsystem>();
-	TowerManager->GetTowerBaseStats(TowerID, CachedTowerData);
+	TowerManager->GetTowerData(TowerID, TowerData);
 
 	if (RangeComponent)
 	{
-		RangeComponent->SetSphereRadius(CachedTowerData.Stats.GetRange());
+		RangeComponent->SetSphereRadius(TowerData.Range);
 	}
-}
-
-int32 ATowerActor::GetDamage()
-{
-	FTowerStats& Stats = CachedTowerData.Stats;
-	return Stats.GetDamage();
-}
-
-float ATowerActor::GetCooldown()
-{
-	FTowerStats& Stats = CachedTowerData.Stats;
-	return Stats.GetCooldown();
-}
-
-int32 ATowerActor::GetHealth()
-{
-	FTowerStats& Stats = CachedTowerData.Stats;
-	return Stats.GetHealth();
-}
-
-int32 ATowerActor::GetRange()
-{
-	FTowerStats& Stats = CachedTowerData.Stats;
-	return Stats.GetRange();
 }
 
 void ATowerActor::Tick(float DeltaSeconds)
@@ -280,9 +245,9 @@ void ATowerActor::UpdateGhostMaterials()
 	}
 }
 
-void ATowerActor::SelectTarget()
+void ATowerActor::OnTargetEnterOrLeaveRange()
 {
-	// Default implementation: no target selection logic
+	OnTargetEnterOrLeaveRangeBP();
 }
 
 void ATowerActor::OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -290,8 +255,8 @@ void ATowerActor::OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComp, AActo
 	// Check if the actor is not a ghost, is valid, and matches our class filter
 	if (!bIsGhost && OtherActor && OtherActor != this && OtherActor->IsA(TargetClassFilter))
 	{
-		OverlappingTargets.AddUnique(OtherActor);
-		SelectTarget();
+		OverlappingTargets.Add(OtherActor);
+		OnTargetEnterOrLeaveRange();
 	}
 }
 
@@ -300,7 +265,7 @@ void ATowerActor::OnRangeEndOverlap(UPrimitiveComponent* OverlappedComp, AActor*
 	if (OtherActor)
 	{
 		OverlappingTargets.Remove(OtherActor);
-		SelectTarget();
+		OnTargetEnterOrLeaveRange();
 	}
 }
 
@@ -320,10 +285,10 @@ void ATowerActor::CheckAllOverlaps()
 	{
 		if (Actor && Actor != this)
 		{
-			OverlappingTargets.AddUnique(Actor);
+			OverlappingTargets.Add(Actor);
 		}
 	}
 
 	// 4. Update targeting state now that the list is refreshed
-	SelectTarget();
+	OnTargetEnterOrLeaveRange();
 }
