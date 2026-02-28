@@ -2,44 +2,70 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
-#include "Engine/DataAsset.h"
-#include "TowerData.generated.h"
+#include "Upgrade.h"
+#include "GameplayTagContainer.h"
 
-/**
- * 
- */
+#include "CoreMinimal.h"
+#include "TowerData.generated.h"
 
 class ATowerActor;
 
-UCLASS()
-class FRONTIERDESTINY_API UTowerData : public UPrimaryDataAsset
+USTRUCT(BlueprintType)
+struct FTowerEffect
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FText EffectName; // e.g., "Inner Blast", "Shockwave", "Lingering Fire"
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float Amount = 0.0f;
+};
+
+USTRUCT(BlueprintType)
+struct FRONTIERDESTINY_API FTowerData : public FTableRowBase
 {
 	GENERATED_BODY()
 	
 public:
-	// 2D Thumbnail icon for the tower
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tower")
-    UTexture2D* TowerIcon;
 
-    // The blueprint of the tower
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Tower")
-    TSubclassOf<ATowerActor> TowerBlueprint;
-    
-	// The cell relative to the origin that serves as the pivot for placement
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Placement")
-    FIntPoint PivotPoint;
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower")
+	TSoftClassPtr<ATowerActor> Class = nullptr;
 
-    // The cells this tower occupies relative to the pivot (0,0)
-    // Example for 2x2: (0,0), (1,0), (0,1), (1,1)
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Placement")
-    TArray<FIntPoint> Footprint;
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower")
+	int32 Cost = 0;
 
-	// The cost to build the tower
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Economy")
-	int32 TowerCost;
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Display")
+	FString Name = "";
 
-    // The upgraded version of this tower, if any
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrades")
-	TArray<UTowerData*> AvailableUpgrades;
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Display")
+	FString Description = "";
+
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Display")
+	TSoftObjectPtr<UTexture2D> Icon = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Stats")
+	int32 Range = 10000;
+
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Stats")
+	int32 Health = 100;
+
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Stats")
+	float Cooldown = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Building")
+	TArray<FIntPoint> Footprint;
+
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Building")
+	TArray<FIntPoint> Boundary;
+
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Building")
+	FIntPoint PivotPoint = FIntPoint(0, 0);
+
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Building")
+	float Height = 100.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Effects")
+	TMap<FGameplayTag, FTowerEffect> Effects;
+
 };

@@ -17,17 +17,14 @@ ASingleTargetTowerActor::ASingleTargetTowerActor()
 
 void ASingleTargetTowerActor::SelectTarget()
 {
-	// Note: Super::SelectTarget() is optional here as we override the logic below
-	// We use the inherited OverlappingTargets array populated by the base class
-
 	AEnemyActor* BestEnemy = nullptr;
 	float MinValue = TNumericLimits<float>::Max();
 	float MaxValue = -TNumericLimits<float>::Max();
 
 	// 1. Cleanup and Evaluate inherited list
-	for (int32 i = OverlappingTargets.Num() - 1; i >= 0; --i)
+	for (AActor*& Target : OverlappingTargets)
 	{
-		AEnemyActor* Enemy = Cast<AEnemyActor>(OverlappingTargets[i]);
+		AEnemyActor* Enemy = Cast<AEnemyActor>(Target);
 
 		if (!IsValid(Enemy) || Enemy->CurrentHealth <= 0)
 		{
@@ -101,6 +98,11 @@ void ASingleTargetTowerActor::SelectTarget()
 	}
 
 	CurrentTarget = nullptr;
+}
+
+void ASingleTargetTowerActor::OnTargetEnterOrLeaveRange()
+{
+	SelectTarget();
 }
 
 void ASingleTargetTowerActor::OnTargetDeath()

@@ -28,6 +28,12 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Ghost Visuals")
 	TSoftObjectPtr<UMaterialInterface> GhostMaterialInvalid;
 
+	UPROPERTY(Config, EditAnywhere, Category = "Tower Data")
+	TSoftObjectPtr<UDataTable> TowerDataTable;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Upgrades")
+	TSoftObjectPtr<UDataTable> UpgradeDataTable;
+
 	/** Helper to get the settings instance easily */
 	static const UGlobalTowerSettings* Get() { return GetDefault<UGlobalTowerSettings>(); }
 };
