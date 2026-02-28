@@ -8,7 +8,18 @@ public class FrontierDestiny : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "DeveloperSettings", "UMG", "Slate", "SlateCore" });
+		PublicDependencyModuleNames.AddRange(new string[] { 
+			"Core", 
+			"CoreUObject", 
+			"Engine", 
+			"InputCore", 
+			"EnhancedInput", 
+			"DeveloperSettings", 
+			"UMG", 
+			"Slate", 
+			"SlateCore", 
+			"GameplayTags" 
+		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 
