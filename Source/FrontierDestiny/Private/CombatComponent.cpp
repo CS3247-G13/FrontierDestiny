@@ -8,6 +8,8 @@
 #include "EnhancedInputComponent.h"
 #include "InputMappingContext.h"
 
+#include "Engine/DamageEvents.h"
+
 // Sets default values for this component's properties
 UCombatComponent::UCombatComponent()
 {
@@ -49,5 +51,12 @@ void UCombatComponent::OnTriggerAction(const FInputActionValue& Value)
 	{
 		FString hit = *Hit.GetActor()->GetName();
 		GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("hit ") + hit);
+
+		// Damage enemy
+		FPointDamageEvent DamageEvent;
+		DamageEvent.HitInfo = Hit;
+		DamageEvent.ShotDirection = Direction;
+		DamageEvent.DamageTypeClass = UDamageType::StaticClass();
+		Hit.GetActor()->TakeDamage(10, DamageEvent, Pawn->GetController(), GetOwner());
 	}
 }

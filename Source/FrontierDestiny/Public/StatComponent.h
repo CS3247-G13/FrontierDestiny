@@ -34,7 +34,18 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	float GetStat(FName StatName) const {
-		return Attributes.Contains(StatName) ? Attributes[StatName].CurrentValue : 0.0f;
+		//return Attributes.Contains(StatName) ? Attributes[StatName].CurrentValue : 0.0f;
+		if (Attributes.Contains(StatName)) {
+			float Val = Attributes[StatName].CurrentValue;
+
+			// This will print to your Output Log (Window -> Output Log)
+			UE_LOG(LogTemp, Warning, TEXT("Found Stat: %s with Value: %f"), *StatName.ToString(), Val);
+
+			return Val;
+		}
+
+		UE_LOG(LogTemp, Error, TEXT("Stat: %s NOT FOUND in Attributes"), *StatName.ToString());
+		return 0.0f;
 	}
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	float GetBaseStat(FName StatName) const {

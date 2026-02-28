@@ -16,9 +16,6 @@ UStatComponent::UStatComponent()
 	// PrimaryComponentTick.bCanEverTick = true;
 
 	// ...
-	Attributes.Add(TEXT("HP"), FEntityAttribute{ 100.0f, 100.0f, 100.0f });
-	Attributes.Add(TEXT("Speed"), FEntityAttribute{ 600.0f, 600.0f, 600.0f });
-	Attributes.Add(TEXT("DMG"), FEntityAttribute{ 10.0f, 10.0f, 10.0f });
 }
 
 
@@ -27,7 +24,11 @@ void UStatComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-
+	// initialise all values
+	for (auto& Pair : Attributes) {
+		Pair.Value.CurrentValue = Pair.Value.BaseValue;
+		RecalculateStat(Pair.Key);
+	}
 }
 
 

@@ -4,6 +4,7 @@
 #include "BaseEnemyCharacter.h"
 #include "StatComponent.h"
 #include "EnemyModifier.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 // Sets default values
 ABaseEnemyCharacter::ABaseEnemyCharacter()
@@ -12,6 +13,10 @@ ABaseEnemyCharacter::ABaseEnemyCharacter()
 	PrimaryActorTick.bCanEverTick = true;
 
 	StatComponent = CreateDefaultSubobject<UStatComponent>(TEXT("StatComponent"));
+
+	// have beginplay for the component
+	//StatComponent->bAutoActivate = true;
+
 }
 
 // Called when the game starts or when spawned
@@ -22,6 +27,9 @@ void ABaseEnemyCharacter::BeginPlay()
 	{
 		StatComponent->ApplyModifier(Mod);
 	}
+	float speed = StatComponent->GetStat("Speed");
+	//GetCharacterMovement()->MaxWalkSpeed = StatComponent->GetStat(TEXT("Speed"));
+	GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, FString::Printf(TEXT("Current Speed: %f"), speed));
 }
 
 // Called every frame
