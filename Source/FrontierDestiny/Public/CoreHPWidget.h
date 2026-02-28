@@ -15,8 +15,10 @@ class FRONTIERDESTINY_API UCoreHPWidget : public UUserWidget
 	
 public:
 
+	UFUNCTION(BlueprintCallable)
 	void InitializeCoreBar(const FCoreData& CoreData);
-
+	
+	UFUNCTION(BlueprintCallable)
 	void UpdateHP(const FCoreData& CoreData);
 
 
