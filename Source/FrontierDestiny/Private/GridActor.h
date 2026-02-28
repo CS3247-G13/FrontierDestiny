@@ -32,6 +32,15 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Occupancy")
 	TArray<TObjectPtr<ATowerActor>> Towers;
+
+	// We perform a raycast from top to bottom to figure out where to place this
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Settings")
+	TEnumAsByte<ECollisionChannel> GridFloorChannel;
+
+	// This just needs to be above the ground
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Settings")
+	float RaycastOriginHeight;
+
 	// Sets default values for this actor's properties
 	AGridActor();
 
@@ -55,6 +64,9 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
 	bool GetWorldLocationFromGridIndex(const FIntPoint& GridIndex, const FRotator& Rotation, FVector& OutLocation) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
+	bool GetTowerPlacementLocationFromGridIndex(const FIntPoint& PivotPointIndex, const FRotator& Rotation, FVector& OutLocation) const;
 
 	UFUNCTION(BlueprintPure, Category = "Tower Defense|Grid")
 	void GetTowerGridIndices(const FIntPoint& PivotPointIndex, const FRotator& Rotation, const FTowerData& TowerData, TArray<int32>& OutFootprintIndices, TArray<int32>& OutBoundaryIndices) const;

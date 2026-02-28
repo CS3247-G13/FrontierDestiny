@@ -118,6 +118,63 @@ bool AGridActor::GetWorldLocationFromGridIndex(const FIntPoint& GridIndex, const
     return true;
 }
 
+bool AGridActor::GetTowerPlacementLocationFromGridIndex(const FIntPoint& PivotPointIndex, const FRotator& Rotation, FVector& OutLocation) const
+{
+    if (Rotation.Pitch != 0.f || Rotation.Roll != 0.f)
+    {
+        // Currently only supports rotation around Z axis
+        return false;
+    }
+
+    TSet<FVector> LocationsToCheck;
+    FVector AddedLocation;
+    for (int i = 0; i < 2; i++)
+    {
+        for (int j = 0; j < 2; j++)
+        {
+            GetWorldLocationFromGridIndex(PivotPointIndex + FIntPoint(i, j), FRotator::ZeroRotator, AddedLocation);
+            LocationsToCheck.Add(AddedLocation);
+        }
+    }
+    GetCellCenterWorldLocationFromGridIndex(PivotPointIndex, AddedLocation);
+    LocationsToCheck.Add(AddedLocation);
+
+    float LowestHeight = MAX_FLT;
+    for (const FVector& CheckedLocation: LocationsToCheck)
+    {
+        // PERFORM THE FIRST RAYCAST TO FIND THE FLOOR BELOW THE GRID ACTOR
+        // Cell center location is already based on the grid actor's location, so we can directly raycast downwards from it.
+        FVector Start = CheckedLocation;
+        // I use 10000 here as a hugemongous number, shouldnt affect performance too much
+        FVector End = CheckedLocation - FVector{ 0.f, 0.f, 10000.f };
+
+        FHitResult Hit;
+        bool bHit = false;
+        FCollisionQueryParams Params;
+        Params.AddIgnoredActor(this); // Ignore the grid itself
+
+        bHit = GetWorld()->LineTraceSingleByChannel(Hit, Start, End, GridFloorChannel, Params);
+		DrawDebugLine(GetWorld(), Start, End, FColor::Green, false, 2.f, 0, 1.f);
+        if (!bHit)
+        {
+            // There is no floor below the grid, this should not happen in a normal level, but just in case, we will return false to prevent tower placement.
+            UE_LOG(LogTemp, Warning, TEXT("Somehow there is no floor below the grid. This happened at %s. Check that the ground is set to block the channel assigned to the floor."), *AddedLocation.ToString());
+            return false;
+        }
+
+        if (Hit.Location.Z < LowestHeight)
+        {
+            LowestHeight = Hit.Location.Z;
+        }
+    }
+
+    GetWorldLocationFromGridIndex(PivotPointIndex, Rotation, OutLocation);
+    OutLocation.Z = LowestHeight;
+    return true;
+}
+
+
+
 void AGridActor::GetTowerGridIndices(const FIntPoint& PivotPointIndex, const FRotator& Rotation, const FTowerData& TowerData, TArray<int32>& OutFootprintIndices, TArray<int32>& OutBoundaryIndices) const
 {
     // Reserve memory to avoid re-allocations during the loop

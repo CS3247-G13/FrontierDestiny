@@ -147,13 +147,9 @@ private:
 	void UpdateGhostStructureRotation();
 
 	/*
-	Sets the grid that is currently being used for building*/
-	void SetGrid(AGridActor* NewGrid);
-
-	/*
 	Performs the raycast to find the grid and location to place the ghost tower. This should
 	only be called by pawn if it has a camera, else it will return false.*/
-	bool TryRaycastToGrid(FHitResult& Hit, AGridActor*& HitGridActor);
+	bool TryRaycastToGrid(FHitResult& Hit);
 
 	/*
 	Performs the raycast to check for tower to destroy*/
@@ -169,8 +165,6 @@ private:
 	TObjectPtr<ATowerActor> GhostTowerActor;
 	UPROPERTY()
 	TOptional<FName> SelectedTower;
-	UPROPERTY()
-	TObjectPtr<AGridActor> GridActor;
 
 	UPROPERTY()
 	bool bCanPlaceTower = false;

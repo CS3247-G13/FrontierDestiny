@@ -62,6 +62,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Building")
 	FIntPoint PivotPoint = FIntPoint(0, 0);
 
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Building")
+	float Height = 100.f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Effects")
 	TMap<FGameplayTag, FTowerEffect> Effects;
 

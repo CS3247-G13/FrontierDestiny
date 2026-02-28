@@ -93,9 +93,9 @@ void UBuilderComponent::TickWhenActive()
 		return;
 	}
 
-	if (IsValid(GridActor))
+	if (IsValid(ClosestGridActor))
 	{
-		GridActor->LogGridState();
+		ClosestGridActor->LogGridState();
 	}
 
 	FHitResult Hit;
@@ -124,12 +124,9 @@ void UBuilderComponent::TickWhenActive()
 		}
 
 		// Is in build mode
-		AGridActor* HitGridActor;
-		if (TryRaycastToGrid(Hit, HitGridActor))
+		if (TryRaycastToGrid(Hit))
 		{
-			SetGrid(HitGridActor);
-
-			GridActor->GetSnappedGridIndex(Hit.Location, CurrentGridLocationIndex);
+			ClosestGridActor->GetSnappedGridIndex(Hit.Location, CurrentGridLocationIndex);
 			UpdateGhostStructureLocation();
 		}
 
@@ -246,6 +243,7 @@ void UBuilderComponent::UpdatePostProcessComponentOffset()
 	{
 		UE_LOG(LogTemp, Display, TEXT("Closest Grid Actor: %s"), *ClosestGridActor->GetName());
 		GridVisualMID->SetVectorParameterValue(TEXT("Grid Offset"), ClosestGridActor->GetTransform().GetLocation());
+		GridVisualMID->SetVectorParameterValue(TEXT("Grid Size"), FVector(ClosestGridActor->ScaleX, ClosestGridActor->ScaleY, 0.f));
 	}
 }
 
@@ -482,7 +480,7 @@ bool UBuilderComponent::TryBuildTower()
 	{
 		NewTower->bIsGhost = false;
 		NewTower->FinishSpawning(SpawnTransform);
-		NewTower->GridActor = GridActor;
+		NewTower->GridActor = ClosestGridActor;
 		NewTower->CornerGridIndex = CurrentGridLocationIndex;
 
 		UGameplayStatics::PlaySound2D(GetWorld(), BuildSound);
@@ -492,9 +490,9 @@ bool UBuilderComponent::TryBuildTower()
 		UE_LOG(LogTemp, Error, TEXT("Failed to spawn NewTower on %s"), *GetName());
 	}
 
-	if (IsValid(GridActor))
+	if (IsValid(ClosestGridActor))
 	{
-		GridActor->PlaceTower(CurrentGridLocationIndex, GetBuildingRotator(), NewTower);
+		ClosestGridActor->PlaceTower(CurrentGridLocationIndex, GetBuildingRotator(), NewTower);
 		UpdatePostProcessComponentOccupancyBitmask();
 	}
 	else
@@ -532,7 +530,7 @@ void UBuilderComponent::UpdateGhostStructureValid()
 
 bool UBuilderComponent::CheckTowerCanBePlaced()
 {
-	if (!IsValid(GridActor))
+	if (!IsValid(ClosestGridActor))
 	{
 		return false;
 	}
@@ -545,7 +543,7 @@ bool UBuilderComponent::CheckTowerCanBePlaced()
 	FTowerData SelectedTowerData;
 	GetSelectedTowerData(SelectedTowerData);
 
-	if (!GridActor->CanPlaceTower(CurrentGridLocationIndex, GetBuildingRotator(), SelectedTowerData))
+	if (!ClosestGridActor->CanPlaceTower(CurrentGridLocationIndex, GetBuildingRotator(), SelectedTowerData))
 	{
 		return false;
 	}
@@ -579,9 +577,9 @@ void UBuilderComponent::UpdateGhostStructureLocation()
 
 	FVector CornerLocation;
 
-	if (IsValid(GridActor))
+	if (IsValid(ClosestGridActor))
 	{
-		GridActor->GetWorldLocationFromGridIndex(CornerIndex, GetBuildingRotator(), CornerLocation);
+		ClosestGridActor->GetTowerPlacementLocationFromGridIndex(CornerIndex, GetBuildingRotator(), CornerLocation);
 		GhostTowerActor->SetActorLocation(CornerLocation, false, nullptr, ETeleportType::TeleportPhysics);
 	}
 	UpdatePostProcessComponentOccupancyBitmask();
@@ -607,12 +605,7 @@ void UBuilderComponent::UpdateGhostStructureRotation()
 	GhostTowerActor->SetActorRotation(GetBuildingRotator());
 }
 
-void UBuilderComponent::SetGrid(AGridActor* NewGrid)
-{
-	GridActor = NewGrid;
-}
-
-bool UBuilderComponent::TryRaycastToGrid(FHitResult& Hit, AGridActor*& HitGridActor)
+bool UBuilderComponent::TryRaycastToGrid(FHitResult& Hit)
 {
 	if (!IsValid(Camera)) return false;
 
@@ -633,8 +626,8 @@ bool UBuilderComponent::TryRaycastToGrid(FHitResult& Hit, AGridActor*& HitGridAc
 	);
 
 	DrawDebugLine(GetWorld(), Start, Hit.Location, FColor::Red, false, 0.f, 0, 0.2f);
-	HitGridActor = Cast<AGridActor>(Hit.GetActor());
-	if (!IsValid(HitGridActor))
+
+	if (!IsValid(ClosestGridActor))
 	{
 		return false;
 	}
