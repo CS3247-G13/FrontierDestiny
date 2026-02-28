@@ -76,11 +76,7 @@ void UStatusEffectComponent::DamageEntity(FName Tag)
     }
     FStatusEffectTimer& EffectTimer = ActiveDOTTimers[Tag];
 
-	AEnemyActor* EnemyActor = Cast<AEnemyActor>(GetOwner());
-    if (IsValid(EnemyActor))
-    {
-		UGameplayStatics::ApplyDamage(EnemyActor, EffectTimer.Damage, EffectTimer.Instigator, EffectTimer.DamageCauser, UDamageType::StaticClass());
-    }
+	UGameplayStatics::ApplyDamage(GetOwner(), EffectTimer.Damage, EffectTimer.Instigator, EffectTimer.DamageCauser, UDamageType::StaticClass());
 }
 
 void UStatusEffectComponent::HandleEffectExpired(FName Tag)

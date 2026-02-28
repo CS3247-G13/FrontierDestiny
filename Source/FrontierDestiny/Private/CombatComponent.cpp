@@ -11,6 +11,8 @@
 #include "InputMappingContext.h"
 #include "DamageNumber.h"
 
+#include "Engine/DamageEvents.h"
+
 // Sets default values for this component's properties
 UCombatComponent::UCombatComponent()
 {

@@ -6,7 +6,7 @@
 #include "TowerActor.h"
 #include "SingleTargetTowerActor.generated.h"
 
-class AEnemyActor;
+class ABaseEnemyCharacter;
 class USphereComponent;
 
 /** * Defines the logic used by the tower to prioritize targets within range.
@@ -49,7 +49,7 @@ protected:
 
 	// This tower targets enemies
 	UPROPERTY(VisibleAnywhere, BlueprintReadonly, Category = "Single Target Tower Properties")
-	TObjectPtr<AEnemyActor> CurrentTarget;
+	TObjectPtr<ABaseEnemyCharacter> CurrentTarget;
 
 	UFUNCTION()
 	void OnTargetDeath();
