@@ -36,10 +36,15 @@ public:
 	UFUNCTION()
 	virtual void SetupInput(UInputComponent* Input);
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UPROPERTY(EditAnywhere, Category = "Setup")
 	TObjectPtr<UInputMappingContext> ModeIMC;
 
+	UFUNCTION()
+	void SetAsDefaultMode();
 protected:
+	UPROPERTY(VisibleAnywhere, Category = "Debug")
+	bool bIsDefaultMode;
+
 	UPROPERTY()
 	TObjectPtr<APawn> Pawn;
 	UPROPERTY()

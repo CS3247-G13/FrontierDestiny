@@ -2,12 +2,12 @@
 
 #pragma once
 
+#include "TowerData.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "GridActor.generated.h"
 
 class UBoxComponent;
-class UTowerData;
 class ATowerActor;
 
 UCLASS()
@@ -28,7 +28,19 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Occupancy")
 	TArray<bool> Occupied;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Occupancy")
+	TArray<uint8> BoundaryOccupied;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Occupancy")
 	TArray<TObjectPtr<ATowerActor>> Towers;
+
+	// We perform a raycast from top to bottom to figure out where to place this
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Settings")
+	TEnumAsByte<ECollisionChannel> GridFloorChannel;
+
+	// This just needs to be above the ground
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Settings")
+	float RaycastOriginHeight;
+
 	// Sets default values for this actor's properties
 	AGridActor();
 
@@ -53,23 +65,32 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
 	bool GetWorldLocationFromGridIndex(const FIntPoint& GridIndex, const FRotator& Rotation, FVector& OutLocation) const;
 
+	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
+	bool GetTowerPlacementLocationFromGridIndex(const FIntPoint& PivotPointIndex, const FRotator& Rotation, FVector& OutLocation) const;
+
+	UFUNCTION(BlueprintPure, Category = "Tower Defense|Grid")
+	void GetTowerGridIndices(const FIntPoint& PivotPointIndex, const FRotator& Rotation, const FTowerData& TowerData, TArray<int32>& OutFootprintIndices, TArray<int32>& OutBoundaryIndices) const;
+
 	/*
 	Get whether a tower can be placed at the pivot point
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
-	bool CanPlaceTower(const FIntPoint& CornerGridIndex, const FRotator& Rotation, UTowerData* TowerInfo);
+	bool CanPlaceTower(const FIntPoint& PivotPointIndex, const FRotator& Rotation, FTowerData TowerData);
 
 	/*
 	Fills the cells based on tower
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
-	bool PlaceTower(const FIntPoint& CornerGridIndex, const FRotator& Rotation, ATowerActor* TowerPtr);
+	bool PlaceTower(const FIntPoint& PivotPointIndex, const FRotator& Rotation, ATowerActor* TowerPtr);
 
 	/*
 	Clears the cells based on tower
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
-	bool RemoveTower(const FIntPoint& CornerGridIndex, const FRotator& Rotation, ATowerActor* TowerPtr);
+	bool RemoveTower(const FIntPoint& PivotPointIndex, const FRotator& Rotation, ATowerActor* TowerPtr);
+
+	UFUNCTION(BlueprintCallable)
+	void LogGridState();
 protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
@@ -80,7 +101,7 @@ protected:
 
 	virtual void OnConstruction(const FTransform& Transform) override;
 
-	FIntPoint RotateOffset(FIntPoint Offset, FRotator Rotation);
+	FIntPoint RotateOffset(const FIntPoint& Offset, const FRotator& Rotation) const;
 private:
 
 

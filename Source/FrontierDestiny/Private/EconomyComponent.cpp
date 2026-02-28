@@ -10,6 +10,8 @@ UEconomyComponent::UEconomyComponent()
 
 void UEconomyComponent::BeginPlay()
 {
+	Super::BeginPlay();
+
 	FTimerManagerTimerParameters TimerParams;
 	TimerParams.bLoop = true;
 	TimerParams.bMaxOncePerFrame = true;

@@ -31,9 +31,6 @@ AGridActor::AGridActor()
     CollisionBox->bHiddenInGame = true; // Only see it in the Editor
     CollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     CollisionBox->SetCollisionProfileName(TEXT("GridCollision"));
-    
-
-    
 }
 
 void AGridActor::OnConstruction(const FTransform& Transform)
@@ -59,8 +56,10 @@ void AGridActor::OnConstruction(const FTransform& Transform)
 
     Occupied.Empty();
     Towers.Empty();
+    BoundaryOccupied.Empty();
     Occupied.Init(false, GridSize.X * GridSize.Y);
 	Towers.Init(nullptr, GridSize.X * GridSize.Y);
+	BoundaryOccupied.Init(0, GridSize.X * GridSize.Y);
 
     if (CollisionBox)
     {
@@ -119,7 +118,95 @@ bool AGridActor::GetWorldLocationFromGridIndex(const FIntPoint& GridIndex, const
     return true;
 }
 
-FIntPoint AGridActor::RotateOffset(FIntPoint Offset, FRotator Rotation)
+bool AGridActor::GetTowerPlacementLocationFromGridIndex(const FIntPoint& PivotPointIndex, const FRotator& Rotation, FVector& OutLocation) const
+{
+    if (Rotation.Pitch != 0.f || Rotation.Roll != 0.f)
+    {
+        // Currently only supports rotation around Z axis
+        return false;
+    }
+
+    TSet<FVector> LocationsToCheck;
+    FVector AddedLocation;
+    for (int i = 0; i < 2; i++)
+    {
+        for (int j = 0; j < 2; j++)
+        {
+            GetWorldLocationFromGridIndex(PivotPointIndex + FIntPoint(i, j), FRotator::ZeroRotator, AddedLocation);
+            LocationsToCheck.Add(AddedLocation);
+        }
+    }
+    GetCellCenterWorldLocationFromGridIndex(PivotPointIndex, AddedLocation);
+    LocationsToCheck.Add(AddedLocation);
+
+    float LowestHeight = MAX_FLT;
+    for (const FVector& CheckedLocation: LocationsToCheck)
+    {
+        // PERFORM THE FIRST RAYCAST TO FIND THE FLOOR BELOW THE GRID ACTOR
+        // Cell center location is already based on the grid actor's location, so we can directly raycast downwards from it.
+        FVector Start = CheckedLocation;
+        // I use 10000 here as a hugemongous number, shouldnt affect performance too much
+        FVector End = CheckedLocation - FVector{ 0.f, 0.f, 10000.f };
+
+        FHitResult Hit;
+        bool bHit = false;
+        FCollisionQueryParams Params;
+        Params.AddIgnoredActor(this); // Ignore the grid itself
+
+        bHit = GetWorld()->LineTraceSingleByChannel(Hit, Start, End, GridFloorChannel, Params);
+		DrawDebugLine(GetWorld(), Start, End, FColor::Green, false, 2.f, 0, 1.f);
+        if (!bHit)
+        {
+            // There is no floor below the grid, this should not happen in a normal level, but just in case, we will return false to prevent tower placement.
+            UE_LOG(LogTemp, Warning, TEXT("Somehow there is no floor below the grid. This happened at %s. Check that the ground is set to block the channel assigned to the floor."), *AddedLocation.ToString());
+            return false;
+        }
+
+        if (Hit.Location.Z < LowestHeight)
+        {
+            LowestHeight = Hit.Location.Z;
+        }
+    }
+
+    GetWorldLocationFromGridIndex(PivotPointIndex, Rotation, OutLocation);
+    OutLocation.Z = LowestHeight;
+    return true;
+}
+
+
+
+void AGridActor::GetTowerGridIndices(const FIntPoint& PivotPointIndex, const FRotator& Rotation, const FTowerData& TowerData, TArray<int32>& OutFootprintIndices, TArray<int32>& OutBoundaryIndices) const
+{
+    // Reserve memory to avoid re-allocations during the loop
+    OutFootprintIndices.Empty(TowerData.Footprint.Num());
+    OutBoundaryIndices.Empty(TowerData.Boundary.Num());
+    FIntPoint CornerGridIndex = PivotPointIndex - RotateOffset(TowerData.PivotPoint, Rotation);
+
+    // Helper to process the math once
+    auto GetIndexForOffset = [&](const FIntPoint& Offset) -> int32
+        {
+            FIntPoint TargetIndex = CornerGridIndex + RotateOffset(Offset, Rotation);
+
+            if (TargetIndex.X < 0 || TargetIndex.X >= GridSize.X ||
+                TargetIndex.Y < 0 || TargetIndex.Y >= GridSize.Y)
+            {
+                return -1;
+            }
+            return (TargetIndex.Y * GridSize.X) + TargetIndex.X;
+        };
+
+    for (const FIntPoint& Offset : TowerData.Footprint)
+    {
+        OutFootprintIndices.Add(GetIndexForOffset(Offset));
+    }
+
+    for (const FIntPoint& Offset : TowerData.Boundary)
+    {
+        OutBoundaryIndices.Add(GetIndexForOffset(Offset));
+    }
+}
+
+FIntPoint AGridActor::RotateOffset(const FIntPoint& Offset, const FRotator& Rotation) const
 {
     FVector VectorOffset = FVector{ float(Offset.X), float(Offset.Y), 0.f };
     FVector RotatedVectorOffset = Rotation.RotateVector(VectorOffset);
@@ -127,33 +214,45 @@ FIntPoint AGridActor::RotateOffset(FIntPoint Offset, FRotator Rotation)
     return RotatedVectorOffsetInt;
 }
 
-bool AGridActor::CanPlaceTower(const FIntPoint& PivotPointIndex, const FRotator& Rotation, UTowerData* TowerInfo)
+bool AGridActor::CanPlaceTower(const FIntPoint& PivotPointIndex, const FRotator& Rotation, FTowerData TowerData)
 {
     if (Rotation.Pitch != 0.f || Rotation.Roll != 0.f)
     {
         // Currently only supports rotation around Z axis
         return false;
     }
+
+	TArray<int32> FootprintIndices;
+	TArray<int32> BoundaryIndices;
+	GetTowerGridIndices(PivotPointIndex, Rotation, TowerData, FootprintIndices, BoundaryIndices);
     
-
-    FIntPoint CornerGridIndex = PivotPointIndex - RotateOffset(TowerInfo->PivotPoint, Rotation);
-
-    for (const FIntPoint& Offset : TowerInfo->Footprint)
+    // The tower's footprint must not be occupied by towers nor boundary
+    for (const int32& Index: FootprintIndices)
     {
-        FIntPoint TargetIndex = CornerGridIndex + RotateOffset(Offset, Rotation);
-
-        if (TargetIndex.X < 0 || TargetIndex.X >= GridSize.X ||
-            TargetIndex.Y < 0 || TargetIndex.Y >= GridSize.Y)
+        if (!Occupied.IsValidIndex(Index))
         {
             return false; // Out of bounds
         }
 
-        int CalculatedIndex = TargetIndex.Y * GridSize.X + TargetIndex.X;
-        if (!Occupied.IsValidIndex(CalculatedIndex) || Occupied[CalculatedIndex])
+        if (Occupied[Index] || BoundaryOccupied[Index] != 0)
         {
-            return false; // Already filled
+            return false; // Already filled or occupied by another tower's boundary
         }
     }
+
+	for (const int32& Index: BoundaryIndices)
+    {
+        if (!BoundaryOccupied.IsValidIndex(Index))
+        {
+            continue; // Out of bounds, but it's okay for boundary
+        }
+        if (Occupied[Index])
+        {
+			// If the boundary overlaps with another tower, it's not allowed
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -161,30 +260,41 @@ bool AGridActor::PlaceTower(const FIntPoint& PivotPointIndex, const FRotator& Ro
 {
     if (Rotation.Pitch != 0.f || Rotation.Roll != 0.f)
     {
-        // Currently only supports rotation around Z axis
-        return false;
-    }
-	// if (!CanPlaceTower(CornerGridIndex, Rotation, TowerPtr->TowerInfo))
-    // {
-        // Allow overwrite, should check CanPlaceTower first if you want to avoid this
-        // return false;
-    // }
-	if (!TowerPtr || !TowerPtr->TowerInfo)
-    {
+		UE_LOG(LogTemp, Warning, TEXT("Currently only supports rotation around Z axis"))
         return false;
     }
 
-    FIntPoint CornerGridIndex = PivotPointIndex - RotateOffset(TowerPtr->TowerInfo->PivotPoint, Rotation);
-
-    for (const FIntPoint& Offset : TowerPtr->TowerInfo->Footprint)
+	if (!TowerPtr)
     {
-        FIntPoint TargetIndex = CornerGridIndex + RotateOffset(Offset, Rotation);
-
-        int CalculatedIndex = TargetIndex.Y * GridSize.X + TargetIndex.X;
-
-        Occupied[CalculatedIndex] = true;
-        Towers[CalculatedIndex] = TowerPtr;
+		UE_LOG(LogTemp, Warning, TEXT("TowerPtr is null!"))
+        return false;
     }
+
+    TArray<int32> FootprintIndices;
+    TArray<int32> BoundaryIndices;
+    GetTowerGridIndices(PivotPointIndex, Rotation, TowerPtr->TowerData, FootprintIndices, BoundaryIndices);
+
+    for (const int32& Index : FootprintIndices)
+    {
+        if (!Occupied.IsValidIndex(Index))
+        {
+            UE_LOG(LogTemp, Warning, TEXT("VERY SERIOUS: Footprint index out of bounds!"));
+            // IF THIS HAPPENS, MEANS CALLER DID NOT CHECK BOUNDS BEFORE PLACING TOWER.
+            continue;
+		}
+        Occupied[Index] = true;
+        Towers[Index] = TowerPtr;
+    }
+
+	for (const int32& Index : BoundaryIndices)
+    {
+        if (!BoundaryOccupied.IsValidIndex(Index))
+        {
+            continue; // Out of bounds, but it's okay for boundary
+        }
+        BoundaryOccupied[Index] += 1;
+    }
+
 	return true;
 }
 
@@ -195,17 +305,60 @@ bool AGridActor::RemoveTower(const FIntPoint& PivotPointIndex, const FRotator& R
         // Currently only supports rotation around Z axis
         return false;
     }
-    FIntPoint CornerGridIndex = PivotPointIndex - RotateOffset(TowerPtr->TowerInfo->PivotPoint, Rotation);
-    for (const FIntPoint& Offset : TowerPtr->TowerInfo->Footprint)
+    TArray<int32> FootprintIndices;
+    TArray<int32> BoundaryIndices;
+    GetTowerGridIndices(PivotPointIndex, Rotation, TowerPtr->TowerData, FootprintIndices, BoundaryIndices);
+
+    for (const int32& Index : FootprintIndices)
     {
-        FIntPoint TargetIndex = CornerGridIndex + RotateOffset(Offset, Rotation);
+        if (!Occupied.IsValidIndex(Index))
+        {
+            UE_LOG(LogTemp, Warning, TEXT("VERY SERIOUS: Footprint index out of bounds!"));
+            // IF THIS HAPPENS, MEANS CALLER DID NOT CHECK BOUNDS BEFORE PLACING TOWER.
+            continue;
+        }
 
-        int CalculatedIndex = TargetIndex.Y * GridSize.X + TargetIndex.X;
-
-        Occupied[CalculatedIndex] = false;
-        Towers[CalculatedIndex] = nullptr;
+        Occupied[Index] = false;
+        Towers[Index] = nullptr;
+    }
+    for (const int32& Index : BoundaryIndices)
+    {
+        if (!BoundaryOccupied.IsValidIndex(Index))
+        {
+            continue; // Out of bounds, but it's okay for boundary
+        }
+        BoundaryOccupied[Index] -= 1;
     }
     return true;
+}
+
+void AGridActor::LogGridState()
+{
+    FString Output = "=\n";
+    for (int Y = 0; Y < GridSize.Y; Y++)
+    {
+		for (int X = 0; X < GridSize.X; X++)
+        {
+            int CalculatedIndex = Y * GridSize.X + X;
+            if (Occupied.IsValidIndex(CalculatedIndex) && Occupied[CalculatedIndex])
+            {
+                Output += "X";
+            }
+            else
+            {
+				Output += FString::FromInt(BoundaryOccupied[CalculatedIndex]);
+            }
+            if (X == GridSize.X - 1)
+            {
+                Output += "\n";
+            }
+            else
+            {
+                Output += " ";
+            }
+        }
+    }
+	UE_LOG(LogTemp, Log, TEXT("%s"), *Output);
 }
 
 

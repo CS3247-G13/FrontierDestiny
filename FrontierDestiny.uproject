@@ -12,6 +12,7 @@
 				"Engine",
 				"DeveloperSettings",
 				"UMG"
+				"CoreUObject"
 			]
 		}
 	],
@@ -22,6 +23,10 @@
 			"TargetAllowList": [
 				"Editor"
 			]
+		},
+		{
+			"Name": "Landmass",
+			"Enabled": true
 		}
 	]
 }

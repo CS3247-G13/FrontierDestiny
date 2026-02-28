@@ -72,7 +72,7 @@ void AEthanCharacter::MoveCamera(const FInputActionValue& Value)
 	const FVector2D CameraVector = Value.Get<FVector2D>();
 	if (Controller)
 	{
-		AddControllerYawInput(CameraVector.X);
-		AddControllerPitchInput(CameraVector.Y);
+		AddControllerYawInput(CameraVector.X * CameraSensitivity.X);
+		AddControllerPitchInput(CameraVector.Y * CameraSensitivity.Y);
 	}
 }
