@@ -1,7 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "SingleTargetTowerActor.h"
-#include "EnemyActor.h"
+#include "BaseEnemyCharacter.h"
+#include "StatComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Components/SphereComponent.h"
 
@@ -12,21 +13,21 @@ ASingleTargetTowerActor::ASingleTargetTowerActor()
 	// Defaults
 	PrimaryActorTick.bCanEverTick = true;
 	TargetingMode = ETowerTargetingMode::Nearest;
-	TargetClassFilter = AEnemyActor::StaticClass();
+	TargetClassFilter = ABaseEnemyCharacter::StaticClass();
 }
 
 void ASingleTargetTowerActor::SelectTarget()
 {
-	AEnemyActor* BestEnemy = nullptr;
+	ABaseEnemyCharacter* BestEnemy = nullptr;
 	float MinValue = TNumericLimits<float>::Max();
 	float MaxValue = -TNumericLimits<float>::Max();
 
 	// 1. Cleanup and Evaluate inherited list
 	for (AActor*& Target : OverlappingTargets)
 	{
-		AEnemyActor* Enemy = Cast<AEnemyActor>(Target);
+		ABaseEnemyCharacter* Enemy = Cast<ABaseEnemyCharacter>(Target);
 
-		if (!IsValid(Enemy) || Enemy->CurrentHealth <= 0)
+		if (!IsValid(Enemy) || Enemy->StatComponent->GetStat(TEXT("HP")) <= 0)
 		{
 			// Removing it here will cause issues, just let the overlap check
 			// handle it
@@ -34,7 +35,7 @@ void ASingleTargetTowerActor::SelectTarget()
 		}
 
 		float DistanceToTower = FVector::Distance(Enemy->GetActorLocation(), GetActorLocation());
-		float Health = Enemy->CurrentHealth;
+		float Health = Enemy->StatComponent->GetStat(TEXT("HP"));
 		float Progress = 0.0f; // To be implemented in Enemy representing distance to base
 
 		switch (TargetingMode)
@@ -87,13 +88,13 @@ void ASingleTargetTowerActor::SelectTarget()
 		if (CurrentTarget == BestEnemy) return;
 
 		// Cast current target to handle enemy-specific delegate cleanup
-		if (AEnemyActor* OldEnemy = Cast<AEnemyActor>(CurrentTarget))
+		if (ABaseEnemyCharacter* OldEnemy = Cast<ABaseEnemyCharacter>(CurrentTarget))
 		{
-			OldEnemy->OnEnemyDied.RemoveDynamic(this, &ASingleTargetTowerActor::OnTargetDeath);
+			OldEnemy->OnDeath.RemoveDynamic(this, &ASingleTargetTowerActor::OnTargetDeath);
 		}
 
 		CurrentTarget = BestEnemy;
-		BestEnemy->OnEnemyDied.AddDynamic(this, &ASingleTargetTowerActor::OnTargetDeath);
+		BestEnemy->OnDeath.AddDynamic(this, &ASingleTargetTowerActor::OnTargetDeath);
 		return;
 	}
 

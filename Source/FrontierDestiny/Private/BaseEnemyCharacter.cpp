@@ -32,24 +32,18 @@ void ABaseEnemyCharacter::BeginPlay()
 	GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, FString::Printf(TEXT("Current Speed: %f"), speed));
 }
 
-// Called every frame
-void ABaseEnemyCharacter::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-}
-
-// Called to bind functionality to input
-void ABaseEnemyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
-}
-
 float ABaseEnemyCharacter::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	// apply modifiers
 	// prob some damage reduction thing
-	StatComponent->AddValue(TEXT("HP"), -DamageAmount);
-	return Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+	float Damage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+	
+	StatComponent->AddValue(TEXT("HP"), -Damage);
+	if (StatComponent->GetStat(TEXT("HP")) <= 0.f)
+	{
+		OnDeath.Broadcast();
+		Destroy();
+	}
+
+	return Damage;
 }
