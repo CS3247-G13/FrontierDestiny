@@ -38,6 +38,8 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	TObjectPtr<UInputAction> CameraAction;
 
+	UPROPERTY(EditAnywhere, Category = "Setup")
+	FVector2D CameraSensitivity = FVector2D(1.f, 1.f);
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;

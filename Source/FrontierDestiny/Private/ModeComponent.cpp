@@ -27,6 +27,11 @@ void UModeComponent::BeginPlay()
 	SetupInput(Pawn->InputComponent);
 
 	PlayerController = Pawn->GetController<APlayerController>();
+
+	if (bIsDefaultMode)
+	{
+		ActivateMode();
+	}
 }
 
 void UModeComponent::TickWhenActive()
@@ -85,5 +90,10 @@ void UModeComponent::DeactivateMode()
 void UModeComponent::SetupInput(UInputComponent* Input)
 {
 	// Do nothing by default
+}
+
+void UModeComponent::SetAsDefaultMode()
+{
+	bIsDefaultMode = true;
 }
 
