@@ -2,6 +2,7 @@
 
 #include "CoreActor.h"
 #include "GameFramework/PlayerController.h"
+#include "QuestSubsystem.h"
 #include "MainHUD.h"
 
 
@@ -20,6 +21,24 @@ void ACoreActor::BeginPlay()
             this,
             &ACoreActor::HandleInteraction
         );
+    }
+    if (CoreIndex == 0)
+    {
+        UQuestSubsystem* QuestSystem = GetGameInstance()->GetSubsystem<UQuestSubsystem>();
+
+        if (QuestSystem)
+        {
+            if (QuestSystem->AllQuests.Contains("Quest_One"))
+            {
+                QuestSystem->AllQuests["Quest_One"].Target = this;
+            }
+
+            if (QuestSystem->AllQuests.Contains("Quest_Two"))
+            {
+                QuestSystem->AllQuests["Quest_Two"].Target = this;
+            }
+
+        }
     }
 }
 
@@ -42,6 +61,14 @@ void ACoreActor::ActivateCore()
         this
     );
     OnCoreActivated.Broadcast(this);
+    UQuestSubsystem* QuestSystem = GetGameInstance()->GetSubsystem<UQuestSubsystem>();
+    if (QuestSystem)
+    {
+        if (QuestSystem->CurrentQuest.QuestID == "Quest_Two")
+        {
+            QuestSystem->CompleteObjective();
+        }
+    }
 }
 
 void ACoreActor::HandleInteraction(AActor* Interactor)
