@@ -45,6 +45,8 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void UpdateStats();
+	UFUNCTION(BlueprintCallable)
+	float GetStats(FGameplayTag Tag);
 
 protected:
 	UFUNCTION()

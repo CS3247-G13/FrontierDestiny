@@ -103,7 +103,10 @@ void ASingleTargetTowerActor::SelectTarget()
 
 void ASingleTargetTowerActor::OnTargetEnterOrLeaveRange()
 {
-	SelectTarget();
+	if (!IsValid(CurrentTarget))
+	{
+		SelectTarget();
+	}
 }
 
 void ASingleTargetTowerActor::OnTargetDeath()

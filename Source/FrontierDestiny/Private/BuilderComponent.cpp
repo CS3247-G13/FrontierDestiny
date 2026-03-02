@@ -95,7 +95,7 @@ void UBuilderComponent::TickWhenActive()
 
 	if (IsValid(ClosestGridActor))
 	{
-		ClosestGridActor->LogGridState();
+		// ClosestGridActor->LogGridState();
 	}
 
 	FHitResult Hit;
@@ -578,7 +578,7 @@ void UBuilderComponent::UpdateGhostStructureLocation()
 
 	if (IsValid(ClosestGridActor))
 	{
-		ClosestGridActor->GetTowerPlacementLocationFromGridIndex(CornerIndex, GetBuildingRotator(), Transform);
+		ClosestGridActor->GetTowerPlacementLocationFromGridIndex(CornerIndex, GetBuildingRotator(), SelectedTowerData, Transform);
 		GhostTowerActor->SetActorTransform(Transform, false, nullptr, ETeleportType::TeleportPhysics);
 	}
 	UpdatePostProcessComponentOccupancyBitmask();

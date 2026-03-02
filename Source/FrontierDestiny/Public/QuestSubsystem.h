@@ -2,13 +2,14 @@
 
 #pragma once
 
+#include "GameplayTagContainer.h"
+
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "QuestData.h"
 #include "QuestSubsystem.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnQuestUpdated);
-
 
 UCLASS()
 class FRONTIERDESTINY_API UQuestSubsystem : public UGameInstanceSubsystem

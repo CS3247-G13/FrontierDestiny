@@ -66,7 +66,7 @@ public:
 	bool GetWorldLocationFromGridIndex(const FIntPoint& GridIndex, const FRotator& Rotation, FVector& OutLocation) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
-	bool GetTowerPlacementLocationFromGridIndex(const FIntPoint& PivotPointIndex, const FRotator& Rotation, FTransform& OutTransform) const;
+	bool GetTowerPlacementLocationFromGridIndex(const FIntPoint& PivotPointIndex, const FRotator& Rotation, const FTowerData& TowerData, FTransform& OutTransform) const;
 
 	UFUNCTION(BlueprintPure, Category = "Tower Defense|Grid")
 	void GetTowerGridIndices(const FIntPoint& PivotPointIndex, const FRotator& Rotation, const FTowerData& TowerData, TArray<int32>& OutFootprintIndices, TArray<int32>& OutBoundaryIndices) const;

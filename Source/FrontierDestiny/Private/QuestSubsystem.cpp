@@ -44,7 +44,7 @@ void UQuestSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	UE_LOG(LogTemp, Warning, TEXT("Quest_One Initialized"));
 	FQuestData QuestOne;
 	QuestOne.QuestID = "Quest_One";
-	QuestOne.RequiredDistance = 500.f;
+	QuestOne.RequiredDistance = 900.f;
 	QuestOne.Title = FText::FromString("Find the core");
 	QuestOne.Description = FText::FromString("Use WASD to move and your mouse to look around and reach the core.");
 	QuestOne.Objectives = {
@@ -55,6 +55,7 @@ void UQuestSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	AllQuests.Add(QuestOne.QuestID, QuestOne);
 
 	UE_LOG(LogTemp, Warning, TEXT("Quest_Two Initialized"));
+
 	FQuestData QuestTwo;
 	QuestTwo.QuestID = "Quest_Two";
 	QuestTwo.Title = FText::FromString("Activate the core");
@@ -66,12 +67,11 @@ void UQuestSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	QuestTwo.ObjectiveType = EObjectiveType::Interact;
 	AllQuests.Add(QuestTwo.QuestID, QuestTwo);
 
-	UE_LOG(LogTemp, Warning, TEXT("Quest_Three Initialized"));
 	FQuestData QuestThree;
 	QuestThree.QuestID = "Quest_Three";
 	QuestThree.Title = FText::FromString("Enemies are coming!");
 	QuestThree.Description = FText::FromString("Build towers, Defend core.");
-	QuestThree.TimeLeft = 10;
+	QuestThree.TimeLeft = 60;
 	QuestThree.Objectives = {
 		FText::Format(
 			FText::FromString("Enemies coming in {0} seconds"),
@@ -88,7 +88,7 @@ void UQuestSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	QuestFour.QuestID = "Quest_Four";
 	QuestFour.Title = FText::FromString("Kill them all!");
 	QuestFour.Description = FText::FromString("Fight!");
-	QuestFour.RequiredKillCount = 10;
+	QuestFour.RequiredKillCount = 40;
 	QuestFour.Objectives = {
 		FText::Format(
 			FText::FromString("Enemies defeated: {0} / {1}"),
@@ -107,6 +107,12 @@ void UQuestSubsystem::RegisterEnemyKilled()
 	if(CurrentQuest.ObjectiveType == EObjectiveType::KillEnemies)
 	{
 		CurrentQuest.CurrentKillCount++;
+		CurrentQuest.Objectives[CurrentQuest.CurrentObjectiveIndex] = FText::Format(
+			FText::FromString("Enemies defeated: {0} / {1}"),
+			FText::AsNumber(CurrentQuest.CurrentKillCount),
+			FText::AsNumber(CurrentQuest.RequiredKillCount)
+		);
+
 		OnQuestUpdated.Broadcast();
 		if (CurrentQuest.CurrentKillCount >= CurrentQuest.RequiredKillCount)
 		{

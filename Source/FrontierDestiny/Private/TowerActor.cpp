@@ -198,6 +198,11 @@ void ATowerActor::UpdateStats()
 	}
 }
 
+float ATowerActor::GetStats(FGameplayTag Tag)
+{
+	return TowerData.Effects.Find(Tag)->Amount;
+}
+
 void ATowerActor::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);

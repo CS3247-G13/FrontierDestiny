@@ -2,6 +2,7 @@
 
 
 #include "BaseEnemyCharacter.h"
+#include "QuestSubsystem.h"
 #include "StatComponent.h"
 #include "EnemyModifier.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -41,6 +42,11 @@ float ABaseEnemyCharacter::TakeDamage(float DamageAmount, struct FDamageEvent co
 	StatComponent->AddValue(TEXT("HP"), -Damage);
 	if (StatComponent->GetStat(TEXT("HP")) <= 0.f)
 	{
+		UQuestSubsystem* QuestSubsystem = GetWorld()->GetGameInstance()->GetSubsystem<UQuestSubsystem>();
+		if (IsValid(QuestSubsystem))
+		{
+			QuestSubsystem->RegisterEnemyKilled();
+		}
 		OnDeath.Broadcast();
 		Destroy();
 	}

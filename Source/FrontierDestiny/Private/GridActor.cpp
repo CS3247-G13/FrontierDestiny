@@ -115,7 +115,7 @@ bool AGridActor::GetWorldLocationFromGridIndex(const FIntPoint& GridIndex, const
     return true;
 }
 
-bool AGridActor::GetTowerPlacementLocationFromGridIndex(const FIntPoint& PivotPointIndex, const FRotator& Rotation, FTransform& OutTransform) const
+bool AGridActor::GetTowerPlacementLocationFromGridIndex(const FIntPoint& PivotPointIndex, const FRotator& Rotation, const FTowerData& TowerData, FTransform& OutTransform) const
 {
     if (Rotation.Pitch != 0.f || Rotation.Roll != 0.f)
     {
@@ -125,14 +125,24 @@ bool AGridActor::GetTowerPlacementLocationFromGridIndex(const FIntPoint& PivotPo
 
     TSet<FVector> LocationsToCheck;
     FVector AddedLocation;
-    for (int i = 0; i < 2; i++)
+    
+    TArray<int32> FootprintIndices;
+    TArray<int32> BoundaryIndices;
+    GetTowerGridIndices(PivotPointIndex, Rotation, TowerData, FootprintIndices, BoundaryIndices);
+
+    for (const int32& Footprint : FootprintIndices)
     {
-        for (int j = 0; j < 2; j++)
+        FIntPoint Index(Footprint % GridSize.X, Footprint / GridSize.X);
+        for (int i = 0; i < 2; i++)
         {
-            GetWorldLocationFromGridIndex(PivotPointIndex + FIntPoint(i, j), FRotator::ZeroRotator, AddedLocation);
-            LocationsToCheck.Add(AddedLocation);
-        }
+            for (int j = 0; j < 2; j++)
+            {
+                GetWorldLocationFromGridIndex(Index + FIntPoint(i, j), FRotator::ZeroRotator, AddedLocation);
+                LocationsToCheck.Add(AddedLocation);
+            }
+        }    
     }
+
     GetCellCenterWorldLocationFromGridIndex(PivotPointIndex, AddedLocation);
     LocationsToCheck.Add(AddedLocation);
 
