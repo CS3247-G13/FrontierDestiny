@@ -12,6 +12,7 @@ enum class EObjectiveType : uint8
 	ReachDestination,
 	Interact,
 	KillEnemies,
+	Timer,
 };
 
 USTRUCT(BlueprintType)
@@ -40,7 +41,7 @@ public:
 	AActor* Target = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Quest")
-	bool IsCompleted = false;
+	bool bIsCompleted = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Quest")
 	FName NextQuestID;
@@ -57,9 +58,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 CurrentKillCount = 0;
 
-	// Not Implemented
-	// In enemy component, UQuestSubsystem* QuestSystem = GetGameInstance()->GetSubsystem<UQuestSubsytem>();
-	// QuestSystem->RegisterEnemyKilled();
-	//UFUNCTION(BlueprintCallable)
-	//void RegisterEnemyKilled();
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float TimeLeft = 0;
 };

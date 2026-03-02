@@ -14,34 +14,6 @@ ACoreActor::ACoreActor()
 void ACoreActor::BeginPlay()
 {
     Super::BeginPlay();
-<<<<<<< HEAD
-    if (InteractableComponent)
-    {
-        InteractableComponent->OnInteracted.AddDynamic(
-            this,
-            &ACoreActor::HandleInteraction
-        );
-    }
-    if (CoreIndex == 0)
-    {
-        UQuestSubsystem* QuestSystem = GetGameInstance()->GetSubsystem<UQuestSubsystem>();
-
-        if (QuestSystem)
-        {
-            if (QuestSystem->AllQuests.Contains("Quest_One"))
-            {
-                QuestSystem->AllQuests["Quest_One"].Target = this;
-            }
-
-            if (QuestSystem->AllQuests.Contains("Quest_Two"))
-            {
-                QuestSystem->AllQuests["Quest_Two"].Target = this;
-            }
-
-        }
-    }
-=======
->>>>>>> main
 }
 
 void ACoreActor::ApplyDamage(float Damage)
