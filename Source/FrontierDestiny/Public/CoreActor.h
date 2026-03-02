@@ -22,6 +22,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Core")
 	FCoreData CoreData;
 
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Core")
+	bool bIsCoreActive = false;
+
 	UPROPERTY(BlueprintAssignable, Category="Core")
 	FOnCoreHPChanged OnCoreHPChanged;
 
@@ -36,13 +39,6 @@ public:
 	
 	UFUNCTION(BlueprintCallable)
 	void ActivateCore();
-
-	UPROPERTY(VisibleAnywhere)
-	UInteractableComponent* InteractableComponent;
-
-	UFUNCTION()
-	void HandleInteraction(AActor* Interactor);
-
 
 protected:
 	virtual void BeginPlay() override;

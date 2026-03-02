@@ -216,7 +216,7 @@ void ATowerActor::DestroyTower()
 	// TODO: Do something to schedule a delete
 	GridActor->RemoveTower(
 		CornerGridIndex,
-		GetActorRotation(),
+		GridRelativeRotation,
 		this
 	);
 	Destroy();

@@ -27,7 +27,7 @@ void ASingleTargetTowerActor::SelectTarget()
 	{
 		ABaseEnemyCharacter* Enemy = Cast<ABaseEnemyCharacter>(Target);
 
-		if (!IsValid(Enemy) || Enemy->StatComponent->GetStat(TEXT("HP")) <= 0)
+		if (!IsValid(Enemy) || Enemy->StatComponent->GetStat(TEXT("HP")) <= 0 || !CanHitTarget(Enemy))
 		{
 			// Removing it here will cause issues, just let the overlap check
 			// handle it

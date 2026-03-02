@@ -9,12 +9,12 @@
 ACoreActor::ACoreActor()
 {
  	PrimaryActorTick.bCanEverTick = false;
-    InteractableComponent = CreateDefaultSubobject<UInteractableComponent>(TEXT("InteractableCompoennt"));
 }
 
 void ACoreActor::BeginPlay()
 {
     Super::BeginPlay();
+<<<<<<< HEAD
     if (InteractableComponent)
     {
         InteractableComponent->OnInteracted.AddDynamic(
@@ -40,6 +40,8 @@ void ACoreActor::BeginPlay()
 
         }
     }
+=======
+>>>>>>> main
 }
 
 void ACoreActor::ApplyDamage(float Damage)
@@ -55,11 +57,7 @@ void ACoreActor::ApplyDamage(float Damage)
 
 void ACoreActor::ActivateCore()
 {
-    UE_LOG(LogTemp, Warning,
-        TEXT("Broadcasting from instance %s | Address: %p"),
-        *GetName(),
-        this
-    );
+    bIsCoreActive = true;
     OnCoreActivated.Broadcast(this);
     UQuestSubsystem* QuestSystem = GetGameInstance()->GetSubsystem<UQuestSubsystem>();
     if (QuestSystem)
@@ -68,16 +66,5 @@ void ACoreActor::ActivateCore()
         {
             QuestSystem->CompleteObjective();
         }
-    }
-}
-
-void ACoreActor::HandleInteraction(AActor* Interactor)
-{
-    ActivateCore();
-
-    if (InteractableComponent)
-    {
-        InteractableComponent->DestroyComponent();
-        InteractableComponent = nullptr;
     }
 }

@@ -72,11 +72,11 @@ void AGridActor::OnConstruction(const FTransform& Transform)
 // THIS FUNCTION ASSUMES VERTICAL GRIDS ONLY, IF WE ROTATE THE GRID, UPDATE THIS FUNCTION
 bool AGridActor::GetSnappedGridIndex(const FVector& HitLocation, FIntPoint& OutGridIndex) const
 {
-    FVector ActorLocation = GetActorLocation();
+    FVector TransformedHitLocation = GetActorTransform().InverseTransformPosition(HitLocation);
 
     FIntPoint TempIndex;
-    TempIndex.X = FMath::Floor((HitLocation.X - ActorLocation.X) / CellSize);
-    TempIndex.Y = FMath::Floor((HitLocation.Y - ActorLocation.Y) / CellSize);
+    TempIndex.X = FMath::Floor((TransformedHitLocation.X) / CellSize);
+    TempIndex.Y = FMath::Floor((TransformedHitLocation.Y) / CellSize);
 	
     // Out of bounds
     if (TempIndex.X < 0 || TempIndex.X >= GridSize.X ||
@@ -91,17 +91,13 @@ bool AGridActor::GetSnappedGridIndex(const FVector& HitLocation, FIntPoint& OutG
 void AGridActor::GetCellCenterWorldLocationFromGridIndex(const FIntPoint& GridIndex, FVector& OutLocation) const
 {
     FVector ActorLocation = GetActorLocation();
-    FVector DefaultOffset = FVector{ -CellSize / 2.f, -CellSize / 2.f, 0.f };
-
+    FVector LocalOffset = FVector{ GridIndex.X * CellSize + CellSize / 2.f, GridIndex.Y * CellSize + CellSize / 2.f, 0.f };
     // Account for the rotation in order to get the correct corner of the cell
-    OutLocation = ActorLocation
-        + FVector{ GridIndex.X * CellSize, GridIndex.Y * CellSize, 0.f }
-        + -DefaultOffset;
+    OutLocation = GetActorTransform().TransformPosition(LocalOffset);
 }
 
 bool AGridActor::GetWorldLocationFromGridIndex(const FIntPoint& GridIndex, const FRotator& Rotation, FVector& OutLocation) const
 {
-    FVector ActorLocation = GetActorLocation();
 	FVector DefaultOffset = FVector{ -CellSize / 2.f, -CellSize / 2.f, 0.f };
 	FVector RotatedOffset = Rotation.RotateVector(DefaultOffset);
 
@@ -111,14 +107,15 @@ bool AGridActor::GetWorldLocationFromGridIndex(const FIntPoint& GridIndex, const
         return false;
     }
     // Account for the rotation in order to get the correct corner of the cell
-    OutLocation = ActorLocation 
-        + FVector{ GridIndex.X * CellSize, GridIndex.Y * CellSize, 0.f }
+    OutLocation = GetActorTransform().TransformPosition(
+        FVector{ GridIndex.X * CellSize, GridIndex.Y * CellSize, 0.f }
         + -DefaultOffset
-        + RotatedOffset;
+        + RotatedOffset);
+
     return true;
 }
 
-bool AGridActor::GetTowerPlacementLocationFromGridIndex(const FIntPoint& PivotPointIndex, const FRotator& Rotation, FVector& OutLocation) const
+bool AGridActor::GetTowerPlacementLocationFromGridIndex(const FIntPoint& PivotPointIndex, const FRotator& Rotation, FTransform& OutTransform) const
 {
     if (Rotation.Pitch != 0.f || Rotation.Roll != 0.f)
     {
@@ -154,7 +151,6 @@ bool AGridActor::GetTowerPlacementLocationFromGridIndex(const FIntPoint& PivotPo
         Params.AddIgnoredActor(this); // Ignore the grid itself
 
         bHit = GetWorld()->LineTraceSingleByChannel(Hit, Start, End, GridFloorChannel, Params);
-		DrawDebugLine(GetWorld(), Start, End, FColor::Green, false, 2.f, 0, 1.f);
         if (!bHit)
         {
             // There is no floor below the grid, this should not happen in a normal level, but just in case, we will return false to prevent tower placement.
@@ -168,8 +164,15 @@ bool AGridActor::GetTowerPlacementLocationFromGridIndex(const FIntPoint& PivotPo
         }
     }
 
+    FVector OutLocation;
     GetWorldLocationFromGridIndex(PivotPointIndex, Rotation, OutLocation);
     OutLocation.Z = LowestHeight;
+    
+    OutTransform.SetLocation(OutLocation);
+    
+    FQuat FinalRotation = Rotation.Quaternion() * GetActorRotation().Quaternion();
+    OutTransform.SetRotation(FinalRotation);
+    OutTransform.SetScale3D(FVector(1.f, 1.f, 1.f));
     return true;
 }
 

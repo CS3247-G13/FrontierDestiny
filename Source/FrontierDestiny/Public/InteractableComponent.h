@@ -19,6 +19,12 @@ public:
 
 	void Interact(AActor* Interactor);
 
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Setup")
+	bool bIsOneTimeUse;
+
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Setup")
+	bool bIsInteractable = true;
+
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;
@@ -29,5 +35,13 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Interaction")
 	FString InteractionText = "Press E to Interact";
-		
+	
+	UFUNCTION(BlueprintCallable)
+	void ActivateInteractable();
+
+	UFUNCTION(BlueprintCallable)
+	void DeactivateInteractable();
+
+	UFUNCTION(BlueprintCallable)
+	bool GetIsInteractable();
 };

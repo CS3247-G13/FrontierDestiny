@@ -62,6 +62,10 @@ void UInteractorComponent::CheckForInteractable()
 	if (bHit && Hit.GetActor())
 	{
 		NewInteractable = Hit.GetActor()->FindComponentByClass<UInteractableComponent>();
+		if (IsValid(NewInteractable) && !NewInteractable->GetIsInteractable())
+		{
+			NewInteractable = nullptr;
+		}
 	}
 
 	if (CurrentInteractable != NewInteractable)

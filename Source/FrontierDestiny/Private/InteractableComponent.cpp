@@ -8,6 +8,21 @@ void UInteractableComponent::BeginPlay()
     Super::BeginPlay();
 }
 
+void UInteractableComponent::ActivateInteractable()
+{
+	bIsInteractable = true;
+}
+
+void UInteractableComponent::DeactivateInteractable()
+{
+	bIsInteractable = false;
+}
+
+bool UInteractableComponent::GetIsInteractable()
+{
+	return bIsInteractable;
+}
+
 UInteractableComponent::UInteractableComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
@@ -15,7 +30,17 @@ UInteractableComponent::UInteractableComponent()
 
 void UInteractableComponent::Interact(AActor* Interactor)
 {
-	UE_LOG(LogTemp, Warning, TEXT("%s was interacted with!"),*GetOwner()->GetName());
-	OnInteracted.Broadcast(Interactor);
+	if (bIsInteractable)
+	{
+		OnInteracted.Broadcast(Interactor);
+		if (bIsOneTimeUse)
+		{
+			DestroyComponent();
+		}
+	}
+	else
+	{
+		return;
+	}
 }
 

@@ -51,6 +51,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadonly, Category = "Single Target Tower Properties")
 	TObjectPtr<ABaseEnemyCharacter> CurrentTarget;
 
+	UFUNCTION(BlueprintImplementableEvent)
+	bool CanHitTarget(ABaseEnemyCharacter* Target);
+
 	UFUNCTION()
 	void OnTargetDeath();
 
