@@ -28,8 +28,8 @@ void ABaseEnemyCharacter::BeginPlay()
 		StatComponent->ApplyModifier(Mod);
 	}
 	float speed = StatComponent->GetStat("Speed");
-	//GetCharacterMovement()->MaxWalkSpeed = StatComponent->GetStat(TEXT("Speed"));
-	GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, FString::Printf(TEXT("Current Speed: %f"), speed));
+	// GetCharacterMovement()->MaxWalkSpeed = StatComponent->GetStat(TEXT("Speed"));
+	// GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, FString::Printf(TEXT("Current Speed: %f"), speed));
 }
 
 float ABaseEnemyCharacter::TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)

@@ -2,6 +2,7 @@
 
 #include "CoreActor.h"
 #include "GameFramework/PlayerController.h"
+#include "QuestSubsystem.h"
 #include "MainHUD.h"
 
 
@@ -30,4 +31,12 @@ void ACoreActor::ActivateCore()
 {
     bIsCoreActive = true;
     OnCoreActivated.Broadcast(this);
+    UQuestSubsystem* QuestSystem = GetGameInstance()->GetSubsystem<UQuestSubsystem>();
+    if (QuestSystem)
+    {
+        if (QuestSystem->CurrentQuest.QuestID == "Quest_Two")
+        {
+            QuestSystem->CompleteObjective();
+        }
+    }
 }
