@@ -244,6 +244,7 @@ void UBuilderComponent::UpdatePostProcessComponentOffset()
 		UE_LOG(LogTemp, Display, TEXT("Closest Grid Actor: %s"), *ClosestGridActor->GetName());
 		GridVisualMID->SetVectorParameterValue(TEXT("Grid Offset"), ClosestGridActor->GetTransform().GetLocation());
 		GridVisualMID->SetVectorParameterValue(TEXT("Grid Size"), FVector(ClosestGridActor->ScaleX, ClosestGridActor->ScaleY, 0.f));
+		GridVisualMID->SetScalarParameterValue(TEXT("Grid Rotation"), ClosestGridActor->GetActorRotation().Yaw);
 	}
 }
 
@@ -466,11 +467,9 @@ bool UBuilderComponent::TryBuildTower()
 		}
 	}
 
-	FTransform SpawnTransform(GhostTowerActor->GetActorRotation(), GhostTowerActor->GetActorLocation());
-
 	ATowerActor* NewTower = GetWorld()->SpawnActorDeferred<ATowerActor>(
 		SelectedTowerData.Class.LoadSynchronous(),
-		SpawnTransform,
+		GhostTowerActor->GetTransform(),
 		GetOwner(),
 		Cast<APawn>(GetOwner()),
 		ESpawnActorCollisionHandlingMethod::AlwaysSpawn
@@ -479,10 +478,10 @@ bool UBuilderComponent::TryBuildTower()
 	if (NewTower)
 	{
 		NewTower->bIsGhost = false;
-		NewTower->FinishSpawning(SpawnTransform);
+		NewTower->FinishSpawning(GhostTowerActor->GetTransform());
 		NewTower->GridActor = ClosestGridActor;
 		NewTower->CornerGridIndex = CurrentGridLocationIndex;
-
+		NewTower->GridRelativeRotation = GetBuildingRotator();
 		UGameplayStatics::PlaySound2D(GetWorld(), BuildSound);
 	}
 	else
@@ -575,12 +574,12 @@ void UBuilderComponent::UpdateGhostStructureLocation()
 		FMath::RoundToInt(PivotPointToCornerIndexVector.Y)
 	);
 
-	FVector CornerLocation;
+	FTransform Transform;
 
 	if (IsValid(ClosestGridActor))
 	{
-		ClosestGridActor->GetTowerPlacementLocationFromGridIndex(CornerIndex, GetBuildingRotator(), CornerLocation);
-		GhostTowerActor->SetActorLocation(CornerLocation, false, nullptr, ETeleportType::TeleportPhysics);
+		ClosestGridActor->GetTowerPlacementLocationFromGridIndex(CornerIndex, GetBuildingRotator(), Transform);
+		GhostTowerActor->SetActorTransform(Transform, false, nullptr, ETeleportType::TeleportPhysics);
 	}
 	UpdatePostProcessComponentOccupancyBitmask();
 }
@@ -602,7 +601,8 @@ void UBuilderComponent::UpdateGhostStructureRotation()
 	// Snap to 90 degree increments
 	uint8 Increments = FMath::RoundToInt(LookAtYawRotation / 90.f) % 4;
 	BuildingRotationRelativeToBuilder = static_cast<ERotation>(Increments);
-	GhostTowerActor->SetActorRotation(GetBuildingRotator());
+	UpdateGhostStructureLocation();
+	// GhostTowerActor->SetActorRotation(GetBuildingRotator());
 }
 
 bool UBuilderComponent::TryRaycastToGrid(FHitResult& Hit)

@@ -95,6 +95,8 @@ public:
 	TObjectPtr<AGridActor> GridActor;
 	UPROPERTY()
 	FIntPoint CornerGridIndex;
+	UPROPERTY()
+	FRotator GridRelativeRotation;
 
 private:
 	UFUNCTION()

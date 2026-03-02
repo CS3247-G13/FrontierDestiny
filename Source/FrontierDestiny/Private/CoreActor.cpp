@@ -8,19 +8,11 @@
 ACoreActor::ACoreActor()
 {
  	PrimaryActorTick.bCanEverTick = false;
-    InteractableComponent = CreateDefaultSubobject<UInteractableComponent>(TEXT("InteractableCompoennt"));
 }
 
 void ACoreActor::BeginPlay()
 {
     Super::BeginPlay();
-    if (InteractableComponent)
-    {
-        InteractableComponent->OnInteracted.AddDynamic(
-            this,
-            &ACoreActor::HandleInteraction
-        );
-    }
 }
 
 void ACoreActor::ApplyDamage(float Damage)
@@ -36,21 +28,6 @@ void ACoreActor::ApplyDamage(float Damage)
 
 void ACoreActor::ActivateCore()
 {
-    UE_LOG(LogTemp, Warning,
-        TEXT("Broadcasting from instance %s | Address: %p"),
-        *GetName(),
-        this
-    );
+    bIsCoreActive = true;
     OnCoreActivated.Broadcast(this);
-}
-
-void ACoreActor::HandleInteraction(AActor* Interactor)
-{
-    ActivateCore();
-
-    if (InteractableComponent)
-    {
-        InteractableComponent->DestroyComponent();
-        InteractableComponent = nullptr;
-    }
 }
