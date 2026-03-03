@@ -35,7 +35,6 @@ void UTowerManagerSubsystem::LoadTowerDataFromDataTable()
 			TowerDataMap.Add(RowName, *Data);
 		}
 	}
-	UE_LOG(LogTemp, Log, TEXT("TowerManager: Initialized %d towers."), TowerDataMap.Num());
 }
 
 void UTowerManagerSubsystem::Deinitialize()

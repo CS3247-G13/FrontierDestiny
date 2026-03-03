@@ -2,6 +2,7 @@
 
 #include "ModeComponent.h"
 
+#include "PlayerManagerSubsystem.h"
 #include "Camera/CameraComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
@@ -95,5 +96,10 @@ void UModeComponent::SetupInput(UInputComponent* Input)
 void UModeComponent::SetAsDefaultMode()
 {
 	bIsDefaultMode = true;
+}
+
+FPlayerData& UModeComponent::GetPlayerData()
+{
+	return GetWorld()->GetGameInstance()->GetSubsystem<UPlayerManagerSubsystem>()->PlayerData;
 }
 

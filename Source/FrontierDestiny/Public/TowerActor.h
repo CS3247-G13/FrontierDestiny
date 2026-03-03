@@ -60,7 +60,7 @@ protected:
 	void OnTowerTick(float DeltaTime);
 
 	/** The detection radius for finding enemies */
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, BlueprintReadonly, Category = "Debug")
 	TObjectPtr<USphereComponent> RangeComponent;
 
 	/** List of actors currently inside the range */
@@ -82,12 +82,12 @@ public:
 	void SetGhostValidity(bool bNewIsValid);
 
 	/** Called when an actor enters or leaves the range of the tower */
-	UFUNCTION(Category = "Tower Functions")
-	virtual void OnTargetEnterOrLeaveRange();
+	UFUNCTION(BlueprintNativeEvent, Category = "Tower Functions")
+	void OnTargetEnterRange(AActor* Target);
 
 	/** The corresponding blueprint event for blueprints to implement */
-	UFUNCTION(BlueprintImplementableEvent, Category = "Tower Functions")
-	void OnTargetEnterOrLeaveRangeBP();
+	UFUNCTION(BlueprintNativeEvent, Category = "Tower Functions")
+	void OnTargetLeaveRange(AActor* Target);
 
 	/** Time interval between overlap checks (Optimization) */
 	UPROPERTY(EditAnywhere, Category = "Setup")
@@ -99,6 +99,8 @@ public:
 	FIntPoint CornerGridIndex;
 	UPROPERTY()
 	FRotator GridRelativeRotation;
+
+	virtual void ActivateTower();
 
 private:
 	UFUNCTION()
@@ -119,8 +121,6 @@ private:
 	void InitializeGhostTower();
 
 	void InitializeTower();
-
-	void ActivateTower();
 
 	bool bTowerIsInactive = true;
 };

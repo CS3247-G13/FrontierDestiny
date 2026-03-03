@@ -33,15 +33,13 @@ public:
 	ASingleTargetTowerActor();
 
 	/** Logic to evaluate and pick the best target based on the current TargetingMode */
+	UFUNCTION(BlueprintCallable)
 	void SelectTarget();
 
-	virtual void OnTargetEnterOrLeaveRange() override;
+	virtual void ActivateTower() override;
+	virtual void EndPlay(const EEndPlayReason::Type Reason) override;
 
 protected:
-
-	/** The collision sphere used to detect enemies in range */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	TObjectPtr<USphereComponent> RangeSphere;
 
 	/** The current priority logic for picking targets */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Single Target Tower Properties")
@@ -51,10 +49,16 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadonly, Category = "Single Target Tower Properties")
 	TObjectPtr<ABaseEnemyCharacter> CurrentTarget;
 
-	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
-	bool CanHitTarget(ABaseEnemyCharacter* Target);
-
-	UFUNCTION()
+	UFUNCTION(BlueprintNativeEvent)
 	void OnTargetDeath();
 
+	UFUNCTION(BlueprintNativeEvent)
+	bool CheckTargetVisible(ABaseEnemyCharacter* Target);
+
+	UFUNCTION(BlueprintNativeEvent)
+	void LoseSightOfTarget();
+	FTimerHandle TargetCheckTimer;
+
+	UFUNCTION()
+	void PerformCurrentTargetVisibilityCheck();
 };

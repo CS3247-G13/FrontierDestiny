@@ -3,6 +3,7 @@
 
 #include "StatComponent.h"
 #include "EnemyModifier.h"
+#include "EnemyManagerSubsystem.h"
 
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -23,14 +24,16 @@ UStatComponent::UStatComponent()
 void UStatComponent::BeginPlay()
 {
 	Super::BeginPlay();
+}
 
+void UStatComponent::InitializeStats()
+{
 	// initialise all values
 	for (auto& Pair : Attributes) {
 		Pair.Value.CurrentValue = Pair.Value.BaseValue;
 		RecalculateStat(Pair.Key);
 	}
 }
-
 
 // Called every frame
 void UStatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -63,7 +66,10 @@ void UStatComponent::RecalculateStat(FName StatName)
 		}
 	}
 	Attributes[StatName].CurrentMaxValue = NewValue;
-	Attributes[StatName].CurrentValue = FMath::Clamp(Attributes[StatName].CurrentValue, 0.0f, Attributes[StatName].CurrentMaxValue);
+	Attributes[StatName].CurrentValue = FMath::Clamp(
+		Attributes[StatName].CurrentValue,
+		0.0f, 
+		Attributes[StatName].CurrentMaxValue);
 	if (StatName == TEXT("Speed")) {
 		if (ACharacter* Owner = Cast<ACharacter>(GetOwner()))
 		{
@@ -75,5 +81,9 @@ void UStatComponent::RecalculateStat(FName StatName)
 void UStatComponent::AddValue(FName StatName, float Amount)
 {
 	if (!Attributes.Contains(StatName)) return;
-	Attributes[StatName].CurrentValue = FMath::Clamp(Attributes[StatName].CurrentValue + Amount, 0.0f, Attributes[StatName].CurrentMaxValue);
+	Attributes[StatName].CurrentValue = FMath::Clamp(
+		Attributes[StatName].CurrentValue + Amount, 
+		0.0f, 
+		Attributes[StatName].CurrentMaxValue);
 }
+

@@ -6,7 +6,6 @@
 #include "GameFramework/PlayerController.h"
 #include "TowerDemoPlayerController.generated.h"
 
-
 class UInputAction;
 struct FInputActionValue;
 class UInputMappingContext;

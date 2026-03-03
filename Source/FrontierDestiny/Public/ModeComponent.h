@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "PlayerData.h"
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "ModeComponent.generated.h"
@@ -41,6 +42,9 @@ public:
 
 	UFUNCTION()
 	void SetAsDefaultMode();
+
+	UFUNCTION()
+	FPlayerData& GetPlayerData();
 protected:
 	UPROPERTY(VisibleAnywhere, Category = "Debug")
 	bool bIsDefaultMode;

@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
+#include "EnemyManagerSubsystem.h"
 #include "BaseEnemyCharacter.h"
 #include "QuestSubsystem.h"
 #include "StatComponent.h"
@@ -24,6 +25,10 @@ ABaseEnemyCharacter::ABaseEnemyCharacter()
 void ABaseEnemyCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	StatComponent->Attributes = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>()->GetEnemyData(EnemyID).Attributes;
+	StatComponent->InitializeStats();
+
 	for (UEnemyModifier* Mod : StartingModifiers)
 	{
 		StatComponent->ApplyModifier(Mod);

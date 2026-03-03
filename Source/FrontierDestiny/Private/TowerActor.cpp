@@ -72,23 +72,9 @@ void ATowerActor::InitializeTower()
 		BuildTimerHandle,
 		this,
 		&ATowerActor::ActivateTower,
-		2.0f,
+		0.1f,
 		false
 	);
-
-	TArray<UPrimitiveComponent*> Components;
-	GetComponents<UPrimitiveComponent>(Components);
-
-	for (UPrimitiveComponent* PrimComp : Components)
-	{
-		if (PrimComp)
-		{
-			if (PrimComp == RangeComponent)
-			{
-				continue;
-			}
-		}
-	}
 }
 
 void ATowerActor::ActivateTower()
@@ -250,18 +236,13 @@ void ATowerActor::UpdateGhostMaterials()
 	}
 }
 
-void ATowerActor::OnTargetEnterOrLeaveRange()
-{
-	OnTargetEnterOrLeaveRangeBP();
-}
-
 void ATowerActor::OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	// Check if the actor is not a ghost, is valid, and matches our class filter
 	if (!bIsGhost && OtherActor && OtherActor != this && OtherActor->IsA(TargetClassFilter))
 	{
 		OverlappingTargets.Add(OtherActor);
-		OnTargetEnterOrLeaveRange();
+		OnTargetEnterRange(OtherActor);
 	}
 }
 
@@ -270,16 +251,14 @@ void ATowerActor::OnRangeEndOverlap(UPrimitiveComponent* OverlappedComp, AActor*
 	if (OtherActor)
 	{
 		OverlappingTargets.Remove(OtherActor);
-		OnTargetEnterOrLeaveRange();
+		OnTargetLeaveRange(OtherActor);
 	}
 }
 
+// In case the tower spawned next to an enemy for example
 void ATowerActor::CheckAllOverlaps()
 {
 	if (!RangeComponent || bIsGhost) return;
-
-	// 1. Clear current list
-	OverlappingTargets.Empty();
 
 	// 2. Get all currently overlapping actors
 	TArray<AActor*> CurrentlyOverlapping;
@@ -290,10 +269,31 @@ void ATowerActor::CheckAllOverlaps()
 	{
 		if (Actor && Actor != this)
 		{
-			OverlappingTargets.Add(Actor);
+			if (!OverlappingTargets.Contains(Actor))
+			{
+				OverlappingTargets.Add(Actor);
+				OnTargetEnterRange(Actor);
+			}
 		}
 	}
 
-	// 4. Update targeting state now that the list is refreshed
-	OnTargetEnterOrLeaveRange();
+	TSet<AActor*> NotOverlappingTargets;
+	for (AActor* Actor : OverlappingTargets)
+	{
+		if (!CurrentlyOverlapping.Contains(Actor))
+		{
+			NotOverlappingTargets.Add(Actor);
+		}
+	}
+	for (AActor* Actor : NotOverlappingTargets)
+	{
+		OverlappingTargets.Remove(Actor);
+		OnTargetLeaveRange(Actor);
+	}
 }
+
+void ATowerActor::OnTargetEnterRange_Implementation(AActor* Target)
+{ }
+
+void ATowerActor::OnTargetLeaveRange_Implementation(AActor* Target)
+{ }

@@ -2,7 +2,7 @@
 
 #include "CombatComponent.h"
 
-#include "UpgradeSubsystem.h"
+#include "PlayerManagerSubsystem.h"
 #include "Camera/CameraComponent.h"
 #include "Blueprint/UserWidget.h"
 #include "Kismet/GameplayStatics.h"
@@ -18,7 +18,7 @@ UCombatComponent::UCombatComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 
-	WeaponDataMap.Add(EWeaponType::Rifle, FWeaponData{
+	/*WeaponDataMap.Add(EWeaponType::Rifle, FWeaponData{
 		.Type = EWeaponType::Rifle,
 		.Damage = 10,
 		.FireRate = 3.33333f,
@@ -31,22 +31,12 @@ UCombatComponent::UCombatComponent()
 		.FireRate = 1.f,
 		.Spread = 1.5f,
 		.AmmoCost = 9
-		});
-
-	WeaponCooldowns.Add(EWeaponType::Rifle, 0.f);
-	WeaponCooldowns.Add(EWeaponType::Shotgun, 0.f);
+		});*/
 }
 
 void UCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
-	for (auto& Pair : WeaponCooldowns)
-	{
-		if (Pair.Value > SMALL_NUMBER)
-		{
-			Pair.Value = FMath::Max(0.f, Pair.Value - DeltaTime);
-		}
-	}
-
+	Cooldown= FMath::Max(0.f, Cooldown - DeltaTime);
 	RecoverRecoil(DeltaTime);
 }
 
@@ -60,71 +50,7 @@ void UCombatComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void UCombatComponent::ActivateMode()
 {
 	Super::ActivateMode();
-	OnCurrentBulletsChange.Broadcast(CurrentBullets, MaxBullets);
-}
-
-void UCombatComponent::OnUpgraded(const FUpgradeData& Upgrade)
-{
-	if (Upgrade.TargetID == "rifle" || Upgrade.TargetID == "shotgun")
-	{
-		FWeaponData& Data = WeaponDataMap[
-			Upgrade.TargetID == "rifle"
-				? EWeaponType::Rifle
-				: Upgrade.TargetID == "shotgun"
-				? EWeaponType::Shotgun
-				: EWeaponType::Rifle];
-
-		static const TArray<EUpgradeProperty> WeaponStatProperties = {
-			EUpgradeProperty::WeaponDamageAdded,
-			EUpgradeProperty::WeaponDamageMultiplier,
-			EUpgradeProperty::WeaponFireRateAdded,
-			EUpgradeProperty::WeaponFireRateMultiplier,
-			EUpgradeProperty::WeaponSpreadReduction,
-		};
-		
-		// Copy it so we can manipulate it to add defaults
-		TMap<EUpgradeProperty, float> Properties = Upgrade.Properties;
-		for (EUpgradeProperty Property : WeaponStatProperties)
-		{
-			if (!Properties.Contains(Property))
-			{
-				Properties.Add(Property, 0.f);
-			}
-		}
-		
-
-		// Apply the stat changes
-		Data.DamageAdded += Properties[EUpgradeProperty::WeaponDamageAdded];
-		Data.DamageMultiplier += Properties[EUpgradeProperty::WeaponDamageMultiplier];
-		Data.FireRateAdded += Properties[EUpgradeProperty::WeaponFireRateAdded];
-		Data.FireRateMultiplier += Properties[EUpgradeProperty::WeaponFireRateMultiplier];
-		Data.SpreadReduction += Properties[EUpgradeProperty::WeaponSpreadReduction];
-
-		return;
-	}
-
-	else if (Upgrade.TargetID == "player")
-	{
-		// Handle the player upgrade
-		static const TArray<EUpgradeProperty> PlayerStatProperties = {
-			EUpgradeProperty::PlayerAmmoReplenishRateAdded,
-			EUpgradeProperty::PlayerAmmoReplenishRateMultiplier
-		};
-		TMap<EUpgradeProperty, float> Properties = Upgrade.Properties;
-		for (EUpgradeProperty Property : PlayerStatProperties)
-		{
-			if (!Properties.Contains(Property))
-			{
-				Properties.Add(Property, 0.f);
-			}
-		}
-		
-		AmmoReplenishRateAdded += Properties[EUpgradeProperty::PlayerAmmoReplenishRateAdded];
-		AmmoReplenishRateMultiplier += Properties[EUpgradeProperty::PlayerAmmoReplenishRateMultiplier];
-
-		// The ammo replenish speed may have changed
-		UpdateBulletReplenishTimer();
-	}
+	OnCurrentBulletsChange.Broadcast(CurrentBullets, GetPlayerData().MaxBullets);
 }
 
 void UCombatComponent::SetupInput(UInputComponent* InputComponent)
@@ -134,37 +60,38 @@ void UCombatComponent::SetupInput(UInputComponent* InputComponent)
 	// Cast the internal InputComponent to the Enhanced version
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent))
 	{
-		if (TriggerAction)
+		if (PrimaryFireAction)
 		{
 			EnhancedInputComponent->BindAction(
-				TriggerAction,
+				PrimaryFireAction,
 				ETriggerEvent::Triggered,
 				this,
-				&UCombatComponent::OnTriggerAction
+				&UCombatComponent::OnFireAction,
+				EWeaponType::Rifle
 			);
 			EnhancedInputComponent->BindAction(
-				TriggerAction,
+				PrimaryFireAction,
 				ETriggerEvent::Started,
 				this,
-				&UCombatComponent::OnTriggerStartAction
+				&UCombatComponent::OnFireActionStart,
+				EWeaponType::Rifle
 			);
 		}
-		if (SwapWeaponAction)
+		if (SecondaryFireAction)
 		{
 			EnhancedInputComponent->BindAction(
-				SwapWeaponAction,
+				SecondaryFireAction,
 				ETriggerEvent::Triggered,
 				this,
-				&UCombatComponent::OnSwapWeaponAction
+				&UCombatComponent::OnFireAction,
+				EWeaponType::Shotgun
 			);
-		}
-		if (SelectWeaponAction)
-		{
 			EnhancedInputComponent->BindAction(
-				SelectWeaponAction,
-				ETriggerEvent::Triggered,
+				SecondaryFireAction,
+				ETriggerEvent::Started,
 				this,
-				&UCombatComponent::OnSelectWeaponAction
+				&UCombatComponent::OnFireActionStart,
+				EWeaponType::Shotgun
 			);
 		}
 	}
@@ -174,12 +101,17 @@ void UCombatComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	CurrentBullets = MaxBullets;
+	CurrentBullets = GetPlayerData().MaxBullets;
 	
 	UpdateBulletReplenishTimer();
 
-	UUpgradeManagerSubsystem* UpgradeManager = GetWorld()->GetGameInstance()->GetSubsystem<UUpgradeManagerSubsystem>();
-	UpgradeManager->OnUpgradePerformed.AddDynamic(this, &UCombatComponent::OnUpgraded);
+	if (UGameInstance* GI = GetWorld()->GetGameInstance())
+	{
+		if (UPlayerManagerSubsystem* PM = GI->GetSubsystem<UPlayerManagerSubsystem>())
+		{
+			PM->OnPlayerStatsChanged.AddDynamic(this, &UCombatComponent::OnPlayerStatsUpdated);
+		}
+	}
 }
 
 void UCombatComponent::UpdateBulletReplenishTimer()
@@ -189,64 +121,38 @@ void UCombatComponent::UpdateBulletReplenishTimer()
 		ReplenishBulletTimerHandle,
 		this,
 		&UCombatComponent::ReplenishBullet,
-		1.f / GetAmmoReplenishRate(),
+		1.f / GetPlayerData().GetAmmoReplenishRate(),
 		true
 	);
 }
 
 void UCombatComponent::ReplenishBullet()
 {
-	CurrentBullets = FMath::Min(CurrentBullets + 1, MaxBullets);
-	OnCurrentBulletsChange.Broadcast(CurrentBullets, MaxBullets);
+	CurrentBullets = FMath::Min(CurrentBullets + 1, GetPlayerData().MaxBullets);
+	OnCurrentBulletsChange.Broadcast(CurrentBullets, GetPlayerData().MaxBullets);
 }
 
-void UCombatComponent::OnTriggerStartAction(const FInputActionValue& Value)
+void UCombatComponent::OnFireActionStart(EWeaponType WeaponType)
 {
-	if (CurrentBullets < WeaponDataMap[CurrentWeapon].AmmoCost)
+	if (WeaponType != CurrentWeapon)
 	{
-		if (WeaponDataMap[CurrentWeapon].OutOfBulletsSound)
+		OnWeaponChange.Broadcast(WeaponType);
+		CurrentWeapon = WeaponType;
+	}
+
+	if (CurrentBullets < GetPlayerData().WeaponDataMap[CurrentWeapon].AmmoCost)
+	{
+		if (GetPlayerData().WeaponDataMap[CurrentWeapon].OutOfBulletsSound)
 		{
-			UGameplayStatics::PlaySound2D(GetWorld(), WeaponDataMap[CurrentWeapon].OutOfBulletsSound);
+			UGameplayStatics::PlaySound2D(GetWorld(), GetPlayerData().WeaponDataMap[CurrentWeapon].OutOfBulletsSound);
 		}
 	}
 }
 
-void UCombatComponent::OnSwapWeaponAction(const FInputActionValue& Value)
-{
-	SwapWeapon();
-}
-
-void UCombatComponent::OnSelectWeaponAction(const FInputActionValue& Value)
-{
-	int32 InputValue = FMath::RoundToInt32(Value.Get<float>());
-	uint8 WeaponIndex = static_cast<uint8>(FMath::Max(0, (InputValue - 1) % 2));
-	SelectWeapon(static_cast<EWeaponType>(WeaponIndex));
-}
-
-void UCombatComponent::SwapWeapon()
-{
-	SelectWeapon(static_cast<EWeaponType>((static_cast<uint8>(CurrentWeapon) + 1) % 2));
-}
-
-void UCombatComponent::SelectWeapon(EWeaponType WeaponType)
-{
-	// Supposed to play an animation and use a callback to reenable the shooting but here we are
-	CurrentWeapon = WeaponType;
-
-	// 1. Get the Enum as a UEnum pointer
-	const UEnum* EnumPtr = StaticEnum<EWeaponType>();
-
-	// 2. Convert the current value to a FString, then to TCHAR* for the log
-	FString WeaponName = EnumPtr->GetValueAsString(CurrentWeapon);
-	OnWeaponChange.Broadcast(CurrentWeapon);
-
-	UE_LOG(LogTemp, Display, TEXT("Changed weapon to %s"), *WeaponName);
-}
-
-void UCombatComponent::OnTriggerAction(const FInputActionValue& Value)
+void UCombatComponent::OnFireAction(EWeaponType WeaponType)
 {
 	// Check if can fire
-	if (WeaponCooldowns[CurrentWeapon] > SMALL_NUMBER)
+	if (Cooldown > SMALL_NUMBER)
 	{
 		return;
 	}
@@ -284,8 +190,8 @@ void UCombatComponent::Shoot()
 			for (int j = -1; j <= 1; j++)
 			{
 				// Convert angles to Radians for math functions
-				YawRad = FMath::DegreesToRadians(i * WeaponDataMap[CurrentWeapon].GetSpread());
-				PitchRad = FMath::DegreesToRadians(j * WeaponDataMap[CurrentWeapon].GetSpread());
+				YawRad = FMath::DegreesToRadians(i * GetPlayerData().WeaponDataMap[CurrentWeapon].GetSpread());
+				PitchRad = FMath::DegreesToRadians(j * GetPlayerData().WeaponDataMap[CurrentWeapon].GetSpread());
 
 				// Build the direction by adding offsets to the forward vector
 				// This stays consistent regardless of world orientation
@@ -305,7 +211,7 @@ void UCombatComponent::ShootDirection(FVector Direction)
 {
 	FHitResult Hit;
 	FVector TraceStart = Camera->GetComponentLocation();
-	FVector TraceEnd = TraceStart + Direction * WeaponDataMap[CurrentWeapon].Range;
+	FVector TraceEnd = TraceStart + Direction * GetPlayerData().WeaponDataMap[CurrentWeapon].Range;
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(Pawn);
 	GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ShootingTargetChannel, QueryParams);
@@ -313,34 +219,32 @@ void UCombatComponent::ShootDirection(FVector Direction)
 	if (Hit.bBlockingHit && IsValid(Hit.GetActor()))
 	{
 		FTransform SpawnTransform((-Direction).Rotation(), TraceStart + Direction * 100.f);
-		DrawDebugBox(GetWorld(), Hit.Location, FVector(5.f, 5.f, 5.f), FColor::Red, true, 1.f, 0, 1.f);
-		DrawDebugLine(GetWorld(), TraceStart, Hit.Location, FColor::Green, true, 1.f, 0, 0.1f);
-		UGameplayStatics::ApplyDamage(Hit.GetActor(), WeaponDataMap[CurrentWeapon].GetDamage(), PlayerController, Pawn, UDamageType::StaticClass());
+		UGameplayStatics::ApplyDamage(Hit.GetActor(), GetPlayerData().WeaponDataMap[CurrentWeapon].GetDamage(), PlayerController, Pawn, UDamageType::StaticClass());
 	}
 }
 
 bool UCombatComponent::TryConsumeBullets()
 {
-	if (CurrentBullets < WeaponDataMap[CurrentWeapon].AmmoCost)
+	if (CurrentBullets < GetPlayerData().WeaponDataMap[CurrentWeapon].AmmoCost)
 	{
 		return false;
 	}
-	CurrentBullets = FMath::Max(0, CurrentBullets - WeaponDataMap[CurrentWeapon].AmmoCost);
-	OnCurrentBulletsChange.Broadcast(CurrentBullets, MaxBullets);
+	CurrentBullets = FMath::Max(0, CurrentBullets - GetPlayerData().WeaponDataMap[CurrentWeapon].AmmoCost);
+	OnCurrentBulletsChange.Broadcast(CurrentBullets, GetPlayerData().MaxBullets);
 	return true;
 }
 
 void UCombatComponent::PlayTriggerSound()
 {
-	if (WeaponDataMap[CurrentWeapon].TriggerSound)
+	if (GetPlayerData().WeaponDataMap[CurrentWeapon].TriggerSound)
 	{
-		UGameplayStatics::PlaySound2D(GetWorld(), WeaponDataMap[CurrentWeapon].TriggerSound);
+		UGameplayStatics::PlaySound2D(GetWorld(), GetPlayerData().WeaponDataMap[CurrentWeapon].TriggerSound);
 	}
 }
 
 void UCombatComponent::Recoil()
 {
-	FWeaponData Data = WeaponDataMap[CurrentWeapon];
+	FWeaponData Data = GetPlayerData().WeaponDataMap[CurrentWeapon];
 	int Sign = FMath::RandBool() ? 1 : -1;
 	FVector2D NextOffset = CurrentOffset + FVector2D(Data.RecoilAmount.X * Sign, Data.RecoilAmount.Y);
 	NextOffset.X = FMath::Min(NextOffset.X, Data.MaxRecoilAmount.X);
@@ -352,14 +256,19 @@ void UCombatComponent::Recoil()
 
 void UCombatComponent::PutOnCooldown()
 {
-	WeaponCooldowns[CurrentWeapon] = 1.f / WeaponDataMap[CurrentWeapon].GetFireRate();
+	Cooldown = 1.f / GetPlayerData().WeaponDataMap[CurrentWeapon].GetFireRate();
 }
 
 void UCombatComponent::RecoverRecoil(float DeltaSeconds)
 {
-	FWeaponData Data = WeaponDataMap[CurrentWeapon];
+	FWeaponData Data = GetPlayerData().WeaponDataMap[CurrentWeapon];
 	float DeltaOffsetX = FMath::Min(CurrentOffset.X, Data.OffsetRecoverySpeed.X * DeltaSeconds);
 	float DeltaOffsetY = FMath::Min(CurrentOffset.Y, Data.OffsetRecoverySpeed.Y * DeltaSeconds);
 	CurrentOffset -= FVector2D(DeltaOffsetX, DeltaOffsetY);
 	Pawn->AddControllerPitchInput(DeltaOffsetY);
+}
+
+void UCombatComponent::OnPlayerStatsUpdated()
+{
+	UpdateBulletReplenishTimer();
 }

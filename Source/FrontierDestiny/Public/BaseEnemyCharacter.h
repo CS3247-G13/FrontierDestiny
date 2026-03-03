@@ -17,6 +17,9 @@ class FRONTIERDESTINY_API ABaseEnemyCharacter : public ACharacter
 	GENERATED_BODY()
 
 public:
+	UPROPERTY(EditAnywhere, Category = "Setup")
+	FName EnemyID;
+
 	// Sets default values for this character's properties
 	ABaseEnemyCharacter();
 

@@ -34,6 +34,13 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Upgrades")
 	TSoftObjectPtr<UDataTable> UpgradeDataTable;
 
+	UPROPERTY(Config, EditAnywhere, Category = "Upgrades")
+	TSoftObjectPtr<UDataTable> PlayerDataTable;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Upgrades")
+	TSoftObjectPtr<UDataTable> EnemyDataTable;
+
+
 	/** Helper to get the settings instance easily */
 	static const UGlobalTowerSettings* Get() { return GetDefault<UGlobalTowerSettings>(); }
 };

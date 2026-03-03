@@ -2,24 +2,13 @@
 
 #pragma once
 
+#include "EnemyData.h"
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "StatComponent.generated.h"
 
 //idk forward declare
 class UEnemyModifier;
-
-USTRUCT(BlueprintType)
-struct FEntityAttribute {
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere)
-	float BaseValue;
-
-	float CurrentMaxValue;
-
-	float CurrentValue;
-};
 
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class FRONTIERDESTINY_API UStatComponent : public UActorComponent
@@ -29,9 +18,10 @@ class FRONTIERDESTINY_API UStatComponent : public UActorComponent
 public:
 	// Sets default values for this component's properties
 	UStatComponent();
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	UPROPERTY(EditAnywhere, Category = "Setup")
 	TMap<FName, FEntityAttribute> Attributes;
 
+	void InitializeStats();
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	float GetStat(FName StatName) const {
 		//return Attributes.Contains(StatName) ? Attributes[StatName].CurrentValue : 0.0f;
@@ -57,7 +47,6 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	void AddValue(FName StatName, float Amount);
-
 protected:
 	// Called when the game starts
 	virtual void BeginPlay() override;

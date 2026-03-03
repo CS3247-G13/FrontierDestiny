@@ -31,7 +31,10 @@ void UBuilderComponent::BeginPlay()
 
 void UBuilderComponent::InitializeReferences()
 {
-	EconomyComponent = PlayerController->FindComponentByClass<UEconomyComponent>();
+	if (IsValid(PlayerController))
+	{
+		EconomyComponent = PlayerController->FindComponentByClass<UEconomyComponent>();
+	}
 	if (!IsValid(EconomyComponent))
 	{
 		UE_LOG(LogTemp, Warning,
@@ -611,7 +614,7 @@ bool UBuilderComponent::TryRaycastToGrid(FHitResult& Hit)
 
 	FVector Start = Camera->GetComponentLocation();
 	FVector ForwardVector = Camera->GetForwardVector();
-	float TraceDistance = BuildRange;
+	float TraceDistance = GetPlayerData().BuildRange;
 	FVector End = Start + (ForwardVector * TraceDistance);
 
 	FCollisionQueryParams TraceParams;
@@ -624,8 +627,6 @@ bool UBuilderComponent::TryRaycastToGrid(FHitResult& Hit)
 		ECC_GameTraceChannel1,
 		TraceParams
 	);
-
-	DrawDebugLine(GetWorld(), Start, Hit.Location, FColor::Red, false, 0.f, 0, 0.2f);
 
 	if (!IsValid(ClosestGridActor))
 	{
@@ -641,7 +642,7 @@ bool UBuilderComponent::TryRaycastToTower(FHitResult& Hit, ATowerActor*& HitTowe
 
 	FVector Start = Camera->GetComponentLocation();
 	FVector ForwardVector = Camera->GetForwardVector();
-	float TraceDistance = BuildRange;
+	float TraceDistance = GetPlayerData().BuildRange;
 	FVector End = Start + (ForwardVector * TraceDistance);
 
 	FCollisionQueryParams TraceParams;

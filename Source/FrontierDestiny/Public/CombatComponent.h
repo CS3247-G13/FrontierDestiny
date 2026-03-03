@@ -3,6 +3,7 @@
 #pragma once
 
 #include "ModeComponent.h"
+#include "PlayerData.h"
 
 #include "Upgrade.h"
 #include "CoreMinimal.h"
@@ -10,74 +11,6 @@
 #include "CombatComponent.generated.h"
 
 class UInputAction;
-
-UENUM(BlueprintType)
-enum class EWeaponType : uint8
-{
-	Rifle	UMETA(DisplayName = "Rifle"),
-	Shotgun	UMETA(DisplayName = "Shotgun")
-};
-
-USTRUCT(BlueprintType)
-struct FRONTIERDESTINY_API FWeaponData
-{
-	GENERATED_BODY()
-public:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-	EWeaponType Type = EWeaponType::Rifle;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-	int32 Damage = 0;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-	int32 DamageAdded = 0;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-	float DamageMultiplier = 1.f;
-	
-	int32 GetDamage()
-	{
-		return (Damage * DamageMultiplier) + DamageAdded;
-	}
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-	float FireRate = 1.f;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-	float FireRateAdded = 0.f;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-	float FireRateMultiplier = 1.f;
-
-	float GetFireRate()
-	{
-		return (FireRate * FireRateMultiplier) + FireRateAdded;
-	}
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-	float Spread = 1.5f;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-	float SpreadReduction = 0.f;
-
-	float GetSpread()
-	{
-		return FMath::Max(0.01f, Spread - SpreadReduction);
-	}
-
-	UPROPERTY(EditAnywhere, Category = "Weapon")
-	FVector2D RecoilAmount{ 0.0f, 0.4f };
-	UPROPERTY(EditAnywhere, Category = "Weapon")
-	FVector2D MaxRecoilAmount{ 0.0f, 1.f };
-	UPROPERTY(EditAnywhere, Category = "Weapon")
-	FVector2D OffsetRecoverySpeed{ 1.f, 3.f };
-
-	UPROPERTY(EditAnywhere, Category = "Weapon")
-	float Range = 10000.f;
-	
-	UPROPERTY(EditAnywhere, Category = "Weapon")
-	int32 AmmoCost = 1;
-
-	UPROPERTY(EditAnywhere, Category = "Weapon")
-	TObjectPtr<USoundBase> TriggerSound;
-	UPROPERTY(EditAnywhere, Category = "Weapon")
-	TObjectPtr<USoundBase> OutOfBulletsSound;
-};
 
 // This is for changing the cross hair when the weapon changes
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnWeaponChange, EWeaponType, Weapon);
@@ -103,7 +36,7 @@ public:
 
 protected:
 	UFUNCTION()
-	void OnUpgraded(const FUpgradeData& Upgrade);
+	void OnPlayerStatsUpdated();
 	
 	void UpdateBulletReplenishTimer();
 
@@ -115,32 +48,19 @@ protected:
 	void ReplenishBullet();
 
 	UPROPERTY(EditAnywhere, Category = "Setup")
-	TObjectPtr<UInputAction> TriggerAction;
+	TObjectPtr<UInputAction> PrimaryFireAction;
+	UPROPERTY(EditAnywhere, Category = "Setup")
+	TObjectPtr<UInputAction> SecondaryFireAction;
+
 	UPROPERTY(EditAnywhere, Category = "Setup")
 	TObjectPtr<UInputAction> SwapWeaponAction;
 	UPROPERTY(EditAnywhere, Category = "Setup")
 	TObjectPtr<UInputAction> SelectWeaponAction;
 
-	UPROPERTY(EditAnywhere, Category = "Setup")
-	float AmmoReplenishRate = 3.3333f;
-	UPROPERTY(EditAnywhere, Category = "Setup")
-	float AmmoReplenishRateAdded = 0.f;
-	UPROPERTY(EditAnywhere, Category = "Setup")
-	float AmmoReplenishRateMultiplier = 1.f;
-
-	float GetAmmoReplenishRate()
-	{
-		return (AmmoReplenishRate * AmmoReplenishRateMultiplier) + AmmoReplenishRateAdded;
-	}
-
 	UFUNCTION()
-	void OnTriggerAction(const FInputActionValue& Value);
+	void OnFireAction(EWeaponType WeaponType);
 	UFUNCTION()
-	void OnTriggerStartAction(const FInputActionValue& Value);
-	UFUNCTION()
-	void OnSwapWeaponAction(const FInputActionValue& Value);
-	UFUNCTION()
-	void OnSelectWeaponAction(const FInputActionValue& Value);
+	void OnFireActionStart(EWeaponType WeaponType);
 
 	// Code duplication intensifies
 	void Recoil();
@@ -151,16 +71,8 @@ protected:
 	void PlayTriggerSound();
 	void PutOnCooldown();
 
-	void SwapWeapon();
-	void SelectWeapon(EWeaponType WeaponType);
-
 	UPROPERTY(EditAnywhere, Category = "Setup")
 	TEnumAsByte<ECollisionChannel> ShootingTargetChannel = ECC_Pawn;
-	UPROPERTY(EditAnywhere, Category = "Setup")
-	int32 MaxBullets = 32;
-
-	UPROPERTY(EditAnywhere, Category = "Setup")
-	TMap<EWeaponType, FWeaponData> WeaponDataMap;
 
 	UPROPERTY(VisibleAnywhere, Category = "Debug")
 	EWeaponType CurrentWeapon = EWeaponType::Rifle;
@@ -169,7 +81,7 @@ protected:
 	int32 CurrentBullets;
 
 	UPROPERTY(VisibleAnywhere, Category = "Debug")
-	TMap<EWeaponType, float> WeaponCooldowns;
+	float Cooldown;
 
 	UPROPERTY(VisibleAnywhere, Category = "Debug")
 	FVector2D CurrentOffset;

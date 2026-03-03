@@ -16,6 +16,43 @@ ASingleTargetTowerActor::ASingleTargetTowerActor()
 	TargetClassFilter = ABaseEnemyCharacter::StaticClass();
 }
 
+void ASingleTargetTowerActor::ActivateTower()
+{
+	Super::ActivateTower();
+
+	GetWorldTimerManager().SetTimer(
+		TargetCheckTimer,
+		this,
+		&ASingleTargetTowerActor::PerformCurrentTargetVisibilityCheck,
+		0.2f,
+		false
+	);
+}
+
+void ASingleTargetTowerActor::EndPlay(const EEndPlayReason::Type Reason)
+{
+	GetWorldTimerManager().ClearTimer(TargetCheckTimer);
+	if (IsValid(CurrentTarget))
+	{
+		CurrentTarget->OnDeath.RemoveDynamic(this, &ASingleTargetTowerActor::OnTargetDeath);
+	}
+}
+
+void ASingleTargetTowerActor::PerformCurrentTargetVisibilityCheck()
+{
+	if (!IsValid(CurrentTarget))
+	{
+		return;
+	}
+
+	if (CheckTargetVisible(CurrentTarget))
+	{
+		return;
+	}
+
+	LoseSightOfTarget();
+}
+
 void ASingleTargetTowerActor::SelectTarget()
 {
 	ABaseEnemyCharacter* BestEnemy = nullptr;
@@ -27,10 +64,9 @@ void ASingleTargetTowerActor::SelectTarget()
 	{
 		ABaseEnemyCharacter* Enemy = Cast<ABaseEnemyCharacter>(Target);
 
-		if (!IsValid(Enemy) || Enemy->StatComponent->GetStat(TEXT("HP")) <= 0 || !CanHitTarget(Enemy))
+		// Enemy is already dead
+		if (!IsValid(Enemy) || Enemy->StatComponent->GetStat(TEXT("HP")) <= 0 || !CheckTargetVisible(Enemy))
 		{
-			// Removing it here will cause issues, just let the overlap check
-			// handle it
 			continue;
 		}
 
@@ -101,17 +137,22 @@ void ASingleTargetTowerActor::SelectTarget()
 	CurrentTarget = nullptr;
 }
 
-void ASingleTargetTowerActor::OnTargetEnterOrLeaveRange()
+bool ASingleTargetTowerActor::CheckTargetVisible_Implementation(ABaseEnemyCharacter* Target)
 {
-	if (!IsValid(CurrentTarget))
-	{
-		SelectTarget();
-	}
+	// Don't care if it is visible
+	return true;
 }
 
-void ASingleTargetTowerActor::OnTargetDeath()
+void ASingleTargetTowerActor::LoseSightOfTarget_Implementation()
 {
-	// CurrentTarget is cleared; the base class will handle list updates on next refresh or overlap end
+	// Find a new target
+	CurrentTarget = nullptr;
+	SelectTarget();
+}
+
+void ASingleTargetTowerActor::OnTargetDeath_Implementation()
+{
+	// Find a new target
 	CurrentTarget = nullptr;
 	SelectTarget();
 }
