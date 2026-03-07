@@ -28,6 +28,8 @@ struct FRONTIERDESTINY_API FTowerData : public FTableRowBase
 	GENERATED_BODY()
 	
 public:
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower")
+	FName TowerID;
 
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower")
 	TSoftClassPtr<ATowerActor> Class = nullptr;

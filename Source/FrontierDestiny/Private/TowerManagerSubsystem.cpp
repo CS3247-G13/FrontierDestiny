@@ -26,13 +26,11 @@ void UTowerManagerSubsystem::LoadTowerDataFromDataTable()
 
 	for (auto& Pair : RowMap)
 	{
-		FName RowName = Pair.Key;
-
 		FTowerData* Data = reinterpret_cast<FTowerData*>(Pair.Value);
 
 		if (Data)
 		{
-			TowerDataMap.Add(RowName, *Data);
+			TowerDataMap.Add(Data->TowerID, *Data);
 		}
 	}
 }
