@@ -9,7 +9,7 @@
 // Forward declarations to keep the header clean
 class ATowerActor;
 class ATowerDemoPlayerController;
-class UEconomyComponent;
+class UEconomySubsystem;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTowerSelected, FName, TowerID);
 
@@ -73,7 +73,7 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Tower Editor")
 	TObjectPtr<ATowerActor> SelectedTower;
 	UPROPERTY()
-	TObjectPtr<UEconomyComponent> EconomyComponent;
+	TObjectPtr<UEconomySubsystem> EconomyComponent;
 
 	/** Range that the editor can interact with towers from */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Editor Settings", meta = (AllowPrivateAccess = "true"))

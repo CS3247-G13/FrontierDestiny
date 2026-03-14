@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "ResourceAmount.h"
 #include "PlayerData.generated.h"
 
 UENUM(BlueprintType)
@@ -21,9 +22,9 @@ struct FRONTIERDESTINY_API FWeaponData
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
 	int32 Damage = 0;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
 	int32 DamageAdded = 0;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
 	float DamageMultiplier = 1.f;
 
 	int32 GetDamage()
@@ -33,9 +34,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
 	float FireRate = 1.f;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
 	float FireRateAdded = 0.f;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
 	float FireRateMultiplier = 1.f;
 
 	float GetFireRate()
@@ -45,7 +46,7 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
 	float Spread = 1.5f;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
 	float SpreadReduction = 0.f;
 
 	float GetSpread()
@@ -95,9 +96,102 @@ public:
 		return (AmmoReplenishRate * AmmoReplenishRateMultiplier) + AmmoReplenishRateAdded;
 	}
 
+	UPROPERTY(EditAnywhere, Category = "Economy")
+	FResourceAmount PassiveIncomePerSecond;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Builder")
 	float BuildRange = 10000.f;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float MovementSpeed = 600.f;
+
+	// Rupture Rounds
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Rupture Rounds")
+	float RuptureRoundsDamage = 15.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Rupture Rounds")
+	float RuptureRoundsRadius = 1.f;
+
+	// Suppressing Fire
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Suppressing Fire")
+	int32 SuppressingFireShotCount = 3;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Suppressing Fire")
+	float SuppressingFireTimeWindow = 2.f;
+
+	// Compounding Injury
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Compounding Injury")
+	float CompoundingInjuryDamagePerStack = 2.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Compounding Injury")
+	float CompoundingInjuryMaxBonus = 16.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Compounding Injury")
+	float CompoundingInjuryResetTime = 2.f;
+
+	// Arc Shots
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Arc Shots")
+	float ArcShotRange = 10.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Arc Shots")
+	float ArcShotDamage = 5.f;
+
+	// Conduit Marker
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Conduit Marker")
+	float ConduitMarkerDuration = 4.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Conduit Marker")
+	float ConduitMarkerRange = 10.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Conduit Marker")
+	float ConduitMarkerArcDamage = 1.f;
+
+	// Stagger Shells
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Stagger Shells")
+	float StaggerShellsRange = 6.f;
+
+	// Ballistic Recall
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Ballistic Recall")
+	float BallisticRecallRange = 6.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Ballistic Recall")
+	int32 BallisticRecallAmmoRegain = 4;
+
+	// Slug Conversion
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Slug Conversion")
+	float SlugConversionDamage = 60.f;
+
+	// Devastating Blow
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Devastating Blow")
+	float DevastatingBlowHPThreshold = 50.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Devastating Blow")
+	float DevastatingBlowMultiplier = 1.5f;
+
+	// Rifle upgrades
+	UPROPERTY(BlueprintReadOnly, Category = "Upgrades|Rifle")
+	bool bPiercingShots = false;
+	UPROPERTY(BlueprintReadOnly, Category = "Upgrades|Rifle")
+	bool bRuptureRounds = false;
+	UPROPERTY(BlueprintReadOnly, Category = "Upgrades|Rifle")
+	bool bSuppressingFire = false;
+	UPROPERTY(BlueprintReadOnly, Category = "Upgrades|Rifle")
+	bool bCompoundingInjury = false;
+	UPROPERTY(BlueprintReadOnly, Category = "Upgrades|Rifle")
+	bool bArcShots = false;
+	UPROPERTY(BlueprintReadOnly, Category = "Upgrades|Rifle")
+	bool bConduitMarker = false;
+
+	// Shotgun upgrades
+	UPROPERTY(BlueprintReadOnly, Category = "Upgrades|Shotgun")
+	bool bInfernoCartridge = false;
+	UPROPERTY(BlueprintReadOnly, Category = "Upgrades|Shotgun")
+	bool bFlakBarrel = false;
+	UPROPERTY(BlueprintReadOnly, Category = "Upgrades|Shotgun")
+	bool bStaggerShells = false;
+	UPROPERTY(BlueprintReadOnly, Category = "Upgrades|Shotgun")
+	bool bBallisticRecall = false;
+	UPROPERTY(BlueprintReadOnly, Category = "Upgrades|Shotgun")
+	bool bSlugConversion = false;
+	UPROPERTY(BlueprintReadOnly, Category = "Upgrades|Shotgun")
+	bool bDevastatingBlow = false;
+
+	// Ammo upgrades
+	UPROPERTY(BlueprintReadOnly, Category = "Upgrades|Ammo")
+	bool bBulletReservoir1 = false;
+	UPROPERTY(BlueprintReadOnly, Category = "Upgrades|Ammo")
+	bool bBulletReservoir2 = false;
+	UPROPERTY(BlueprintReadOnly, Category = "Upgrades|Ammo")
+	bool bBulletReservoir3 = false;
 };

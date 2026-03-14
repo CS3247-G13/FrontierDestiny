@@ -10,7 +10,7 @@
 #include "EnhancedInputComponent.h"
 #include "InputMappingContext.h"
 
-#include "EconomyComponent.h"
+#include "EconomySubsystem.h"
 #include "TowerActor.h"
 #include "TowerData.h"
 #include "GridActor.h"
@@ -31,14 +31,10 @@ void UBuilderComponent::BeginPlay()
 
 void UBuilderComponent::InitializeReferences()
 {
-	if (IsValid(PlayerController))
-	{
-		EconomyComponent = PlayerController->FindComponentByClass<UEconomyComponent>();
-	}
+	EconomyComponent = GetWorld()->GetGameInstance()->GetSubsystem<UEconomySubsystem>();
 	if (!IsValid(EconomyComponent))
 	{
-		UE_LOG(LogTemp, Warning,
-			TEXT("BuilderComponent on %s could not find an economy component on its player controller owner."), *GetName());
+		UE_LOG(LogTemp, Warning, TEXT("BuilderComponent on %s could not find EconomySubsystem."), *GetName());
 	}
 }
 
@@ -464,7 +460,7 @@ bool UBuilderComponent::TryBuildTower()
 
 	if (IsValid(EconomyComponent))
 	{
-		if (EconomyComponent->TryDeductFunds(SelectedTowerData.Cost) == false)
+		if (!EconomyComponent->TryDeductFunds(SelectedTowerData.Cost))
 		{
 			return false;
 		}
@@ -552,7 +548,7 @@ bool UBuilderComponent::CheckTowerCanBePlaced()
 
 	if (IsValid(EconomyComponent))
 	{
-		if (SelectedTowerData.Cost > 0 && !(EconomyComponent->HasSufficientFunds(SelectedTowerData.Cost)))
+		if (!SelectedTowerData.Cost.IsZero() && !EconomyComponent->HasSufficientFunds(SelectedTowerData.Cost))
 		{
 			return false;
 		}

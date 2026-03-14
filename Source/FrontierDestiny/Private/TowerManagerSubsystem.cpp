@@ -26,13 +26,16 @@ void UTowerManagerSubsystem::LoadTowerDataFromDataTable()
 
 	for (auto& Pair : RowMap)
 	{
-		FName RowName = Pair.Key;
-
 		FTowerData* Data = reinterpret_cast<FTowerData*>(Pair.Value);
 
 		if (Data)
 		{
-			TowerDataMap.Add(RowName, *Data);
+			if (Data->ID.IsNone())
+			{
+				UE_LOG(LogTemp, Warning, TEXT("TowerManager: Row '%s' has no ID set — skipping."), *Pair.Key.ToString());
+				continue;
+			}
+			TowerDataMap.Add(Data->ID, *Data);
 		}
 	}
 }
