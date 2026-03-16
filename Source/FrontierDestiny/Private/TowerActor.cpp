@@ -205,11 +205,11 @@ void ATowerActor::DestroyTower()
 {
 	bTowerIsInactive = true;
 	// TODO: Do something to schedule a delete
-	GridActor->RemoveTower(
-		CornerGridIndex,
-		GridRelativeRotation,
-		this
-	);
+	FTowerPlacementIntent Placement;
+	Placement.PivotPoint = CornerGridIndex;
+	Placement.Rotation = GridRelativeRotation;
+	Placement.TowerData = TowerData;
+	GridActor->RemoveTower(Placement);
 	Destroy();
 }
 
