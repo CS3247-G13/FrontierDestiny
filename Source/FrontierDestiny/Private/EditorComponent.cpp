@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "EditorComponent.h"
-#include "EconomyComponent.h"
+#include "EconomySubsystem.h"
 #include "TowerActor.h"
 #include "TowerDemoPlayerController.h"
 #include "Camera/CameraComponent.h"

@@ -186,7 +186,13 @@ void ATowerActor::UpdateStats()
 
 float ATowerActor::GetStats(FGameplayTag Tag)
 {
-	return TowerData.Effects.Find(Tag)->Amount;
+	const FTowerEffect* Effect = TowerData.Effects.Find(Tag);
+	if (!Effect)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("GetStats: Tag '%s' not found on tower '%s'. Returning 0."), *Tag.ToString(), *GetName());
+		return 0.f;
+	}
+	return Effect->Amount;
 }
 
 void ATowerActor::Tick(float DeltaSeconds)

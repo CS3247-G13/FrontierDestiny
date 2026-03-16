@@ -167,8 +167,6 @@ bool AGridActor::GetTowerPlacementLocationFromGridIndex(const FTowerPlacementInt
         {
             LowestHeight = Hit.Location.Z;
         }
-
-        DrawDebugLine(GetWorld(), Start, Hit.Location, FColor::Red, false, 0.f, 0, 1.0f);
     }
 
     FVector OutLocation;

@@ -7,7 +7,7 @@
 #include "BuilderComponent.generated.h"
 
 class UTowerData;
-class UEconomyComponent;
+class UEconomySubsystem;
 class ATowerActor;
 class AGridActor;
 
@@ -214,5 +214,5 @@ public:
 	}
 	
 	UPROPERTY(VisibleInstanceOnly, Category = "References")
-	TObjectPtr<UEconomyComponent> EconomyComponent;
+	TObjectPtr<UEconomySubsystem> EconomyComponent;
 };

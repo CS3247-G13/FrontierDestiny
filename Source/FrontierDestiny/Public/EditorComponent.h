@@ -9,7 +9,7 @@
 // Forward declarations to keep the header clean
 class ATowerActor;
 class ATowerDemoPlayerController;
-class UEconomyComponent;
+class UEconomySubsystem;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTowerSelected, FName, TowerID);
 

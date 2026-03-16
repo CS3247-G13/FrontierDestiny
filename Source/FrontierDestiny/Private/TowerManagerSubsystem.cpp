@@ -30,7 +30,12 @@ void UTowerManagerSubsystem::LoadTowerDataFromDataTable()
 
 		if (Data)
 		{
-			TowerDataMap.Add(Data->TowerID, *Data);
+			if (Data->ID.IsNone())
+			{
+				UE_LOG(LogTemp, Warning, TEXT("TowerManager: Row '%s' has no ID set — skipping."), *Pair.Key.ToString());
+				continue;
+			}
+			TowerDataMap.Add(Data->ID, *Data);
 		}
 	}
 }

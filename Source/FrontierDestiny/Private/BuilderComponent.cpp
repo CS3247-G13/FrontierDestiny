@@ -10,7 +10,7 @@
 #include "EnhancedInputComponent.h"
 #include "InputMappingContext.h"
 
-#include "EconomyComponent.h"
+#include "EconomySubsystem.h"
 #include "TowerActor.h"
 #include "TowerData.h"
 #include "GridActor.h"
@@ -51,14 +51,10 @@ void UBuilderComponent::InitializeGhostPool()
 
 void UBuilderComponent::InitializeReferences()
 {
-	if (IsValid(PlayerController))
-	{
-		EconomyComponent = PlayerController->FindComponentByClass<UEconomyComponent>();
-	}
+	EconomyComponent = GetWorld()->GetGameInstance()->GetSubsystem<UEconomySubsystem>();
 	if (!IsValid(EconomyComponent))
 	{
-		UE_LOG(LogTemp, Warning,
-			TEXT("BuilderComponent on %s could not find an economy component on its player controller owner."), *GetName());
+		UE_LOG(LogTemp, Warning, TEXT("BuilderComponent on %s could not find EconomySubsystem."), *GetName());
 	}
 }
 
@@ -587,7 +583,7 @@ void UBuilderComponent::DisplayGhostTower(const FIntPoint& PivotPointIndex, cons
 {
 	ATowerActor* GhostTowerActor;
 
-	FGhostTowerPool* Pool = GhostTowerPool.Find(TowerData.TowerID);
+	FGhostTowerPool* Pool = GhostTowerPool.Find(TowerData.ID);
 	if (Pool->Actors.Num() <= GhostTowerIndex)
 	{
 		FActorSpawnParameters SpawnParams;
