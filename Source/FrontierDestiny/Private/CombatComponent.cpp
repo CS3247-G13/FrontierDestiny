@@ -13,6 +13,14 @@
 
 #include "Engine/DamageEvents.h"
 
+// For MassEntity damage
+#include "MassEntityTypes.h"
+#include "MassEntitySubsystem.h"
+#include "MassEntityManager.h"
+#include "MassCommandBuffer.h"
+#include "MassRepresentationSubsystem.h"
+#include "Components/InstancedStaticMeshComponent.h"
+
 // Sets default values for this component's properties
 UCombatComponent::UCombatComponent()
 {
@@ -220,6 +228,55 @@ void UCombatComponent::ShootDirection(FVector Direction)
 	{
 		FTransform SpawnTransform((-Direction).Rotation(), TraceStart + Direction * 100.f);
 		UGameplayStatics::ApplyDamage(Hit.GetActor(), GetPlayerData().WeaponDataMap[CurrentWeapon].GetDamage(), PlayerController, Pawn, UDamageType::StaticClass());
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("HIT"));
+	// Try to hit MassEntity
+	{
+		// Handle to the hit entity
+		FMassEntityHandle Handle;
+
+		// Cast the hit component to ISMC
+		UInstancedStaticMeshComponent* HitISMC = Cast<UInstancedStaticMeshComponent>(Hit.GetComponent());
+		
+		if (!HitISMC) return;
+		
+		// Reverse map the ISMC to FMassEntityHandle
+		UMassRepresentationSubsystem* RepSubsystem = GetWorld()->GetSubsystem<UMassRepresentationSubsystem>();
+		if (!RepSubsystem) return;
+		
+		const FMassISMCSharedData* SharedData = RepSubsystem->GetISMCSharedDataForInstancedStaticMesh(HitISMC);
+		
+		if (SharedData)
+		{
+			for (const auto& Pair : SharedData->GetEntityPrimitiveToIdMap())
+			{
+				if (HitISMC->GetInstanceIndexForId(Pair.Value) == Hit.Item)
+				{
+					Handle = Pair.Key;
+				}
+			}
+		}
+		if (!Handle.IsValid()) return;
+
+		// Handle exists
+		UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
+
+		if (EntitySubsystem)
+		{
+			// 1. Access the EntityManager from the Subsystem
+			const FMassEntityManager& EntityManager = EntitySubsystem->GetEntityManager();
+
+			// 2. Use Defer() to get the system-managed Command Buffer
+			FMassCommandBuffer& CommandBuffer = EntityManager.Defer();
+
+			// 3. Queue the specific handle for destruction
+			CommandBuffer.DestroyEntity(Handle);
+
+			// 3a. Add Damage instead
+			//CommandBuffer.AddFragment<FDamageFragment>(EntityWrapper.Handle);
+		}
+
 	}
 }
 
