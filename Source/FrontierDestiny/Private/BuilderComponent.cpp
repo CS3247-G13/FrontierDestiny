@@ -74,6 +74,16 @@ void UBuilderComponent::SetupInput(UInputComponent* InputComponent)
 				&UBuilderComponent::OnSelectTowerAction
 			);
 		}
+		
+		if (DeselectTowerAction)
+		{
+			EnhancedInputComponent->BindAction(
+				DeselectTowerAction,
+				ETriggerEvent::Started,
+				this,
+				&UBuilderComponent::OnDeselectTowerAction
+			);
+		}
 
 		if (BuildTowerAction)
 		{
@@ -307,6 +317,8 @@ void UBuilderComponent::ActivateMode()
 	Super::ActivateMode();
 	CheckForClosestGridActor();
 	EnterGridVisual();
+
+	OnDeselectTowerAction(FInputActionValue());
 }
 
 void UBuilderComponent::DeactivateMode()
@@ -342,17 +354,94 @@ void UBuilderComponent::OnBuildTowerActionEnd(const FInputActionValue& Value)
 
 void UBuilderComponent::OnSelectTowerAction(const FInputActionValue& Value)
 {
-	int32 KeyNumber = FMath::RoundToInt(Value.Get<float>());
-	if (KeyNumber <= AvailableTowers.Num() && KeyNumber > 0)
+	UTowerManagerSubsystem* TowerManager;
+	
+	UGameInstance* GI = GetWorld()->GetGameInstance();
+	if (!GI)
 	{
-		if (SelectedTower.IsSet() && AvailableTowers[KeyNumber - 1] == SelectedTower.GetValue())
+		return;
+	}
+	TowerManager = GI->GetSubsystem<UTowerManagerSubsystem>();
+	if (!TowerManager)
+	{
+		return;
+	}
+	
+
+	int32 KeyNumber = FMath::RoundToInt(Value.Get<float>());
+	if (KeyNumber <= 3 && KeyNumber > 0)
+	{
+		SelectedPath.Add(KeyNumber);
+		
+		// Dear tower manager, is there anything there?
+		if (!TowerManager->CheckPathUnlocked(SelectedPath))
 		{
-			// Deselect if the same tower is selected again
-			ChangeTowerSelection(TOptional<FName>());
+			SelectedPath.RemoveAt(SelectedPath.Num() - 1);
 			return;
 		}
-		ChangeTowerSelection(AvailableTowers[KeyNumber - 1]);
+		
+		// Else, select the tower, then display the next 3 available towers
+		const TMap<int32, FTowerData>& NextTowers = TowerManager->GetPathNextTowers(SelectedPath);
+
+		FTowerDisplay MainTower = {
+			.Present = true,
+			.Data = TowerManager->GetPathTower(SelectedPath)
+		};
+		FTowerDisplay NextTower1 = {
+			.Present = NextTowers.Contains(1),
+			.Data = NextTowers.FindRef(1)
+		};
+		FTowerDisplay NextTower2 = {
+			.Present = NextTowers.Contains(2),
+			.Data = NextTowers.FindRef(2)
+		};
+		FTowerDisplay NextTower3 = {
+			.Present = NextTowers.Contains(3),
+			.Data = NextTowers.FindRef(3)
+		};
+		OnTowerSelectionChange.Broadcast(MainTower, NextTower1, NextTower2, NextTower3);
+		ChangeTowerSelection(TOptional<FName>(MainTower.Data.ID));
 	}
+}
+
+void UBuilderComponent::OnDeselectTowerAction(const FInputActionValue& Value)
+{
+
+	OnTowerBuildingNotification.Broadcast("");
+
+	UTowerManagerSubsystem* TowerManager;
+
+	UGameInstance* GI = GetWorld()->GetGameInstance();
+	if (!GI)
+	{
+		return;
+	}
+	TowerManager = GI->GetSubsystem<UTowerManagerSubsystem>();
+	if (!TowerManager)
+	{
+		return;
+	}
+
+	SelectedPath.Empty();
+	ChangeTowerSelection(TOptional<FName>()); 
+
+	const TMap<int32, FTowerData>& NextTowers = TowerManager->GetPathNextTowers(SelectedPath);
+	FTowerDisplay MainTower = {
+		.Present = false
+	};
+	FTowerDisplay NextTower1 = {
+		.Present = NextTowers.Contains(1),
+		.Data = NextTowers.FindRef(1)
+	};
+	FTowerDisplay NextTower2 = {
+		.Present = NextTowers.Contains(2),
+		.Data = NextTowers.FindRef(2)
+	};
+	FTowerDisplay NextTower3 = {
+		.Present = NextTowers.Contains(3),
+		.Data = NextTowers.FindRef(3)
+	};
+	OnTowerSelectionChange.Broadcast(MainTower, NextTower1, NextTower2, NextTower3);
 }
 
 void UBuilderComponent::OnRotateTowerAction(const FInputActionValue& Value)
@@ -608,7 +697,26 @@ void UBuilderComponent::DisplayGhostTower(const FIntPoint& PivotPointIndex, cons
 		Placement.TowerData = TowerData;
 		ClosestGridActor->GetTowerPlacementLocationFromGridIndex(Placement, Transform);
 		GhostTowerActor->SetActorTransform(Transform, false, nullptr, ETeleportType::TeleportPhysics);
-		bool bCanPlaceTower = ClosestGridActor->CanPlaceTower(Placement);
+
+		bool bCanPlaceTower = false;
+		if (UGameInstance* GI = GetWorld()->GetGameInstance())
+		{
+			if (UEconomySubsystem* Economy = GI->GetSubsystem<UEconomySubsystem>())
+			{
+				bCanPlaceTower = Economy->HasSufficientFunds(TowerData.Cost);
+			}
+		}
+
+		if (!bCanPlaceTower)
+		{
+			OnTowerBuildingNotification.Broadcast("Insufficient funds");
+		}
+		else
+		{
+			OnTowerBuildingNotification.Broadcast("");
+		}
+
+		bCanPlaceTower &= ClosestGridActor->CanPlaceTower(Placement);
 		if (!bCanPlaceTower)
 		{
 			GhostTowerActor->SetInvalidOverlayMaterial();

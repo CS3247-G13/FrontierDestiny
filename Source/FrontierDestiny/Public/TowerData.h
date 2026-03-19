@@ -75,4 +75,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Effects")
 	TMap<FGameplayTag, FTowerEffect> Effects;
 
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Building")
+	TArray<int32> SelectionPath;
+
 };
