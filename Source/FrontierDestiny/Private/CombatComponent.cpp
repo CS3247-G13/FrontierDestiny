@@ -20,6 +20,7 @@
 #include "MassCommandBuffer.h"
 #include "MassRepresentationSubsystem.h"
 #include "Components/InstancedStaticMeshComponent.h"
+#include "EnemyDamageMassProcessor.h"
 
 // Sets default values for this component's properties
 UCombatComponent::UCombatComponent()
@@ -271,10 +272,10 @@ void UCombatComponent::ShootDirection(FVector Direction)
 			FMassCommandBuffer& CommandBuffer = EntityManager.Defer();
 
 			// 3. Queue the specific handle for destruction
-			CommandBuffer.DestroyEntity(Handle);
+			//CommandBuffer.DestroyEntity(Handle);
 
 			// 3a. Add Damage instead
-			//CommandBuffer.AddFragment<FDamageFragment>(EntityWrapper.Handle);
+			CommandBuffer.AddFragment<FDamageFragment>(Handle);
 		}
 
 	}
