@@ -18,9 +18,9 @@ struct FRONTIERDESTINY_API FTowerPlacementIntent
 	UPROPERTY()
 	FTowerData TowerData;
 	UPROPERTY()
-	FRotator Rotation;
+	FRotator Rotation = FRotator::ZeroRotator;
 	UPROPERTY()
-	FIntPoint PivotPoint;
+	FIntPoint PivotPoint = FIntPoint(0, 0);
 };
 
 UCLASS()
