@@ -42,7 +42,7 @@ void UBuilderComponent::InitializeGhostPool()
 		UClass* Class = Pair.Value.Class.LoadSynchronous();
 		for (int i = 0; i < MaxTowers; i++)
 		{
-			ATowerActor* Ghost = GetWorld()->SpawnActor<ATowerActor>(Class);
+			ATowerActor* Ghost = GetWorld()->SpawnActor<ATowerActor>(Class, Transform);
 			Pool.Actors.Add(Ghost);
 		}
 		GhostTowerPool.Add(Pair.Key, Pool);

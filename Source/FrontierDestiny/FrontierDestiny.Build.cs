@@ -19,7 +19,7 @@ public class FrontierDestiny : ModuleRules
 			"Slate", 
 			"SlateCore", 
 			"GameplayTags",
-			
+			"Niagara",
 			"MassEntity",
 			"MassCommon",
 			"MassRepresentation",

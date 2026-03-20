@@ -10,6 +10,7 @@
 #include "EnhancedInputComponent.h"
 #include "InputMappingContext.h"
 #include "DamageNumber.h"
+#include "EnemyManagerSubsystem.h"
 
 #include "Engine/DamageEvents.h"
 
@@ -234,50 +235,14 @@ void UCombatComponent::ShootDirection(FVector Direction)
 	UE_LOG(LogTemp, Warning, TEXT("HIT"));
 	// Try to hit MassEntity
 	{
-		// Handle to the hit entity
-		FMassEntityHandle Handle;
-
 		// Cast the hit component to ISMC
 		UInstancedStaticMeshComponent* HitISMC = Cast<UInstancedStaticMeshComponent>(Hit.GetComponent());
-		
-		if (!HitISMC) return;
-		
-		// Reverse map the ISMC to FMassEntityHandle
-		UMassRepresentationSubsystem* RepSubsystem = GetWorld()->GetSubsystem<UMassRepresentationSubsystem>();
-		if (!RepSubsystem) return;
-		
-		const FMassISMCSharedData* SharedData = RepSubsystem->GetISMCSharedDataForInstancedStaticMesh(HitISMC);
-		
-		if (SharedData)
-		{
-			for (const auto& Pair : SharedData->GetEntityPrimitiveToIdMap())
-			{
-				if (HitISMC->GetInstanceIndexForId(Pair.Value) == Hit.Item)
-				{
-					Handle = Pair.Key;
-				}
-			}
-		}
-		if (!Handle.IsValid()) return;
 
-		// Handle exists
-		UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
+		UEnemyManagerSubsystem* EnemyManagerSubsystem = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
 
-		if (EntitySubsystem)
-		{
-			// 1. Access the EntityManager from the Subsystem
-			const FMassEntityManager& EntityManager = EntitySubsystem->GetEntityManager();
+		FMassEntityHandle Handle = EnemyManagerSubsystem->GetEnemyEntityHandle(HitISMC, Hit.Item);
 
-			// 2. Use Defer() to get the system-managed Command Buffer
-			FMassCommandBuffer& CommandBuffer = EntityManager.Defer();
-
-			// 3. Queue the specific handle for destruction
-			//CommandBuffer.DestroyEntity(Handle);
-
-			// 3a. Add Damage instead
-			CommandBuffer.AddFragment<FDamageFragment>(Handle);
-		}
-
+		EnemyManagerSubsystem->ApplyDamageToEnemy(Handle, GetPlayerData().WeaponDataMap[CurrentWeapon].GetDamage());
 	}
 }
 

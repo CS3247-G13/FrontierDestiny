@@ -17,6 +17,8 @@ struct FHealthFragment : public FMassFragment
 	GENERATED_BODY()
 	UPROPERTY(EditAnywhere, Category = "Mass")
 	float Value = 20.f;
+	UPROPERTY(EditAnywhere, Category = "Mass")
+	float MaxValue = 20.f;
 };
 
 
