@@ -3,42 +3,17 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
+#include "ResourceAmount.h"
 #include "Upgrade.generated.h"
-
-UENUM(BlueprintType)
-enum class EUpgradeProperty : uint8
-{
-	// WEAPON
-	WeaponFireRateAdded					UMETA(DisplayName = "Weapon Fire rate added"),
-	WeaponFireRateMultiplier			UMETA(DisplayName = "Weapon Fire rate multiplier"),
-	WeaponDamageAdded					UMETA(DisplayName = "Weapon Damage added"),
-	WeaponDamageMultiplier				UMETA(DisplayName = "Weapon Damage multiplier"),
-	WeaponSpreadReduction				UMETA(DisplayName = "Weapon Spread reduced"),
-
-	// PLAYER
-	PlayerAmmoReplenishRateAdded		UMETA(DisplayName = "Player Ammo Recharge rate added"),
-	PlayerAmmoReplenishRateMultiplier	UMETA(DisplayName = "Player Ammo Recharge rate multiplier"),
-	PlayerHealthAdded					UMETA(DisplayName = "Player Health added"),
-	PlayerHealthMultiplier				UMETA(DisplayName = "Player Health multiplier"),
-	PlayerMovementSpeedAdded			UMETA(DisplayName = "Player Movement speed added"),
-	PlayerMovementSpeedMultiplier		UMETA(DisplayName = "Player Movement speed multiplier"),
-
-	// TOWER
-	TowerDamageAdded					UMETA(DisplayName = "Tower Damage added"),
-	TowerDamageMultiplier				UMETA(DisplayName = "Tower Damage multiplier"),
-	TowerCooldownReduction				UMETA(DisplayName = "Tower Cooldown reduction"),
-	TowerCooldownMultiplier				UMETA(DisplayName = "Tower Cooldown multiplier"),
-	TowerHealthAdded					UMETA(DisplayName = "Tower Health added"),
-	TowerHealthMultiplier				UMETA(DisplayName = "Tower Health multiplier"),
-	TowerRangeAdded						UMETA(DisplayName = "Tower Range added"),
-	TowerRangeMultiplier				UMETA(DisplayName = "Tower Range multiplier"),
-};
 
 USTRUCT(BlueprintType)
 struct FRONTIERDESTINY_API FUpgradeDataRow : public FTableRowBase
 {
 	GENERATED_BODY()
 public:
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade")
+	FName ID = NAME_None;
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade")
 	FString Name = "";
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade")
@@ -48,11 +23,16 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade")
 	TSoftObjectPtr<UTexture2D> Icon = nullptr;
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade")
-	int32 Cost = 0;
+	FResourceAmount Cost;
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade")
+	bool bRequiresBlueprint = false;
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade|Special")
-	TMap<EUpgradeProperty, float> Properties;
+	TMap<FGameplayTag, float> Properties;
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade|Prerequisites")
 	TSet<FName> PrerequisiteUpgradeIDs;
+	// Only needs to be filled on one side — the subsystem mirrors it to the other at load time.
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade|Exclusion")
+	TSet<FName> MutuallyExclusiveIDs;
 };
 
 USTRUCT(BlueprintType)
@@ -64,16 +44,21 @@ public:
 	{}
 
 	FUpgradeData(const FUpgradeDataRow& Data):
+		ID(Data.ID),
 		Name(Data.Name),
 		Description(Data.Description),
 		TargetID(Data.TargetID),
 		Icon(Data.Icon),
 		Cost(Data.Cost),
+		bRequiresBlueprint(Data.bRequiresBlueprint),
 		Properties(Data.Properties),
 		Prerequisites(Data.PrerequisiteUpgradeIDs),
-		RemainingPrerequisites(Data.PrerequisiteUpgradeIDs)
+		RemainingPrerequisites(Data.PrerequisiteUpgradeIDs),
+		MutuallyExclusiveIDs(Data.MutuallyExclusiveIDs)
 	{}
 
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade")
+	FName ID = NAME_None;
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade")
 	FString Name = "";
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade")
@@ -83,9 +68,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade")
 	TSoftObjectPtr<UTexture2D> Icon = nullptr;
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade")
-	int32 Cost = 0;
+	FResourceAmount Cost;
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade")
+	bool bRequiresBlueprint = false;
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade|Special")
-	TMap<EUpgradeProperty, float> Properties;
+	TMap<FGameplayTag, float> Properties;
 
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade|Prerequisites")
 	TSet<FName> Prerequisites;
@@ -93,12 +80,25 @@ public:
 	TSet<FName> Unlocks;
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade|Prerequisites")
 	TSet<FName> RemainingPrerequisites;
+
+	// Fully mirrored at load time — if A excludes B, B will also list A.
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade|Exclusion")
+	TSet<FName> MutuallyExclusiveIDs;
+
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade")
-	bool bIsCompleted = false;
+	bool bIsPurchased = false;
+	// Whether this upgrade's effects are currently applied. False when a sibling mutex branch is active.
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Upgrade")
+	bool bNotMutuallyExcluded = true;
 
 	void AddUnlock(FName UpgradeID)
 	{
 		Unlocks.Add(UpgradeID);
+	}
+
+	void AddMutualExclusion(FName UpgradeID)
+	{
+		MutuallyExclusiveIDs.Add(UpgradeID);
 	}
 
 	void ClearPrerequisite(FName UpgradeID)
@@ -108,11 +108,26 @@ public:
 
 	void CompleteUpgrade()
 	{
-		bIsCompleted = true;
+		bIsPurchased = true;
 	}
 
-	bool IsUnlocked()
+	void Activate()
+	{
+		bNotMutuallyExcluded = true;
+	}
+
+	void Deactivate()
+	{
+		bNotMutuallyExcluded = false;
+	}
+
+	bool IsUnlocked() const
 	{
 		return RemainingPrerequisites.IsEmpty();
+	}
+
+	bool IsAvailable() const
+	{
+		return IsUnlocked() && !bIsPurchased;
 	}
 };

@@ -20,7 +20,7 @@ public:
 	UPROPERTY()
 	TObjectPtr<AActor> DamageCauser;
 	UPROPERTY()
-	float Damage;
+	float Damage = 0.f;
 };
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )

@@ -29,11 +29,8 @@ void AStraightProjectileActor::GetNextVelocityAndRotation_Implementation(float D
     }
 }
 
-void AStraightProjectileActor::HitTarget_Implementation(AActor* TargetActor, FVector HitLocation)
+void AStraightProjectileActor::HitTarget_Implementation(const FHitResult& Hit)
 {
-    // Execute parent debug logging
-    Super::HitTarget_Implementation(TargetActor, HitLocation);
-
-    // Standard straight projectiles usually destroy themselves on impact
+    Super::HitTarget_Implementation(Hit);
     Destroy();
 }

@@ -10,7 +10,7 @@
 #include "EnhancedInputComponent.h"
 #include "InputMappingContext.h"
 
-#include "EconomyComponent.h"
+#include "EconomySubsystem.h"
 #include "TowerActor.h"
 #include "TowerData.h"
 #include "GridActor.h"
@@ -27,18 +27,34 @@ void UBuilderComponent::BeginPlay()
 	
 	InitializeReferences();
 	InitializePostProcessMaterial();
+	InitializeGhostPool();
+}
+
+void UBuilderComponent::InitializeGhostPool()
+{
+	UTowerManagerSubsystem* TowerManager = GetWorld()->GetGameInstance()->GetSubsystem<UTowerManagerSubsystem>();
+	FTransform Transform;
+	Transform.SetLocation(FVector(0.f, 0.f, -100000.f));
+
+	for (const auto& Pair : TowerManager->TowerDataMap)
+	{
+		FGhostTowerPool Pool;
+		UClass* Class = Pair.Value.Class.LoadSynchronous();
+		for (int i = 0; i < MaxTowers; i++)
+		{
+			ATowerActor* Ghost = GetWorld()->SpawnActor<ATowerActor>(Class, Transform);
+			Pool.Actors.Add(Ghost);
+		}
+		GhostTowerPool.Add(Pair.Key, Pool);
+	}
 }
 
 void UBuilderComponent::InitializeReferences()
 {
-	if (IsValid(PlayerController))
-	{
-		EconomyComponent = PlayerController->FindComponentByClass<UEconomyComponent>();
-	}
+	EconomyComponent = GetWorld()->GetGameInstance()->GetSubsystem<UEconomySubsystem>();
 	if (!IsValid(EconomyComponent))
 	{
-		UE_LOG(LogTemp, Warning,
-			TEXT("BuilderComponent on %s could not find an economy component on its player controller owner."), *GetName());
+		UE_LOG(LogTemp, Warning, TEXT("BuilderComponent on %s could not find EconomySubsystem."), *GetName());
 	}
 }
 
@@ -58,6 +74,16 @@ void UBuilderComponent::SetupInput(UInputComponent* InputComponent)
 				&UBuilderComponent::OnSelectTowerAction
 			);
 		}
+		
+		if (DeselectTowerAction)
+		{
+			EnhancedInputComponent->BindAction(
+				DeselectTowerAction,
+				ETriggerEvent::Started,
+				this,
+				&UBuilderComponent::OnDeselectTowerAction
+			);
+		}
 
 		if (BuildTowerAction)
 		{
@@ -65,7 +91,21 @@ void UBuilderComponent::SetupInput(UInputComponent* InputComponent)
 				BuildTowerAction,
 				ETriggerEvent::Started,
 				this,
-				&UBuilderComponent::OnBuildTowerAction
+				&UBuilderComponent::OnBuildTowerActionStart
+			);
+
+			EnhancedInputComponent->BindAction(
+				BuildTowerAction,
+				ETriggerEvent::Completed,
+				this,
+				&UBuilderComponent::OnBuildTowerActionEnd
+			);
+
+			EnhancedInputComponent->BindAction(
+				BuildTowerAction,
+				ETriggerEvent::Canceled,
+				this,
+				&UBuilderComponent::OnBuildTowerActionEnd
 			);
 		}
 
@@ -119,24 +159,24 @@ void UBuilderComponent::TickWhenActive()
 	else
 	{
 		UpdateHoveredTower(nullptr);
-		if (!IsValid(GhostTowerActor))
-		{
-			// Something went very wrong
-			UE_LOG(LogTemp, Warning, TEXT("The ghost actor is not valid despite being in build mode. something is quite wrong."));
-			return;
-		}
 
 		// Is in build mode
 		if (TryRaycastToGrid(Hit))
 		{
-			ClosestGridActor->GetSnappedGridIndex(Hit.Location, CurrentGridLocationIndex);
-			UpdateGhostStructureLocation();
+			if (!bIsLocked)
+			{
+				ClosestGridActor->GetSnappedGridIndex(Hit.Location, LockedGridLocationStart);
+			}
+			ClosestGridActor->GetSnappedGridIndex(Hit.Location, LockedGridLocationEnd);
+			
+			UpdateGhostStructure();
 		}
 
 		// Whether you hit a grid or not, we still update rotation and can place
-		UpdateGhostStructureRotation();
-		bCanPlaceTower = CheckTowerCanBePlaced();
-		UpdateGhostStructureValid();
+		if (!bIsLocked)
+		{
+			UpdateGhostStructureRotation();
+		}
 	}
 }
 
@@ -218,6 +258,7 @@ void UBuilderComponent::CheckForClosestGridActor()
 		ClosestGridActor = CastedGridActor;
 		// There is a new closest grid actor! We will need to update the material
 		UpdatePostProcessComponentOffset();
+		ClosestGridActor->UpdateOccupancyTexture(TArray<FTowerPlacementIntent>());
 		UpdatePostProcessComponentOccupancyBitmask();
 	}
 }
@@ -248,6 +289,7 @@ void UBuilderComponent::UpdatePostProcessComponentOffset()
 		GridVisualMID->SetVectorParameterValue(TEXT("Grid Offset"), ClosestGridActor->GetTransform().GetLocation());
 		GridVisualMID->SetVectorParameterValue(TEXT("Grid Size"), FVector(ClosestGridActor->ScaleX, ClosestGridActor->ScaleY, 0.f));
 		GridVisualMID->SetScalarParameterValue(TEXT("Grid Rotation"), ClosestGridActor->GetActorRotation().Yaw);
+		GridVisualMID->SetScalarParameterValue(TEXT("Grid Size"), ClosestGridActor->CellSize);
 	}
 }
 
@@ -265,105 +307,8 @@ void UBuilderComponent::UpdatePostProcessComponentOccupancyBitmask()
 		return;
 	}
 
-	FIntPoint GridSize = ClosestGridActor->GridSize;
-
-	// 1. Calculate Power of 2 dimensions
-	int32 TexWidth = FMath::RoundUpToPowerOfTwo(GridSize.X);
-	int32 TexHeight = FMath::RoundUpToPowerOfTwo(GridSize.Y);
-
-	GridVisualMID->SetVectorParameterValue("Occupancy Bitmask Size", FVector(TexWidth, TexHeight, 0.f));
-
-	// 2. Create the transient texture
-	// Using PF_B8G8R8A8 (Blue, Green, Red, Alpha)
-	if (!OccupancyTexture || OccupancyTexture->GetSizeX() != TexWidth || OccupancyTexture->GetSizeY() != TexHeight)
-	{
-		OccupancyTexture = UTexture2D::CreateTransient(TexWidth, TexHeight, PF_B8G8R8A8);
-		if (!OccupancyTexture) return;
-
-		OccupancyTexture->CompressionSettings = TC_VectorDisplacementmap;
-		OccupancyTexture->SRGB = false;
-		OccupancyTexture->Filter = TF_Nearest;
-		OccupancyTexture->UpdateResource();
-	}
-
-	// 3. Lock the texture for editing
-	FTexture2DMipMap& Mip = OccupancyTexture->GetPlatformData()->Mips[0];
-	void* Data = Mip.BulkData.Lock(LOCK_READ_WRITE);
-	uint8* RawData = (uint8*)Data;
-
-	// Clear buffer to black/transparent
-	FMemory::Memzero(RawData, TexWidth * TexHeight * 4);
-	
-	TArray<int32> CurrentFootprintIndices;
-	TArray<int32> CurrentBoundaryIndices;
-	if (SelectedTower.IsSet())
-	{
-		FTowerData SelectedTowerData;
-		GetSelectedTowerData(SelectedTowerData);
-		ClosestGridActor->GetTowerGridIndices(CurrentGridLocationIndex, GetBuildingRotator(), SelectedTowerData, CurrentFootprintIndices, CurrentBoundaryIndices);
-	}
-
-	// 4. Fill the buffer based on your 1D-as-2D arrays
-	for (int32 y = 0; y < GridSize.Y; y++)
-	{
-		for (int32 x = 0; x < GridSize.X; x++)
-		{
-			int32 GridIndex = y * GridSize.X + x;
-			int32 PixelIndex = (y * TexWidth + x) * 4;
-
-			// Logic: OccupiedFootprint = Blue Channel, OccupiedBoundary = Green Channel
-			// CurrentFootprint = Red Channel, CurrentBoundary = Alpha Channel
-			
-			// Using 255 for full intensity
-			if (ClosestGridActor->Occupied.IsValidIndex(GridIndex) && ClosestGridActor->Occupied[GridIndex])
-			{
-				RawData[PixelIndex + 0] = 255; // B (Blue for Footprint)
-			}
-
-			if (ClosestGridActor->BoundaryOccupied.IsValidIndex(GridIndex) && ClosestGridActor->BoundaryOccupied[GridIndex] > 0)
-			{
-				RawData[PixelIndex + 1] = 255; // G (Red for Boundary)
-			}
-		}
-	}
-
-	for (int32 Index : CurrentFootprintIndices)
-	{
-		if (!ClosestGridActor->Occupied.IsValidIndex(Index))
-		{
-			continue; // Out of bounds
-		}
-
-		// Convert 1D Grid Index back to 2D Grid Coordinates
-		int32 x = Index % GridSize.X;
-		int32 y = Index / GridSize.X;
-
-		// Convert 2D Grid Coordinates to Texture Pixel Index
-		int32 PixelIndex = (y * TexWidth + x) * 4;
-
-		RawData[PixelIndex + 2] = 255; // R channel
-	}
-
-	// 6. Overlay Ghost Boundary (Alpha Channel)
-	for (int32 Index : CurrentBoundaryIndices)
-	{
-		if (!ClosestGridActor->BoundaryOccupied.IsValidIndex(Index))
-		{
-			continue; // Out of bounds
-		}
-
-		int32 x = Index % GridSize.X;
-		int32 y = Index / GridSize.X;
-		int32 PixelIndex = (y * TexWidth + x) * 4;
-
-		RawData[PixelIndex + 3] = 255; // A channel
-	}
-
-	Mip.BulkData.Unlock();
-	OccupancyTexture->UpdateResource();
-
-	// 5. Pass to Material
-	GridVisualMID->SetTextureParameterValue("Occupancy Bitmask", OccupancyTexture);
+	GridVisualMID->SetVectorParameterValue("Occupancy Bitmask Size", ClosestGridActor->OccupancyTextureSize);
+	GridVisualMID->SetTextureParameterValue("Occupancy Bitmask", ClosestGridActor->OccupancyTexture);
 }
 
 // MODE ACTIVATION
@@ -372,34 +317,28 @@ void UBuilderComponent::ActivateMode()
 	Super::ActivateMode();
 	CheckForClosestGridActor();
 	EnterGridVisual();
-	if (GhostTowerActor)
-	{
-		GhostTowerActor->SetActorHiddenInGame(false);
-	}
+
+	OnDeselectTowerAction(FInputActionValue());
 }
 
 void UBuilderComponent::DeactivateMode()
 {
 	Super::DeactivateMode();
 	ExitGridVisual();
-	if (GhostTowerActor)
-	{
-		GhostTowerActor->SetActorHiddenInGame(true);
-	}
 	
 	ChangeTowerSelection(TOptional<FName>());
-	UpdatePostProcessComponentOccupancyBitmask();
 	UpdateHoveredTower(nullptr);
+	UpdateGhostStructure();
 
 	UE_LOG(LogTemp, Display, TEXT("Exit"));
 }
 
 // INPUT ACTIONS
-void UBuilderComponent::OnBuildTowerAction(const FInputActionValue& Value)
+void UBuilderComponent::OnBuildTowerActionStart(const FInputActionValue& Value)
 {
 	if (SelectedTower.IsSet())
 	{
-		TryBuildTower();
+		bIsLocked = true;
 	}
 	else if (IsValid(HoveredTower))
 	{
@@ -407,21 +346,102 @@ void UBuilderComponent::OnBuildTowerAction(const FInputActionValue& Value)
 	}
 }
 
+void UBuilderComponent::OnBuildTowerActionEnd(const FInputActionValue& Value)
+{
+	TryBuildTowers();
+	bIsLocked = false;
+}
+
 void UBuilderComponent::OnSelectTowerAction(const FInputActionValue& Value)
 {
-	int32 KeyNumber = FMath::RoundToInt(Value.Get<float>());
-	if (KeyNumber <= AvailableTowers.Num() && KeyNumber > 0)
+	UTowerManagerSubsystem* TowerManager;
+	
+	UGameInstance* GI = GetWorld()->GetGameInstance();
+	if (!GI)
 	{
-		if (SelectedTower.IsSet() && AvailableTowers[KeyNumber - 1] == SelectedTower.GetValue())
+		return;
+	}
+	TowerManager = GI->GetSubsystem<UTowerManagerSubsystem>();
+	if (!TowerManager)
+	{
+		return;
+	}
+	
+
+	int32 KeyNumber = FMath::RoundToInt(Value.Get<float>());
+	if (KeyNumber <= 3 && KeyNumber > 0)
+	{
+		SelectedPath.Add(KeyNumber);
+		
+		// Dear tower manager, is there anything there?
+		if (!TowerManager->CheckPathUnlocked(SelectedPath))
 		{
-			// Deselect if the same tower is selected again
-			ChangeTowerSelection(TOptional<FName>());
-			UpdatePostProcessComponentOccupancyBitmask();
+			SelectedPath.RemoveAt(SelectedPath.Num() - 1);
 			return;
 		}
-		ChangeTowerSelection(AvailableTowers[KeyNumber - 1]);
-		UpdatePostProcessComponentOccupancyBitmask();
+		
+		// Else, select the tower, then display the next 3 available towers
+		const TMap<int32, FTowerData>& NextTowers = TowerManager->GetPathNextTowers(SelectedPath);
+
+		FTowerDisplay MainTower = {
+			.Present = true,
+			.Data = TowerManager->GetPathTower(SelectedPath)
+		};
+		FTowerDisplay NextTower1 = {
+			.Present = NextTowers.Contains(1),
+			.Data = NextTowers.FindRef(1)
+		};
+		FTowerDisplay NextTower2 = {
+			.Present = NextTowers.Contains(2),
+			.Data = NextTowers.FindRef(2)
+		};
+		FTowerDisplay NextTower3 = {
+			.Present = NextTowers.Contains(3),
+			.Data = NextTowers.FindRef(3)
+		};
+		OnTowerSelectionChange.Broadcast(MainTower, NextTower1, NextTower2, NextTower3);
+		ChangeTowerSelection(TOptional<FName>(MainTower.Data.ID));
 	}
+}
+
+void UBuilderComponent::OnDeselectTowerAction(const FInputActionValue& Value)
+{
+
+	OnTowerBuildingNotification.Broadcast("");
+
+	UTowerManagerSubsystem* TowerManager;
+
+	UGameInstance* GI = GetWorld()->GetGameInstance();
+	if (!GI)
+	{
+		return;
+	}
+	TowerManager = GI->GetSubsystem<UTowerManagerSubsystem>();
+	if (!TowerManager)
+	{
+		return;
+	}
+
+	SelectedPath.Empty();
+	ChangeTowerSelection(TOptional<FName>()); 
+
+	const TMap<int32, FTowerData>& NextTowers = TowerManager->GetPathNextTowers(SelectedPath);
+	FTowerDisplay MainTower = {
+		.Present = false
+	};
+	FTowerDisplay NextTower1 = {
+		.Present = NextTowers.Contains(1),
+		.Data = NextTowers.FindRef(1)
+	};
+	FTowerDisplay NextTower2 = {
+		.Present = NextTowers.Contains(2),
+		.Data = NextTowers.FindRef(2)
+	};
+	FTowerDisplay NextTower3 = {
+		.Present = NextTowers.Contains(3),
+		.Data = NextTowers.FindRef(3)
+	};
+	OnTowerSelectionChange.Broadcast(MainTower, NextTower1, NextTower2, NextTower3);
 }
 
 void UBuilderComponent::OnRotateTowerAction(const FInputActionValue& Value)
@@ -436,154 +456,131 @@ void UBuilderComponent::ChangeTowerSelection(TOptional<FName> NewTower)
 
 	if (!NewTower.IsSet())
 	{
-		if (IsValid(GhostTowerActor))
+		UpdateGhostStructure();
+		if (IsValid(ClosestGridActor))
 		{
-			GhostTowerActor->Destroy();
-			GhostTowerActor = nullptr;
+			ClosestGridActor->UpdateOccupancyTexture(TArray<FTowerPlacementIntent>());
+			UpdatePostProcessComponentOccupancyBitmask();
 		}
 		return;
 	}
-
-	UpdateGhostStructureBlueprint();
-
-	bCanPlaceTower = CheckTowerCanBePlaced();
-	UpdateGhostStructureValid();
-	UpdateGhostStructureLocation();
-	UpdatePostProcessComponentOccupancyBitmask();
 }
 
-bool UBuilderComponent::TryBuildTower()
+void UBuilderComponent::TryBuildTowers()
 {
-	if (!bCanPlaceTower || !SelectedTower.IsSet())
+	if (!SelectedTower.IsSet() || !IsValid(ClosestGridActor))
 	{
-		return false;
+		return;
 	}
 
 	FTowerData SelectedTowerData;
 	GetSelectedTowerData(SelectedTowerData);
 
-	if (IsValid(EconomyComponent))
+	// Get the locations to place the towers
+	FTowerPlacementIntent StartPlacement;
+	StartPlacement.PivotPoint = LockedGridLocationStart;
+	StartPlacement.Rotation = GetBuildingRotator();
+	StartPlacement.TowerData = SelectedTowerData;
+
+	FTowerPlacementIntent EndPlacement(StartPlacement);
+	EndPlacement.PivotPoint = LockedGridLocationEnd;
+
+	TArray<FTowerPlacementIntent> Placements;
+	ClosestGridActor->GetTowerPlacementsInLine(StartPlacement, EndPlacement, MaxTowers, Placements);
+
+	for (const FTowerPlacementIntent& Placement : Placements)
 	{
-		if (EconomyComponent->TryDeductFunds(SelectedTowerData.Cost) == false)
+		if (!ClosestGridActor->CanPlaceTower(Placement))
 		{
-			return false;
+			continue;
 		}
-	}
-
-	ATowerActor* NewTower = GetWorld()->SpawnActorDeferred<ATowerActor>(
-		SelectedTowerData.Class.LoadSynchronous(),
-		GhostTowerActor->GetTransform(),
-		GetOwner(),
-		Cast<APawn>(GetOwner()),
-		ESpawnActorCollisionHandlingMethod::AlwaysSpawn
-	);
-
-	if (NewTower)
-	{
-		NewTower->bIsGhost = false;
-		NewTower->FinishSpawning(GhostTowerActor->GetTransform());
-		NewTower->GridActor = ClosestGridActor;
-		NewTower->CornerGridIndex = CurrentGridLocationIndex;
-		NewTower->GridRelativeRotation = GetBuildingRotator();
-		UGameplayStatics::PlaySound2D(GetWorld(), BuildSound);
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("Failed to spawn NewTower on %s"), *GetName());
-	}
-
-	if (IsValid(ClosestGridActor))
-	{
-		ClosestGridActor->PlaceTower(CurrentGridLocationIndex, GetBuildingRotator(), NewTower);
-		UpdatePostProcessComponentOccupancyBitmask();
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("Failed to get GridActor to spawn NewTower on %s"), *GetName());
-	}
-	return true;
-}
-
-void UBuilderComponent::UpdateGhostStructureBlueprint()
-{
-	if (IsValid(GhostTowerActor))
-	{
-		GhostTowerActor->Destroy();
-	}
-
-	FTowerData SelectedTowerData;
-	GetSelectedTowerData(SelectedTowerData);
-
-	FActorSpawnParameters SpawnParams;
-	SpawnParams.Owner = GetOwner();
-	SpawnParams.Instigator = Cast<APawn>(GetOwner());
-	GhostTowerActor = GetWorld()->SpawnActor<ATowerActor>(SelectedTowerData.Class.LoadSynchronous());
-	GhostTowerActor->bIsGhost = true;
-	if (GhostTowerActor->TowerID != SelectedTower.GetValue())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("The ghost tower's ID %s does not match the selected tower data's ID %s. Something is wrong with the data."), *GhostTowerActor->TowerID.ToString(), *SelectedTower.GetValue().ToString());
-	}
-}
-
-void UBuilderComponent::UpdateGhostStructureValid()
-{
-	GhostTowerActor->SetGhostValidity(bCanPlaceTower);
-}
-
-bool UBuilderComponent::CheckTowerCanBePlaced()
-{
-	if (!IsValid(ClosestGridActor))
-	{
-		return false;
-	}
-	if (!SelectedTower.IsSet())
-	{
-		return false;
-	}
-
-
-	FTowerData SelectedTowerData;
-	GetSelectedTowerData(SelectedTowerData);
-
-	if (!ClosestGridActor->CanPlaceTower(CurrentGridLocationIndex, GetBuildingRotator(), SelectedTowerData))
-	{
-		return false;
-	}
-
-	if (IsValid(EconomyComponent))
-	{
-		if (SelectedTowerData.Cost > 0 && !(EconomyComponent->HasSufficientFunds(SelectedTowerData.Cost)))
+		if (IsValid(EconomyComponent))
 		{
-			return false;
+			if (EconomyComponent->TryDeductFunds(SelectedTowerData.Cost) == false)
+			{
+				break;
+			}
+		}
+		FTransform Transform;
+		ClosestGridActor->GetTowerPlacementLocationFromGridIndex(Placement, Transform);
+
+		ATowerActor* NewTower = GetWorld()->SpawnActorDeferred<ATowerActor>(
+			SelectedTowerData.Class.LoadSynchronous(),
+			Transform,
+			GetOwner(),
+			Cast<APawn>(GetOwner()),
+			ESpawnActorCollisionHandlingMethod::AlwaysSpawn
+		);
+
+		if (NewTower)
+		{
+			NewTower->bIsGhost = false;
+			NewTower->FinishSpawning(Transform);
+			NewTower->GridActor = ClosestGridActor;
+			NewTower->CornerGridIndex = Placement.PivotPoint;
+			NewTower->GridRelativeRotation = Placement.Rotation;
+			UGameplayStatics::PlaySound2D(GetWorld(), BuildSound);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("Failed to spawn NewTower on %s"), *GetName());
+		}
+
+		if (IsValid(ClosestGridActor))
+		{
+			ClosestGridActor->PlaceTower(Placement);
+			ClosestGridActor->UpdateOccupancyTexture(TArray<FTowerPlacementIntent>());
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("Failed to get GridActor to spawn NewTower on %s"), *GetName());
 		}
 	}
 	
-	return true;
-
-	// TODO: Set to false in the case of overlap with a custom channel Tower Blockers (exclude projectiles)
 }
 
-void UBuilderComponent::UpdateGhostStructureLocation()
+void UBuilderComponent::UpdateGhostStructure()
 {
+	for (ATowerActor* GhostTower : ActiveGhostTowers)
+	{
+		GhostTower->SetActorLocation(FVector(0.f, 0.f, -100000.f));
+	}
+
+	if (!IsValid(ClosestGridActor))
+	{
+		return;
+	}
+	if (!SelectedTower.IsSet())
+	{
+		return;
+	}
+
 	FTowerData SelectedTowerData;
 	GetSelectedTowerData(SelectedTowerData);
 
-	// We get the correct corner index by making an int vector from the pivot point to the bottom left corner
-	// then rotating this by the building rotation, and adding that to the pivot point index
-	FVector PivotPointToCornerIndexVector = -FVector(SelectedTowerData.PivotPoint);
-	PivotPointToCornerIndexVector = GetBuildingRotator().RotateVector(PivotPointToCornerIndexVector);
-	FIntPoint CornerIndex = CurrentGridLocationIndex + FIntPoint(
-		FMath::RoundToInt(PivotPointToCornerIndexVector.X),
-		FMath::RoundToInt(PivotPointToCornerIndexVector.Y)
-	);
 
-	FTransform Transform;
+	// Get the locations to place the towers
+	FTowerPlacementIntent StartPlacement;
+	StartPlacement.PivotPoint = LockedGridLocationStart;
+	StartPlacement.Rotation = GetBuildingRotator();
+	StartPlacement.TowerData = SelectedTowerData;
 
-	if (IsValid(ClosestGridActor))
+	FTowerPlacementIntent EndPlacement(StartPlacement);
+	EndPlacement.PivotPoint = LockedGridLocationEnd;
+
+	TArray<FTowerPlacementIntent> Placements;
+	ClosestGridActor->GetTowerPlacementsInLine(StartPlacement, EndPlacement, 10, Placements);
+
+	ActiveGhostTowers.Empty();
+
+	int32 Index = 0;
+	for (const FTowerPlacementIntent& Placement : Placements)
 	{
-		ClosestGridActor->GetTowerPlacementLocationFromGridIndex(CornerIndex, GetBuildingRotator(), SelectedTowerData, Transform);
-		GhostTowerActor->SetActorTransform(Transform, false, nullptr, ETeleportType::TeleportPhysics);
+		DisplayGhostTower(Placement.PivotPoint, Placement.TowerData, Index);
+		Index++;
 	}
+
+	ClosestGridActor->UpdateOccupancyTexture(Placements);
 	UpdatePostProcessComponentOccupancyBitmask();
 }
 
@@ -601,10 +598,16 @@ void UBuilderComponent::UpdateGhostStructureRotation()
 		LookAtYawRotation = GetOwner()->GetActorRotation().Yaw;
 	}
 
+	if (IsValid(ClosestGridActor))
+	{
+		LookAtYawRotation -= ClosestGridActor->GetActorRotation().Yaw;
+		LookAtYawRotation = FRotator::ClampAxis(LookAtYawRotation);
+	}
+
 	// Snap to 90 degree increments
 	uint8 Increments = FMath::RoundToInt(LookAtYawRotation / 90.f) % 4;
 	BuildingRotationRelativeToBuilder = static_cast<ERotation>(Increments);
-	UpdateGhostStructureLocation();
+	UpdateGhostStructure();
 	// GhostTowerActor->SetActorRotation(GetBuildingRotator());
 }
 
@@ -665,6 +668,66 @@ bool UBuilderComponent::TryRaycastToTower(FHitResult& Hit, ATowerActor*& HitTowe
 	return bHit;
 }
 
+void UBuilderComponent::DisplayGhostTower(const FIntPoint& PivotPointIndex, const FTowerData& TowerData, int GhostTowerIndex)
+{
+	ATowerActor* GhostTowerActor;
+
+	FGhostTowerPool* Pool = GhostTowerPool.Find(TowerData.ID);
+	if (Pool->Actors.Num() <= GhostTowerIndex)
+	{
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = GetOwner();
+		SpawnParams.Instigator = Cast<APawn>(GetOwner());
+		UClass* Class = TowerData.Class.LoadSynchronous();
+		for (int i = 0; i < GhostTowerIndex - Pool->Actors.Num() + 1; i++)
+		{
+			GhostTowerActor = GetWorld()->SpawnActor<ATowerActor>(Class);
+			GhostTowerActor->bIsGhost = true;
+		}
+	}
+
+	GhostTowerActor = Pool->Actors[GhostTowerIndex];
+
+	FTransform Transform;
+	if (IsValid(ClosestGridActor))
+	{
+		FTowerPlacementIntent Placement;
+		Placement.PivotPoint = PivotPointIndex;
+		Placement.Rotation = GetBuildingRotator();
+		Placement.TowerData = TowerData;
+		ClosestGridActor->GetTowerPlacementLocationFromGridIndex(Placement, Transform);
+		GhostTowerActor->SetActorTransform(Transform, false, nullptr, ETeleportType::TeleportPhysics);
+
+		bool bCanPlaceTower = false;
+		if (UGameInstance* GI = GetWorld()->GetGameInstance())
+		{
+			if (UEconomySubsystem* Economy = GI->GetSubsystem<UEconomySubsystem>())
+			{
+				bCanPlaceTower = Economy->HasSufficientFunds(TowerData.Cost);
+			}
+		}
+
+		if (!bCanPlaceTower)
+		{
+			OnTowerBuildingNotification.Broadcast("Insufficient funds");
+		}
+		else
+		{
+			OnTowerBuildingNotification.Broadcast("");
+		}
+
+		bCanPlaceTower &= ClosestGridActor->CanPlaceTower(Placement);
+		if (!bCanPlaceTower)
+		{
+			GhostTowerActor->SetInvalidOverlayMaterial();
+		}
+		else
+		{
+			GhostTowerActor->SetValidOverlayMaterial();
+		}
+		ActiveGhostTowers.Add(GhostTowerActor);
+	}
+}
 
 void UBuilderComponent::RotateTower(bool Clockwise)
 {
@@ -673,14 +736,17 @@ void UBuilderComponent::RotateTower(bool Clockwise)
 		// Add 4 to avoid negative numbers for our unsigned int
 		(static_cast<uint8>(AddedBuildingRotation) + Direction) % 4
 		);
-	UpdatePostProcessComponentOccupancyBitmask();
+	UpdateGhostStructure();
 }
 
 void UBuilderComponent::DeleteHoveredTower()
 {
 	HoveredTower->DestroyTower();
 	UpdateHoveredTower(nullptr);
-	UpdatePostProcessComponentOccupancyBitmask();
+	if (IsValid(ClosestGridActor))
+	{
+		ClosestGridActor->UpdateOccupancyTexture(TArray<FTowerPlacementIntent>());
+	}
 }
 
 void UBuilderComponent::UpdateHoveredTower(ATowerActor* NewHoveredTower)

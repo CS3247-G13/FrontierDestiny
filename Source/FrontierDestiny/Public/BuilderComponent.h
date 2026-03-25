@@ -7,7 +7,7 @@
 #include "BuilderComponent.generated.h"
 
 class UTowerData;
-class UEconomyComponent;
+class UEconomySubsystem;
 class ATowerActor;
 class AGridActor;
 
@@ -35,6 +35,29 @@ enum class EGridVisualState : uint8
 	Invalid		UMETA(DisplayName = "Invalid")
 };
 
+USTRUCT(BlueprintType)
+struct FRONTIERDESTINY_API FGhostTowerPool
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TArray<ATowerActor*> Actors;
+};
+
+USTRUCT(BlueprintType)
+struct FRONTIERDESTINY_API FTowerDisplay
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadonly)
+	bool Present = false;
+	UPROPERTY(VisibleAnywhere, BlueprintReadonly)
+	FTowerData Data;
+};
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FOnTowerSelectionChange, FTowerDisplay, SelectedTower, FTowerDisplay, NextTower1, FTowerDisplay, NextTower2, FTowerDisplay, NextTower3);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTowerBuildingNotification, FString, Notificatoin);
+
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class FRONTIERDESTINY_API UBuilderComponent : public UModeComponent
 {
@@ -51,6 +74,7 @@ public:
 
 	virtual void SetupInput(UInputComponent* Input) override;
 	void InitializeReferences();
+	void InitializeGhostPool();
 
 	// ====== BUIDLING VISUALS ====== //
 public:
@@ -72,8 +96,7 @@ protected:
 	UMaterialInstanceDynamic* GridVisualMID;
 	UPROPERTY()
 	TObjectPtr<UPostProcessComponent> PostProcessComponent;
-	UPROPERTY(VisibleAnywhere, Category = "Debug")
-	TObjectPtr<UTexture2D> OccupancyTexture;
+
 	UPROPERTY(VisibleAnywhere, Category = "Debug")
 	TObjectPtr<AGridActor> ClosestGridActor;
 
@@ -106,13 +129,28 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	TObjectPtr<UInputAction> SelectTowerAction;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
+	TObjectPtr<UInputAction> DeselectTowerAction;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	TObjectPtr<UInputAction> RotateTowerAction;
 
 private:
+	UPROPERTY(VisibleAnywhere, Category = "Debug")
+	FIntPoint LockedGridLocationStart;
+	UPROPERTY(VisibleAnywhere, Category = "Debug")
+	FIntPoint LockedGridLocationEnd;
+	UPROPERTY(VisibleAnywhere, Category = "Debug")
+	bool bIsLocked;
+	UPROPERTY(EditAnywhere, Category = "Setup")
+	int32 MaxTowers = 10;
+
 	UFUNCTION()
-	void OnBuildTowerAction(const FInputActionValue& Value);
+	void OnBuildTowerActionStart(const FInputActionValue& Value);
+	UFUNCTION()
+	void OnBuildTowerActionEnd(const FInputActionValue& Value);
 	UFUNCTION()
 	void OnSelectTowerAction(const FInputActionValue& Value);
+	UFUNCTION()
+	void OnDeselectTowerAction(const FInputActionValue& Value);
 	UFUNCTION()
 	void OnRotateTowerAction(const FInputActionValue& Value);
 
@@ -122,26 +160,11 @@ private:
 	it clears the selection.*/
 	void ChangeTowerSelection(TOptional<FName> NewTower);
 
-	/*
-	Tries to build the selected tower at the provided location based on the
-	ghost structure, returns false if the location is invalid*/
-	bool TryBuildTower();
-
-	/*
-	Destroy and rebuild the ghost structure with new blueprint.*/
-	void UpdateGhostStructureBlueprint();
-
-	/*
-	Update the color of the ghost structure.*/
-	void UpdateGhostStructureValid();
-
-	/*
-	Check if tower can be placed*/
-	bool CheckTowerCanBePlaced();
+	void TryBuildTowers();
 
 	/*
 	Updates the ghost structure's location based on set grid index*/
-	void UpdateGhostStructureLocation();
+	void UpdateGhostStructure();
 	/*
 	Updates the ghost structure's rotation based on player camera*/
 	void UpdateGhostStructureRotation();
@@ -155,21 +178,30 @@ private:
 	Performs the raycast to check for tower to destroy*/
 	bool TryRaycastToTower(FHitResult& Hit, ATowerActor*& HitTowerActor);
 
+	/* Displays a single ghost tower */
+	void DisplayGhostTower(const FIntPoint& PivotPointIndex, const FTowerData& TowerData, int GhostTowerIndex);
+
+	UPROPERTY()
+	TMap<FName, FGhostTowerPool> GhostTowerPool;
+
+	UPROPERTY()
+	TArray<ATowerActor*> ActiveGhostTowers;
+
 	// Rotate the tower
 	void RotateTower(bool Clockwise);
 
 	ERotation AddedBuildingRotation;
 	ERotation BuildingRotationRelativeToBuilder;
 
-	UPROPERTY()
-	TObjectPtr<ATowerActor> GhostTowerActor;
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, Category = "Debug")
 	TOptional<FName> SelectedTower;
+	UPROPERTY(VisibleAnywhere, Category = "Debug")
+	TArray<int32> SelectedPath;
 
-	UPROPERTY()
-	bool bCanPlaceTower = false;
-	UPROPERTY()
-	FIntPoint CurrentGridLocationIndex;
+	UPROPERTY(BlueprintAssignable)
+	FOnTowerSelectionChange OnTowerSelectionChange;
+	UPROPERTY(BlueprintAssignable)
+	FOnTowerBuildingNotification OnTowerBuildingNotification;
 
 	// ====== DELETE TOWER ====== //
 private:
@@ -207,5 +239,5 @@ public:
 	}
 	
 	UPROPERTY(VisibleInstanceOnly, Category = "References")
-	TObjectPtr<UEconomyComponent> EconomyComponent;
+	TObjectPtr<UEconomySubsystem> EconomyComponent;
 };
