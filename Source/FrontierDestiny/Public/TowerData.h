@@ -39,9 +39,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower")
 	FResourceAmount Cost;
 
-	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower")
-	bool bRequiresBlueprint = false;
-
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Display")
 	FString Name = "";
 
