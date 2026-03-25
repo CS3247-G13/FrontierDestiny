@@ -33,6 +33,9 @@ public:
 	void ApplyDamageToEnemy(FMassEntityHandle Handle, int DamageThisHit);
 
 	UFUNCTION(BlueprintCallable)
+	void DestroyEnemyByISMC(UInstancedStaticMeshComponent* Component, int32 Item);
+
+	UFUNCTION(BlueprintCallable)
 	void AssignNiagaraComponent(UNiagaraComponent* Component);
 
 	void UpdateHealthbarInformation(TArray<float>& UpdatedHealthRatios, TArray<FVector>& UpdatedEnemyPositions);

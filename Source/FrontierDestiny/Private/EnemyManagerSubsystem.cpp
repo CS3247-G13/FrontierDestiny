@@ -87,6 +87,26 @@ void UEnemyManagerSubsystem::ApplyDamageToEnemy(FMassEntityHandle Handle, int Da
 	}
 }
 
+void UEnemyManagerSubsystem::DestroyEnemyByISMC(UInstancedStaticMeshComponent* Component, int32 Item)
+{
+	FMassEntityHandle Handle = GetEnemyEntityHandle(Component, Item);
+
+	// Handle exists
+	UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
+
+	if (EntitySubsystem)
+	{
+		// 1. Access the EntityManager from the Subsystem
+		const FMassEntityManager& EntityManager = EntitySubsystem->GetEntityManager();
+
+		// 2. Use Defer() to get the system-managed Command Buffer
+		FMassCommandBuffer& CommandBuffer = EntityManager.Defer();
+
+		// 3. Destroy Enemy
+		CommandBuffer.DestroyEntity(Handle);
+	}
+}
+
 void UEnemyManagerSubsystem::AssignNiagaraComponent(UNiagaraComponent* Component)
 {
 	NiagaraComponent = Component;
