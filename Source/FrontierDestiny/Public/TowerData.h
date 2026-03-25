@@ -4,6 +4,7 @@
 
 #include "Upgrade.h"
 #include "GameplayTagContainer.h"
+#include "ResourceAmount.h"
 
 #include "CoreMinimal.h"
 #include "TowerData.generated.h"
@@ -30,10 +31,16 @@ struct FRONTIERDESTINY_API FTowerData : public FTableRowBase
 public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower")
+	FName ID = NAME_None;
+
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower")
 	TSoftClassPtr<ATowerActor> Class = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower")
-	int32 Cost = 0;
+	FResourceAmount Cost;
+
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower")
+	bool bRequiresBlueprint = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Display")
 	FString Name = "";
@@ -67,5 +74,8 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Effects")
 	TMap<FGameplayTag, FTowerEffect> Effects;
+
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Building")
+	TArray<int32> SelectionPath;
 
 };

@@ -131,6 +131,7 @@ void ASingleTargetTowerActor::SelectTarget()
 
 		CurrentTarget = BestEnemy;
 		BestEnemy->OnDeath.AddDynamic(this, &ASingleTargetTowerActor::OnTargetDeath);
+		OnAcquireNewTarget(BestEnemy);
 		return;
 	}
 
@@ -155,4 +156,9 @@ void ASingleTargetTowerActor::OnTargetDeath_Implementation()
 	// Find a new target
 	CurrentTarget = nullptr;
 	SelectTarget();
+}
+
+void ASingleTargetTowerActor::OnAcquireNewTarget_Implementation(ABaseEnemyCharacter* Target)
+{
+
 }

@@ -55,11 +55,9 @@ void AGridActor::OnConstruction(const FTransform& Transform)
     }
 
     Occupied.Empty();
-    Towers.Empty();
     BoundaryOccupied.Empty();
     Occupied.Init(false, GridSize.X * GridSize.Y);
-	Towers.Init(nullptr, GridSize.X * GridSize.Y);
-	BoundaryOccupied.Init(0, GridSize.X * GridSize.Y);
+	BoundaryOccupied.Init(false, GridSize.X * GridSize.Y);
 
     if (CollisionBox)
     {
@@ -115,32 +113,29 @@ bool AGridActor::GetWorldLocationFromGridIndex(const FIntPoint& GridIndex, const
     return true;
 }
 
-bool AGridActor::GetTowerPlacementLocationFromGridIndex(const FIntPoint& PivotPointIndex, const FRotator& Rotation, const FTowerData& TowerData, FTransform& OutTransform) const
+bool AGridActor::GetTowerPlacementLocationFromGridIndex(const FTowerPlacementIntent& Placement, FTransform& OutTransform) const
 {
+    FIntPoint PivotPointIndex = Placement.PivotPoint;
+    FRotator Rotation = Placement.Rotation;
+    FTowerData TowerData = Placement.TowerData;
+
     if (Rotation.Pitch != 0.f || Rotation.Roll != 0.f)
     {
         // Currently only supports rotation around Z axis
         return false;
     }
-
     TSet<FVector> LocationsToCheck;
     FVector AddedLocation;
     
     TArray<int32> FootprintIndices;
     TArray<int32> BoundaryIndices;
-    GetTowerGridIndices(PivotPointIndex, Rotation, TowerData, FootprintIndices, BoundaryIndices);
+    GetTowerGridIndices(Placement, FootprintIndices, BoundaryIndices);
 
     for (const int32& Footprint : FootprintIndices)
     {
         FIntPoint Index(Footprint % GridSize.X, Footprint / GridSize.X);
-        for (int i = 0; i < 2; i++)
-        {
-            for (int j = 0; j < 2; j++)
-            {
-                GetWorldLocationFromGridIndex(Index + FIntPoint(i, j), FRotator::ZeroRotator, AddedLocation);
-                LocationsToCheck.Add(AddedLocation);
-            }
-        }    
+        GetCellCenterWorldLocationFromGridIndex(Index, AddedLocation);
+        LocationsToCheck.Add(AddedLocation);   
     }
 
     GetCellCenterWorldLocationFromGridIndex(PivotPointIndex, AddedLocation);
@@ -175,21 +170,25 @@ bool AGridActor::GetTowerPlacementLocationFromGridIndex(const FIntPoint& PivotPo
     }
 
     FVector OutLocation;
-    GetWorldLocationFromGridIndex(PivotPointIndex, Rotation, OutLocation);
+    FIntPoint CornerGridIndex = PivotPointIndex - RotateOffset(TowerData.PivotPoint, Rotation);
+
+    GetWorldLocationFromGridIndex(CornerGridIndex, Rotation, OutLocation);
     OutLocation.Z = LowestHeight;
     
     OutTransform.SetLocation(OutLocation);
     
     FQuat FinalRotation = Rotation.Quaternion() * GetActorRotation().Quaternion();
     OutTransform.SetRotation(FinalRotation);
-    OutTransform.SetScale3D(FVector(1.f, 1.f, 1.f));
+    OutTransform.SetScale3D(FVector(CellSize / 100.f));
     return true;
 }
 
-
-
-void AGridActor::GetTowerGridIndices(const FIntPoint& PivotPointIndex, const FRotator& Rotation, const FTowerData& TowerData, TArray<int32>& OutFootprintIndices, TArray<int32>& OutBoundaryIndices) const
+void AGridActor::GetTowerGridIndices(const FTowerPlacementIntent& Placement, TArray<int32>& OutFootprintIndices, TArray<int32>& OutBoundaryIndices) const
 {
+    FIntPoint PivotPointIndex = Placement.PivotPoint;
+    FRotator Rotation = Placement.Rotation;
+    FTowerData TowerData = Placement.TowerData;
+
     // Reserve memory to avoid re-allocations during the loop
     OutFootprintIndices.Empty(TowerData.Footprint.Num());
     OutBoundaryIndices.Empty(TowerData.Boundary.Num());
@@ -227,8 +226,106 @@ FIntPoint AGridActor::RotateOffset(const FIntPoint& Offset, const FRotator& Rota
     return RotatedVectorOffsetInt;
 }
 
-bool AGridActor::CanPlaceTower(const FIntPoint& PivotPointIndex, const FRotator& Rotation, FTowerData TowerData)
+void AGridActor::UpdateOccupancyTexture(TArray<FTowerPlacementIntent> Placements)
 {
+    // 1. Calculate Power of 2 dimensions
+    int32 TexWidth = FMath::RoundUpToPowerOfTwo(GridSize.X);
+    int32 TexHeight = FMath::RoundUpToPowerOfTwo(GridSize.Y);
+
+    OccupancyTextureSize = FVector(TexWidth, TexHeight, 0.f);
+
+    // 2. Create the transient texture
+    // Using PF_B8G8R8A8 (Blue, Green, Red, Alpha)
+    if (!OccupancyTexture || OccupancyTexture->GetSizeX() != TexWidth || OccupancyTexture->GetSizeY() != TexHeight)
+    {
+        OccupancyTexture = UTexture2D::CreateTransient(TexWidth, TexHeight, PF_B8G8R8A8);
+        if (!OccupancyTexture) return;
+
+        OccupancyTexture->CompressionSettings = TC_VectorDisplacementmap;
+        OccupancyTexture->SRGB = false;
+        OccupancyTexture->Filter = TF_Nearest;
+        OccupancyTexture->UpdateResource();
+    }
+
+    // 3. Lock the texture for editing
+    FTexture2DMipMap& Mip = OccupancyTexture->GetPlatformData()->Mips[0];
+    void* Data = Mip.BulkData.Lock(LOCK_READ_WRITE);
+    uint8* RawData = (uint8*)Data;
+
+    // Clear buffer to black/transparent
+    FMemory::Memzero(RawData, TexWidth * TexHeight * 4);
+
+    for (const FTowerPlacementIntent& Placement : Placements)
+    {
+        TArray<int32> CurrentFootprintIndices;
+        TArray<int32> CurrentBoundaryIndices;
+        GetTowerGridIndices(Placement, CurrentFootprintIndices, CurrentBoundaryIndices);
+
+        for (int32 Index : CurrentFootprintIndices)
+        {
+            if (!Occupied.IsValidIndex(Index))
+            {
+                continue; // Out of bounds
+            }
+
+            // Convert 1D Grid Index back to 2D Grid Coordinates
+            int32 x = Index % GridSize.X;
+            int32 y = Index / GridSize.X;
+
+            // Convert 2D Grid Coordinates to Texture Pixel Index
+            int32 PixelIndex = (y * TexWidth + x) * 4;
+
+            RawData[PixelIndex + 2] = 255; // R channel
+        }
+
+        // 6. Overlay Ghost Boundary (Alpha Channel)
+        for (int32 Index : CurrentBoundaryIndices)
+        {
+            if (!BoundaryOccupied.IsValidIndex(Index))
+            {
+                continue; // Out of bounds
+            }
+
+            int32 x = Index % GridSize.X;
+            int32 y = Index / GridSize.X;
+            int32 PixelIndex = (y * TexWidth + x) * 4;
+
+            RawData[PixelIndex + 3] = 255; // A channel
+        }
+    }
+
+    for (int32 y = 0; y < GridSize.Y; y++)
+    {
+        for (int32 x = 0; x < GridSize.X; x++)
+        {
+            int32 GridIndex = y * GridSize.X + x;
+            int32 PixelIndex = (y * TexWidth + x) * 4;
+
+            // Logic: OccupiedFootprint = Blue Channel, OccupiedBoundary = Green Channel
+            // CurrentFootprint = Red Channel, CurrentBoundary = Alpha Channel
+
+            // Using 255 for full intensity
+            if (Occupied.IsValidIndex(GridIndex) && Occupied[GridIndex])
+            {
+                RawData[PixelIndex + 0] = 255; // B (Blue for Footprint)
+            }
+
+            if (BoundaryOccupied.IsValidIndex(GridIndex) && BoundaryOccupied[GridIndex])
+            {
+                RawData[PixelIndex + 1] = 255; // G (Red for Boundary)
+            }
+        }
+    }
+
+    Mip.BulkData.Unlock();
+    OccupancyTexture->UpdateResource();
+}
+
+bool AGridActor::CanPlaceTower(const FTowerPlacementIntent& Placement)
+{
+    FIntPoint PivotPointIndex = Placement.PivotPoint;
+    FRotator Rotation = Placement.Rotation;
+    FTowerData TowerData = Placement.TowerData;
     if (Rotation.Pitch != 0.f || Rotation.Roll != 0.f)
     {
         // Currently only supports rotation around Z axis
@@ -237,7 +334,7 @@ bool AGridActor::CanPlaceTower(const FIntPoint& PivotPointIndex, const FRotator&
 
 	TArray<int32> FootprintIndices;
 	TArray<int32> BoundaryIndices;
-	GetTowerGridIndices(PivotPointIndex, Rotation, TowerData, FootprintIndices, BoundaryIndices);
+	GetTowerGridIndices(Placement, FootprintIndices, BoundaryIndices);
     
     // The tower's footprint must not be occupied by towers nor boundary
     for (const int32& Index: FootprintIndices)
@@ -247,7 +344,7 @@ bool AGridActor::CanPlaceTower(const FIntPoint& PivotPointIndex, const FRotator&
             return false; // Out of bounds
         }
 
-        if (Occupied[Index] || BoundaryOccupied[Index] != 0)
+        if (Occupied[Index] || BoundaryOccupied[Index])
         {
             return false; // Already filled or occupied by another tower's boundary
         }
@@ -259,7 +356,7 @@ bool AGridActor::CanPlaceTower(const FIntPoint& PivotPointIndex, const FRotator&
         {
             continue; // Out of bounds, but it's okay for boundary
         }
-        if (Occupied[Index])
+        if (Occupied[Index] || BoundaryOccupied[Index])
         {
 			// If the boundary overlaps with another tower, it's not allowed
             return false;
@@ -269,23 +366,101 @@ bool AGridActor::CanPlaceTower(const FIntPoint& PivotPointIndex, const FRotator&
     return true;
 }
 
-bool AGridActor::PlaceTower(const FIntPoint& PivotPointIndex, const FRotator& Rotation, ATowerActor* TowerPtr)
+void AGridActor::ValidateTowerPlacements(TArray<FTowerPlacementIntent> Placements, TArray<bool>& OutValidPlacements)
 {
-    if (Rotation.Pitch != 0.f || Rotation.Roll != 0.f)
+    OutValidPlacements.Empty();
+    OutValidPlacements.Init(false, Placements.Num());
+    for (int i = 0; i < Placements.Num(); i++)
+    {
+        OutValidPlacements[i] = CanPlaceTower(Placements[i]);
+    }
+}
+
+void AGridActor::GetTowerPlacementsInLine(const FTowerPlacementIntent& Start, const FTowerPlacementIntent& End, int MaxTowers, TArray<FTowerPlacementIntent>& OutPlacements)
+{
+    FIntPoint UpperBounds{ INT_MIN, INT_MIN };
+    FIntPoint LowerBounds{ INT_MAX, INT_MAX };
+    TArray<FIntPoint> AllPoints = Start.TowerData.Footprint;
+    AllPoints.Append(Start.TowerData.Boundary);
+
+    for (const FIntPoint& Point : AllPoints)
+    {
+        UpperBounds.X = FMath::Max(Point.X, UpperBounds.X);
+        UpperBounds.Y = FMath::Max(Point.Y, UpperBounds.Y);
+        LowerBounds.X = FMath::Min(Point.X, LowerBounds.X);
+        LowerBounds.Y = FMath::Min(Point.Y, LowerBounds.Y);
+    }
+
+    FIntPoint BoundingBoxSize = UpperBounds - LowerBounds + FIntPoint(1, 1);
+    FIntPoint Delta = End.PivotPoint - Start.PivotPoint;
+    
+    float NormalizedYaw = FRotator::ClampAxis(Start.Rotation.Yaw);
+
+    if (FMath::IsNearlyEqual(NormalizedYaw, 90.0f, 0.1f) ||
+        FMath::IsNearlyEqual(NormalizedYaw, 270.0f, 0.1f))
+    {
+        int32 Temp = BoundingBoxSize.X;
+        BoundingBoxSize.X = BoundingBoxSize.Y;
+        BoundingBoxSize.Y = Temp;
+    }
+
+    OutPlacements.Empty();
+
+    bool bXIsDriving = FMath::Abs(Delta.X) >= FMath::Abs(Delta.Y);
+
+    // 2. Assign values based on the driving axis
+    int32 StartDrive = bXIsDriving ? Start.PivotPoint.X : Start.PivotPoint.Y;
+    int32 EndDrive = bXIsDriving ? End.PivotPoint.X : End.PivotPoint.Y;
+    int32 StartDep = bXIsDriving ? Start.PivotPoint.Y : Start.PivotPoint.X;
+
+    // Determine step direction (1 or -1) and size
+    int32 DriveStepSign = (EndDrive >= StartDrive) ? 1 : -1;
+    int32 DriveStepSize = (bXIsDriving ? BoundingBoxSize.X : BoundingBoxSize.Y) * DriveStepSign;
+
+    // Calculate the slope (Ratio) relative to the driving axis
+    float Ratio = 0.0f;
+    if (Delta.X != 0 && Delta.Y != 0)
+    {
+        Ratio = bXIsDriving ? (static_cast<float>(Delta.Y) / Delta.X) : (static_cast<float>(Delta.X) / Delta.Y);
+    }
+
+    // 3. Single Loop
+    for (int i = 0; i < MaxTowers; i++)
+    {
+        // Calculate current offset on the driving axis
+        int32 CurrentDriveOffset = i * DriveStepSize;
+        float CurrentDrivePos = StartDrive + CurrentDriveOffset;
+
+        // Check if we've overshot the target
+        if ((DriveStepSign > 0 && CurrentDrivePos > EndDrive) ||
+            (DriveStepSign < 0 && CurrentDrivePos < EndDrive))
+        {
+            break;
+        }
+
+        // Calculate the dependent position based on the slope
+        float CurrentDepPos = StartDep + (CurrentDriveOffset * Ratio);
+
+        FTowerPlacementIntent Placement = Start; // Copy properties like Rotation/Data
+        Placement.PivotPoint.X = bXIsDriving ? FMath::RoundToInt(CurrentDrivePos) : FMath::RoundToInt(CurrentDepPos);
+        Placement.PivotPoint.Y = bXIsDriving ? FMath::RoundToInt(CurrentDepPos) : FMath::RoundToInt(CurrentDrivePos);
+
+        OutPlacements.Add(Placement);
+    }
+}
+
+bool AGridActor::PlaceTower(const FTowerPlacementIntent& Placement)
+{
+    if (Placement.Rotation.Pitch != 0.f || Placement.Rotation.Roll != 0.f)
     {
 		UE_LOG(LogTemp, Warning, TEXT("Currently only supports rotation around Z axis"))
         return false;
     }
 
-	if (!TowerPtr)
-    {
-		UE_LOG(LogTemp, Warning, TEXT("TowerPtr is null!"))
-        return false;
-    }
-
     TArray<int32> FootprintIndices;
     TArray<int32> BoundaryIndices;
-    GetTowerGridIndices(PivotPointIndex, Rotation, TowerPtr->TowerData, FootprintIndices, BoundaryIndices);
+
+    GetTowerGridIndices(Placement, FootprintIndices, BoundaryIndices);
 
     for (const int32& Index : FootprintIndices)
     {
@@ -296,7 +471,6 @@ bool AGridActor::PlaceTower(const FIntPoint& PivotPointIndex, const FRotator& Ro
             continue;
 		}
         Occupied[Index] = true;
-        Towers[Index] = TowerPtr;
     }
 
 	for (const int32& Index : BoundaryIndices)
@@ -305,22 +479,22 @@ bool AGridActor::PlaceTower(const FIntPoint& PivotPointIndex, const FRotator& Ro
         {
             continue; // Out of bounds, but it's okay for boundary
         }
-        BoundaryOccupied[Index] += 1;
+        BoundaryOccupied[Index] = true;
     }
 
 	return true;
 }
 
-bool AGridActor::RemoveTower(const FIntPoint& PivotPointIndex, const FRotator& Rotation, ATowerActor* TowerPtr)
+bool AGridActor::RemoveTower(const FTowerPlacementIntent& Placement)
 {
-    if (Rotation.Pitch != 0.f || Rotation.Roll != 0.f)
+    if (Placement.Rotation.Pitch != 0.f || Placement.Rotation.Roll != 0.f)
     {
         // Currently only supports rotation around Z axis
         return false;
     }
     TArray<int32> FootprintIndices;
     TArray<int32> BoundaryIndices;
-    GetTowerGridIndices(PivotPointIndex, Rotation, TowerPtr->TowerData, FootprintIndices, BoundaryIndices);
+    GetTowerGridIndices(Placement, FootprintIndices, BoundaryIndices);
 
     for (const int32& Index : FootprintIndices)
     {
@@ -332,7 +506,6 @@ bool AGridActor::RemoveTower(const FIntPoint& PivotPointIndex, const FRotator& R
         }
 
         Occupied[Index] = false;
-        Towers[Index] = nullptr;
     }
     for (const int32& Index : BoundaryIndices)
     {
@@ -340,38 +513,9 @@ bool AGridActor::RemoveTower(const FIntPoint& PivotPointIndex, const FRotator& R
         {
             continue; // Out of bounds, but it's okay for boundary
         }
-        BoundaryOccupied[Index] -= 1;
+        BoundaryOccupied[Index] = false;
     }
     return true;
-}
-
-void AGridActor::LogGridState()
-{
-    FString Output = "=\n";
-    for (int Y = 0; Y < GridSize.Y; Y++)
-    {
-		for (int X = 0; X < GridSize.X; X++)
-        {
-            int CalculatedIndex = Y * GridSize.X + X;
-            if (Occupied.IsValidIndex(CalculatedIndex) && Occupied[CalculatedIndex])
-            {
-                Output += "X";
-            }
-            else
-            {
-				Output += FString::FromInt(BoundaryOccupied[CalculatedIndex]);
-            }
-            if (X == GridSize.X - 1)
-            {
-                Output += "\n";
-            }
-            else
-            {
-                Output += " ";
-            }
-        }
-    }
-	UE_LOG(LogTemp, Log, TEXT("%s"), *Output);
 }
 
 

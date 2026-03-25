@@ -186,7 +186,13 @@ void ATowerActor::UpdateStats()
 
 float ATowerActor::GetStats(FGameplayTag Tag)
 {
-	return TowerData.Effects.Find(Tag)->Amount;
+	const FTowerEffect* Effect = TowerData.Effects.Find(Tag);
+	if (!Effect)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("GetStats: Tag '%s' not found on tower '%s'. Returning 0."), *Tag.ToString(), *GetName());
+		return 0.f;
+	}
+	return Effect->Amount;
 }
 
 void ATowerActor::Tick(float DeltaSeconds)
@@ -205,11 +211,11 @@ void ATowerActor::DestroyTower()
 {
 	bTowerIsInactive = true;
 	// TODO: Do something to schedule a delete
-	GridActor->RemoveTower(
-		CornerGridIndex,
-		GridRelativeRotation,
-		this
-	);
+	FTowerPlacementIntent Placement;
+	Placement.PivotPoint = CornerGridIndex;
+	Placement.Rotation = GridRelativeRotation;
+	Placement.TowerData = TowerData;
+	GridActor->RemoveTower(Placement);
 	Destroy();
 }
 

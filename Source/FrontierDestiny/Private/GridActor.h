@@ -10,12 +10,30 @@
 class UBoxComponent;
 class ATowerActor;
 
+USTRUCT(BlueprintType)
+struct FRONTIERDESTINY_API FTowerPlacementIntent
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	FTowerData TowerData;
+	UPROPERTY()
+	FRotator Rotation = FRotator::ZeroRotator;
+	UPROPERTY()
+	FIntPoint PivotPoint = FIntPoint(0, 0);
+};
+
 UCLASS()
 class AGridActor : public AActor
 {
 	GENERATED_BODY()
 	
-public:	
+public:
+	UPROPERTY(VisibleAnywhere, Category = "Debug")
+	TObjectPtr<UTexture2D> OccupancyTexture;
+	UPROPERTY(VisibleAnywhere, Category = "Debug")
+	FVector OccupancyTextureSize;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Settings")
 	float ScaleX;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Settings")
@@ -25,13 +43,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Settings")
 	FIntPoint GridSize;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Occupancy")
+	UPROPERTY(BlueprintReadWrite, Category = "Grid Occupancy")
 	TArray<bool> Occupied;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Occupancy")
-	TArray<uint8> BoundaryOccupied;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Occupancy")
-	TArray<TObjectPtr<ATowerActor>> Towers;
+	UPROPERTY(BlueprintReadWrite, Category = "Grid Occupancy")
+	TArray<bool> BoundaryOccupied;
 
 	// We perform a raycast from top to bottom to figure out where to place this
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Settings")
@@ -66,31 +81,36 @@ public:
 	bool GetWorldLocationFromGridIndex(const FIntPoint& GridIndex, const FRotator& Rotation, FVector& OutLocation) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
-	bool GetTowerPlacementLocationFromGridIndex(const FIntPoint& PivotPointIndex, const FRotator& Rotation, const FTowerData& TowerData, FTransform& OutTransform) const;
+	bool GetTowerPlacementLocationFromGridIndex(const FTowerPlacementIntent& Placement, FTransform& OutTransform) const;
 
 	UFUNCTION(BlueprintPure, Category = "Tower Defense|Grid")
-	void GetTowerGridIndices(const FIntPoint& PivotPointIndex, const FRotator& Rotation, const FTowerData& TowerData, TArray<int32>& OutFootprintIndices, TArray<int32>& OutBoundaryIndices) const;
+	void GetTowerGridIndices(const FTowerPlacementIntent& Placement, TArray<int32>& OutFootprintIndices, TArray<int32>& OutBoundaryIndices) const;
 
 	/*
 	Get whether a tower can be placed at the pivot point
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
-	bool CanPlaceTower(const FIntPoint& PivotPointIndex, const FRotator& Rotation, FTowerData TowerData);
+	bool CanPlaceTower(const FTowerPlacementIntent& Placement);
+
+	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
+	void ValidateTowerPlacements(TArray<FTowerPlacementIntent> Placements, TArray<bool>& OutValidPlacements);
+
+	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
+	void GetTowerPlacementsInLine(const FTowerPlacementIntent& Start, const FTowerPlacementIntent& End, int MaxTowers, TArray<FTowerPlacementIntent>& OutPlacements);
 
 	/*
 	Fills the cells based on tower
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
-	bool PlaceTower(const FIntPoint& PivotPointIndex, const FRotator& Rotation, ATowerActor* TowerPtr);
+	bool PlaceTower(const FTowerPlacementIntent& Placement);
 
 	/*
 	Clears the cells based on tower
 	*/
 	UFUNCTION(BlueprintCallable, Category = "Tower Defense|Grid")
-	bool RemoveTower(const FIntPoint& PivotPointIndex, const FRotator& Rotation, ATowerActor* TowerPtr);
-
+	bool RemoveTower(const FTowerPlacementIntent& Placement);
 	UFUNCTION(BlueprintCallable)
-	void LogGridState();
+	void UpdateOccupancyTexture(TArray<FTowerPlacementIntent> Placements);
 protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
