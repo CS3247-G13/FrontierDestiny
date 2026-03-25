@@ -19,28 +19,44 @@ void ASingleTargetTowerActor::ActivateTower()
 		this,
 		&ASingleTargetTowerActor::PerformCurrentTargetVisibilityCheck,
 		0.2f,
-		true  // loop — we need to continuously detect entity death and update position
+		true
 	);
+
+	UEnemyManagerSubsystem* EnemyManager = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
+	if (EnemyManager)
+	{
+		EnemyDeathDelegateHandle = EnemyManager->OnEnemyDeath.AddUObject(this, &ASingleTargetTowerActor::HandleEnemyDeath);
+	}
 }
 
 void ASingleTargetTowerActor::EndPlay(const EEndPlayReason::Type Reason)
 {
 	Super::EndPlay(Reason);
 	GetWorldTimerManager().ClearTimer(TargetCheckTimer);
+
+	UEnemyManagerSubsystem* EnemyManager = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
+	if (EnemyManager)
+	{
+		EnemyManager->OnEnemyDeath.Remove(EnemyDeathDelegateHandle);
+	}
+}
+
+void ASingleTargetTowerActor::HandleEnemyDeath(FMassEntityHandle Handle)
+{
+	// Always remove the dead entity from range tracking so it can't be retargeted
+	OverlappingTargets.Remove(Handle);
+
+	if (CurrentTarget.EntityHandle == Handle)
+	{
+		CurrentTarget = FMassEnemyTarget();
+		OnTargetDeath();
+	}
 }
 
 void ASingleTargetTowerActor::PerformCurrentTargetVisibilityCheck()
 {
 	if (!CurrentTarget.IsSet())
 	{
-		return;
-	}
-
-	// Check if the entity has been destroyed
-	UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
-	if (!EntitySubsystem || !EntitySubsystem->GetEntityManager().IsEntityValid(CurrentTarget.EntityHandle))
-	{
-		OnTargetDeath();
 		return;
 	}
 
@@ -97,8 +113,16 @@ void ASingleTargetTowerActor::SelectTarget()
 
 	if (BestHandle.IsSet())
 	{
-		CurrentTarget.EntityHandle = BestHandle;
-		CurrentTarget.Position = EnemyManager->GetEntityPosition(BestHandle);
+		FMassEnemyTarget NewTarget;
+		NewTarget.EntityHandle = BestHandle;
+		NewTarget.Position = EnemyManager->GetEntityPosition(BestHandle);
+
+		// Only fire OnAcquireNewTarget if it's actually a different target
+		if (CurrentTarget.EntityHandle != BestHandle)
+		{
+			CurrentTarget = NewTarget;
+			OnAcquireNewTarget(CurrentTarget);
+		}
 	}
 	else
 	{
@@ -128,6 +152,9 @@ void ASingleTargetTowerActor::LoseSightOfTarget_Implementation()
 
 void ASingleTargetTowerActor::OnTargetDeath_Implementation()
 {
-	CurrentTarget = FMassEnemyTarget();
 	SelectTarget();
+}
+
+void ASingleTargetTowerActor::OnAcquireNewTarget_Implementation(FMassEnemyTarget Target)
+{
 }

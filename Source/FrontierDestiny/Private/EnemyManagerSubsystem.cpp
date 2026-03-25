@@ -2,6 +2,7 @@
 
 
 #include "GlobalTowerSettings.h"
+#include "Async/TaskGraphInterfaces.h"
 #include "NiagaraDataInterfaceArrayFunctionLibrary.h"
 #include "MassEntitySubsystem.h"
 
@@ -163,6 +164,16 @@ void UEnemyManagerSubsystem::LoadEnemyDataFromDataTable()
 			EnemyDataMap.Add(RowName, *Data);
 		}
 	}
+}
+
+void UEnemyManagerSubsystem::NotifyEnemyDeath(FMassEntityHandle Handle)
+{
+	// Called from a Mass processor which may be off the game thread.
+	// Defer to game thread since broadcast subscribers touch Blueprint/timer systems.
+	AsyncTask(ENamedThreads::GameThread, [this, Handle]()
+	{
+		OnEnemyDeath.Broadcast(Handle);
+	});
 }
 
 void UEnemyManagerSubsystem::ApplyDamageToTarget(FMassEnemyTarget Target, int32 Damage)

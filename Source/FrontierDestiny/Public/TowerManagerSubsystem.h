@@ -8,6 +8,15 @@
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "TowerManagerSubsystem.generated.h"
 
+struct FTowerPathNode
+{
+	FName TowerID = NAME_None;
+
+	TMap<int32, TSharedPtr<FTowerPathNode>> Children;
+};
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTowerUnlocked, FTowerData, TowerData);
+
 UCLASS()
 class FRONTIERDESTINY_API UTowerManagerSubsystem : public UGameInstanceSubsystem
 {
@@ -22,7 +31,19 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadonly)
 	TMap<FName, FTowerData> TowerDataMap;
+	UPROPERTY(VisibleAnywhere, BlueprintReadonly)
+	TSet<FName> UnlockedTowers;
 
+	UPROPERTY(BlueprintAssignable)
+	FOnTowerUnlocked OnTowerUnlocked;
+
+	FTowerPathNode FullTowerPath;
+	bool CheckPathUnlocked(TArray<int32> Path);
+	TMap<int32, FTowerData> GetPathNextTowers(TArray<int32> Path);
+	FTowerData GetPathTower(TArray<int32> Path);
 protected:
 	void LoadTowerDataFromDataTable();
+
+	UFUNCTION()
+	void HandleUpgradePerformed(const FUpgradeData& Upgrade);
 };

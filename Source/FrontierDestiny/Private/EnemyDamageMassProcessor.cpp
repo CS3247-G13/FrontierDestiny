@@ -1,5 +1,6 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "EnemyDamageMassProcessor.h"
+#include "EnemyManagerSubsystem.h"
 #include "MassCommonFragments.h"
 #include "MassCommandBuffer.h"
 #include "MassExecutionContext.h"
@@ -38,30 +39,33 @@ void UEnemyDamageMassProcessor::ConfigureQueries(const TSharedRef<FMassEntityMan
 void UEnemyDamageMassProcessor::Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context)
 {
 	UE_LOG(LogTemp, Warning, TEXT("Damage Processor Ticking!"));
-	// The Lambda version of ForEachEntityChunk is the standard modern pattern
-	EntityQuery.ForEachEntityChunk(Context, [this](FMassExecutionContext& Context)
+
+	UEnemyManagerSubsystem* EnemyManager = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
+
+	EntityQuery.ForEachEntityChunk(Context, [this, EnemyManager](FMassExecutionContext& Context)
 		{
 			TArrayView<FHealthFragment> HealthList = Context.GetMutableFragmentView<FHealthFragment>();
 			TConstArrayView<FDamageFragment> DamageList = Context.GetFragmentView<FDamageFragment>();
 			const int32 NumEntities = Context.GetNumEntities();
-
 
 			for (int32 EntityIdx = 0; EntityIdx < NumEntities; EntityIdx++)
 			{
 				FHealthFragment& Health = HealthList[EntityIdx];
 				const FDamageFragment& Damage = DamageList[EntityIdx];
 
-				// Apply damage logic
 				Health.Value -= Damage.DamageAmount;
 
 				const FMassEntityHandle Entity = Context.GetEntity(EntityIdx);
 				if (Health.Value <= 0.f)
 				{
+					if (EnemyManager)
+					{
+						EnemyManager->NotifyEnemyDeath(Entity);
+					}
 					Context.Defer().DestroyEntity(Entity);
 				}
 				else
 				{
-					// Remove the damage fragment so it doesn't re-trigger next frame
 					Context.Defer().RemoveFragment<FDamageFragment>(Entity);
 				}
 			}

@@ -44,6 +44,20 @@ struct FRONTIERDESTINY_API FGhostTowerPool
 	TArray<ATowerActor*> Actors;
 };
 
+USTRUCT(BlueprintType)
+struct FRONTIERDESTINY_API FTowerDisplay
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadonly)
+	bool Present = false;
+	UPROPERTY(VisibleAnywhere, BlueprintReadonly)
+	FTowerData Data;
+};
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FOnTowerSelectionChange, FTowerDisplay, SelectedTower, FTowerDisplay, NextTower1, FTowerDisplay, NextTower2, FTowerDisplay, NextTower3);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTowerBuildingNotification, FString, Notificatoin);
+
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class FRONTIERDESTINY_API UBuilderComponent : public UModeComponent
 {
@@ -115,6 +129,8 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	TObjectPtr<UInputAction> SelectTowerAction;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
+	TObjectPtr<UInputAction> DeselectTowerAction;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	TObjectPtr<UInputAction> RotateTowerAction;
 
 private:
@@ -133,6 +149,8 @@ private:
 	void OnBuildTowerActionEnd(const FInputActionValue& Value);
 	UFUNCTION()
 	void OnSelectTowerAction(const FInputActionValue& Value);
+	UFUNCTION()
+	void OnDeselectTowerAction(const FInputActionValue& Value);
 	UFUNCTION()
 	void OnRotateTowerAction(const FInputActionValue& Value);
 
@@ -175,8 +193,15 @@ private:
 	ERotation AddedBuildingRotation;
 	ERotation BuildingRotationRelativeToBuilder;
 
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, Category = "Debug")
 	TOptional<FName> SelectedTower;
+	UPROPERTY(VisibleAnywhere, Category = "Debug")
+	TArray<int32> SelectedPath;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnTowerSelectionChange OnTowerSelectionChange;
+	UPROPERTY(BlueprintAssignable)
+	FOnTowerBuildingNotification OnTowerBuildingNotification;
 
 	// ====== DELETE TOWER ====== //
 private:

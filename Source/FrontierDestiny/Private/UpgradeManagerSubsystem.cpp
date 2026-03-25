@@ -76,7 +76,7 @@ void UUpgradeManagerSubsystem::LoadUpgradesFromDataTable()
 	{
 		if (Pair.Value.bRequiresBlueprint)
 		{
-			BlueprintMap.Add(Pair.Key, false);
+			BlueprintMap.Add(Pair.Value.ID, false);
 		}
 	}
 
@@ -145,6 +145,16 @@ bool UUpgradeManagerSubsystem::PurchaseUpgrade(const FName& UpgradeID)
 	OnUpgradePerformed.Broadcast(Upgrade);
 
 	return true;
+}
+
+void UUpgradeManagerSubsystem::UnlockBlueprint(const FName& UpgradeID)
+{
+	if (!BlueprintMap.Contains(UpgradeID))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No upgrade with ID %s was found that requires a blueprint!"), *UpgradeID.ToString());
+		return;
+	}
+	BlueprintMap[UpgradeID] = true;
 }
 
 FUpgradeStatus UUpgradeManagerSubsystem::CheckUpgradeSufficientResources(const FName& UpgradeID)

@@ -13,6 +13,8 @@
 
 #include "EnemyManagerSubsystem.generated.h"
 
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnEnemyDeathSignature, FMassEntityHandle);
+
 UCLASS()
 class FRONTIERDESTINY_API UEnemyManagerSubsystem : public UGameInstanceSubsystem
 {
@@ -65,6 +67,12 @@ public:
 	float GetEntityHealth(FMassEntityHandle Handle) const;
 
 	TArray<FMassEntityHandle> ActiveEntityHandles;
+
+	/** Called by the damage processor when an entity's health reaches zero. Removes it from
+	 *  tracking immediately and broadcasts OnEnemyDeath so towers can react this frame. */
+	void NotifyEnemyDeath(FMassEntityHandle Handle);
+
+	FOnEnemyDeathSignature OnEnemyDeath;
 
 	void LoadEnemyDataFromDataTable();
 

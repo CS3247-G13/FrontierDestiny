@@ -57,8 +57,16 @@ protected:
 
 	UFUNCTION(BlueprintNativeEvent)
 	void LoseSightOfTarget();
+
+	UFUNCTION(BlueprintNativeEvent)
+	void OnAcquireNewTarget(FMassEnemyTarget Target);
+
 	FTimerHandle TargetCheckTimer;
 
 	UFUNCTION()
 	void PerformCurrentTargetVisibilityCheck();
+
+private:
+	void HandleEnemyDeath(FMassEntityHandle Handle);
+	FDelegateHandle EnemyDeathDelegateHandle;
 };

@@ -39,9 +39,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower")
 	FResourceAmount Cost;
 
-	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower")
-	bool bRequiresBlueprint = false;
-
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Display")
 	FString Name = "";
 
@@ -74,5 +71,8 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Effects")
 	TMap<FGameplayTag, FTowerEffect> Effects;
+
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Tower|Building")
+	TArray<int32> SelectionPath;
 
 };

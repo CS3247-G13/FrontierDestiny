@@ -54,6 +54,9 @@ public:
 	bool PurchaseUpgrade(const FName& UpgradeID);
 
 	UFUNCTION(BlueprintCallable, Category = "Upgrade")
+	void UnlockBlueprint(const FName& UpgradeID);
+
+	UFUNCTION(BlueprintCallable, Category = "Upgrade")
 	FUpgradeStatus CheckUpgradeSufficientResources(const FName& UpgradeID);
 
 	UFUNCTION(BlueprintCallable, Category = "Upgrade")
