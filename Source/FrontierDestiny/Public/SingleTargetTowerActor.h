@@ -57,6 +57,10 @@ protected:
 
 	UFUNCTION(BlueprintNativeEvent)
 	void LoseSightOfTarget();
+
+	UFUNCTION(BlueprintNativeEvent)
+	void OnAcquireNewTarget(ABaseEnemyCharacter* Target);
+
 	FTimerHandle TargetCheckTimer;
 
 	UFUNCTION()
