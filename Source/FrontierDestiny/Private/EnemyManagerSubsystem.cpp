@@ -225,7 +225,7 @@ void UEnemyManagerSubsystem::GetEntitiesInRange(FVector Center, float Radius, TA
 FVector UEnemyManagerSubsystem::GetEntityPosition(FMassEntityHandle Handle) const
 {
 	const int32 Idx = ActiveEntityHandles.IndexOfByKey(Handle);
-	return (Idx != INDEX_NONE && Idx < EnemyPositions.Num()) ? EnemyPositions[Idx] : FVector::ZeroVector;
+	return (Idx != INDEX_NONE && Idx < EnemyPositions.Num()) ? EnemyPositions[Idx] + FVector(0.0f, 0.0f, 100.0f) : FVector::ZeroVector;
 }
 
 float UEnemyManagerSubsystem::GetEntityHealth(FMassEntityHandle Handle) const
