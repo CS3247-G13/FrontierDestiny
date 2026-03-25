@@ -105,8 +105,8 @@ void AHomingProjectileActor::GetNextVelocityAndRotation_Implementation(float Del
     return;
 }
 
-void AHomingProjectileActor::HitTarget_Implementation(AActor* TargetActor, FVector HitLocation)
+void AHomingProjectileActor::HitTarget_Implementation(const FHitResult& Hit)
 {
-    Super::HitTarget_Implementation(TargetActor, HitLocation); 
+    Super::HitTarget_Implementation(Hit);
     Destroy();
 }

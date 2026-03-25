@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/EngineTypes.h"
+#include "Engine/DataTable.h"
 #include "QuestData.generated.h"
 
 UENUM(BlueprintType)
@@ -13,10 +14,23 @@ enum class EObjectiveType : uint8
 	Interact,
 	KillEnemies,
 	Timer,
+	JustMessage,
 };
 
 USTRUCT(BlueprintType)
-struct FQuestData
+struct FQuestMessage
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FText Text;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float Delay = 5.0f;
+};
+
+USTRUCT(BlueprintType)
+struct FQuestData : public FTableRowBase
 {
 	GENERATED_BODY()
 
@@ -26,32 +40,32 @@ public:
 	FName QuestID;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Quest")
-	FText Title;
+	FText Faction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Quest")
-	FText Description;
+	TArray<FQuestMessage> Messages;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Quest")
-	TArray<FText> Objectives;
+	FText Objective;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Quest")
-	int32 CurrentObjectiveIndex = 0;
+	int32 CurrentMessageIndex = 0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Quest")
-	AActor* Target = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Quest")
+	FName TargetTag;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Quest")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Quest")
 	bool bIsCompleted = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Quest")
-	FName NextQuestID;
+	TArray<FName> NextQuestIDs;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	EObjectiveType ObjectiveType;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float RequiredDistance = 100.f;
-
+	float RequiredDistance = 1000.f;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 RequiredKillCount = 0;
 
@@ -60,4 +74,5 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float TimeLeft = 0;
+
 };

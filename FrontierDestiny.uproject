@@ -12,7 +12,8 @@
 				"Engine",
 				"DeveloperSettings",
 				"UMG",
-				"CoreUObject"
+				"CoreUObject",
+				"MassEntity"
 			]
 		}
 	],
@@ -26,6 +27,26 @@
 		},
 		{
 			"Name": "Landmass",
+			"Enabled": true
+		},
+		{
+			"Name": "MassAI",
+			"Enabled": true
+		},
+		{
+			"Name": "MassCrowd",
+			"Enabled": true
+		},
+		{
+			"Name": "MassGameplay",
+			"Enabled": true
+		},
+		{
+			"Name": "GameplayStateTree",
+			"Enabled": true
+		},		
+		{
+			"Name": "StateTree",
 			"Enabled": true
 		},
 		{

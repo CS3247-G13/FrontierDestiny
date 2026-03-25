@@ -10,8 +10,18 @@
 #include "EnhancedInputComponent.h"
 #include "InputMappingContext.h"
 #include "DamageNumber.h"
+#include "EnemyManagerSubsystem.h"
 
 #include "Engine/DamageEvents.h"
+
+// For MassEntity damage
+#include "MassEntityTypes.h"
+#include "MassEntitySubsystem.h"
+#include "MassEntityManager.h"
+#include "MassCommandBuffer.h"
+#include "MassRepresentationSubsystem.h"
+#include "Components/InstancedStaticMeshComponent.h"
+#include "EnemyDamageMassProcessor.h"
 
 // Sets default values for this component's properties
 UCombatComponent::UCombatComponent()
@@ -220,6 +230,19 @@ void UCombatComponent::ShootDirection(FVector Direction)
 	{
 		FTransform SpawnTransform((-Direction).Rotation(), TraceStart + Direction * 100.f);
 		UGameplayStatics::ApplyDamage(Hit.GetActor(), GetPlayerData().WeaponDataMap[CurrentWeapon].GetDamage(), PlayerController, Pawn, UDamageType::StaticClass());
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("HIT"));
+	// Try to hit MassEntity
+	{
+		// Cast the hit component to ISMC
+		UInstancedStaticMeshComponent* HitISMC = Cast<UInstancedStaticMeshComponent>(Hit.GetComponent());
+
+		UEnemyManagerSubsystem* EnemyManagerSubsystem = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
+
+		FMassEntityHandle Handle = EnemyManagerSubsystem->GetEnemyEntityHandle(HitISMC, Hit.Item);
+
+		EnemyManagerSubsystem->ApplyDamageToEnemy(Handle, GetPlayerData().WeaponDataMap[CurrentWeapon].GetDamage());
 	}
 }
 
