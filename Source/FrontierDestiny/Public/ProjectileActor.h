@@ -32,12 +32,11 @@ protected:
     virtual void GetNextVelocityAndRotation_Implementation(float DeltaTime, FVector& OutVelocity, FRotator& OutRotation);
 
     /** * Triggered when the Sweep in Move() hits a blocking object.
-     * @param TargetActor The actor that was hit.
-     * @param HitLocation The specific coordinates of the impact point.
+     * @param Hit The full hit result from the sweep.
      */
     UFUNCTION(BlueprintNativeEvent, Category = "Projectile | Combat")
-    void HitTarget(AActor* TargetActor, FVector HitLocation);
-    virtual void HitTarget_Implementation(AActor* TargetActor, FVector HitLocation);
+    void HitTarget(const FHitResult& Hit);
+    virtual void HitTarget_Implementation(const FHitResult& Hit);
 
 public:
     virtual void Tick(float DeltaTime) override;
