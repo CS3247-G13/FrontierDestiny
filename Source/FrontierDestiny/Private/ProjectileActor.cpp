@@ -51,7 +51,7 @@ void AProjectileActor::Move(float DeltaTime)
     // 4. Check for collision
     if (HitResult.bBlockingHit)
     {
-        HitTarget(HitResult.GetActor(), HitResult.ImpactPoint);
+        HitTarget(HitResult);
     }
 }
 
@@ -62,10 +62,9 @@ void AProjectileActor::GetNextVelocityAndRotation_Implementation(float DeltaTime
     OutRotation = GetActorRotation();
 }
 
-void AProjectileActor::HitTarget_Implementation(AActor* TargetActor, FVector HitLocation)
+void AProjectileActor::HitTarget_Implementation(const FHitResult& Hit)
 {
-    if (TargetActor)
-    {
-        UE_LOG(LogTemp, Log, TEXT("Projectile hit %s at location: %s"), *TargetActor->GetName(), *HitLocation.ToString());
-    }
+    UE_LOG(LogTemp, Log, TEXT("Projectile hit %s at location: %s"),
+        Hit.GetActor() ? *Hit.GetActor()->GetName() : TEXT("None"),
+        *Hit.ImpactPoint.ToString());
 }

@@ -23,9 +23,10 @@ void UEnemyManagerSubsystem::InitializeHealthbars()
 	HealthRatios.SetNum(1000);
 	EnemyPositions.SetNum(1000);
 	EnemyVisibilities.SetNum(1000);
+	ActiveEntityHandles.Reserve(1000);
 }
 
-FMassEntityHandle UEnemyManagerSubsystem::GetEnemyEntityHandle(UInstancedStaticMeshComponent* Component, int32 Item)
+FMassEntityHandle UEnemyManagerSubsystem::GetEnemyEntityHandle(UInstancedStaticMeshComponent* Component, int32 Item) const
 {
 	FMassEntityHandle Handle;
 
@@ -112,11 +113,12 @@ void UEnemyManagerSubsystem::AssignNiagaraComponent(UNiagaraComponent* Component
 	NiagaraComponent = Component;
 }
 
-void UEnemyManagerSubsystem::UpdateHealthbarInformation(TArray<float>& UpdatedHealthRatios, TArray<FVector>& UpdatedEnemyPositions)
+void UEnemyManagerSubsystem::UpdateHealthbarInformation(TArray<float>& UpdatedHealthRatios, TArray<FVector>& UpdatedEnemyPositions, TArray<FMassEntityHandle>& UpdatedEntityHandles)
 {
 	// Update stored arrays
 	HealthRatios = UpdatedHealthRatios;
 	EnemyPositions = UpdatedEnemyPositions;
+	ActiveEntityHandles = UpdatedEntityHandles;
 
 	// Set visibility — 1.0 for active entities, 0.0 for empty slots
 	for (int32 i = 0; i < EnemyVisibilities.Num(); i++)
@@ -163,10 +165,67 @@ void UEnemyManagerSubsystem::LoadEnemyDataFromDataTable()
 	}
 }
 
+void UEnemyManagerSubsystem::ApplyDamageToTarget(FMassEnemyTarget Target, int32 Damage)
+{
+	ApplyDamageToEnemy(Target.EntityHandle, Damage);
+}
+
+bool UEnemyManagerSubsystem::IsTargetValid(FMassEnemyTarget Target) const
+{
+	return Target.EntityHandle.IsSet();
+}
+
+bool UEnemyManagerSubsystem::IsSameTarget(FMassEnemyTarget A, FMassEnemyTarget B) const
+{
+	return A.EntityHandle == B.EntityHandle;
+}
+
+bool UEnemyManagerSubsystem::GetEnemyTargetFromHit(const FHitResult& Hit, FMassEnemyTarget& OutTarget) const
+{
+	UInstancedStaticMeshComponent* ISMC = Cast<UInstancedStaticMeshComponent>(Hit.GetComponent());
+	if (!ISMC || Hit.Item == INDEX_NONE)
+	{
+		return false;
+	}
+
+	FMassEntityHandle Handle = GetEnemyEntityHandle(ISMC, Hit.Item);
+	if (!Handle.IsSet())
+	{
+		return false;
+	}
+
+	OutTarget.EntityHandle = Handle;
+	OutTarget.Position = GetEntityPosition(Handle);
+	return true;
+}
+
+void UEnemyManagerSubsystem::GetEntitiesInRange(FVector Center, float Radius, TArray<FMassEntityHandle>& OutHandles) const
+{
+	const float RadiusSq = Radius * Radius;
+	for (int32 i = 0; i < ActiveEntityHandles.Num(); i++)
+	{
+		if (i < EnemyPositions.Num() && FVector::DistSquared(Center, EnemyPositions[i]) <= RadiusSq)
+		{
+			OutHandles.Add(ActiveEntityHandles[i]);
+		}
+	}
+}
+
+FVector UEnemyManagerSubsystem::GetEntityPosition(FMassEntityHandle Handle) const
+{
+	const int32 Idx = ActiveEntityHandles.IndexOfByKey(Handle);
+	return (Idx != INDEX_NONE && Idx < EnemyPositions.Num()) ? EnemyPositions[Idx] : FVector::ZeroVector;
+}
+
+float UEnemyManagerSubsystem::GetEntityHealth(FMassEntityHandle Handle) const
+{
+	const int32 Idx = ActiveEntityHandles.IndexOfByKey(Handle);
+	return (Idx != INDEX_NONE && Idx < HealthRatios.Num()) ? HealthRatios[Idx] : 0.f;
+}
+
 void UEnemyManagerSubsystem::Deinitialize()
 {
 	Super::Deinitialize();
-
 }
 
 FEnemyData UEnemyManagerSubsystem::GetEnemyData(const FName& EnemyID)

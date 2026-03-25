@@ -44,6 +44,7 @@ void UHealthbarUpdateProcessor::Execute(FMassEntityManager& EntityManager, FMass
 	
 	TArray<float> HealthRatios;
 	TArray<FVector> Positions;
+	TArray<FMassEntityHandle> EntityHandles;
 
 	// The Lambda version of ForEachEntityChunk is the standard modern pattern
 	EntityQuery.ForEachEntityChunk(Context, [&](FMassExecutionContext& Context)
@@ -56,8 +57,9 @@ void UHealthbarUpdateProcessor::Execute(FMassEntityManager& EntityManager, FMass
 		{
 			Positions.Add(TransformList[EntityIdx].GetTransform().GetLocation());
 			HealthRatios.Add(HealthList[EntityIdx].Value / HealthList[EntityIdx].MaxValue);
+			EntityHandles.Add(Context.GetEntity(EntityIdx));
 		}
 	});
 
-	Subsystem->UpdateHealthbarInformation(HealthRatios, Positions);
+	Subsystem->UpdateHealthbarInformation(HealthRatios, Positions, EntityHandles);
 }
