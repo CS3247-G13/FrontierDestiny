@@ -8,6 +8,7 @@
 
 class UTowerData;
 class UEconomySubsystem;
+class UQuestSubsystem;
 class ATowerActor;
 class AGridActor;
 
@@ -257,4 +258,5 @@ public:
 	
 	UPROPERTY(VisibleInstanceOnly, Category = "References")
 	TObjectPtr<UEconomySubsystem> EconomyComponent;
+	TObjectPtr<UQuestSubsystem> QuestComponent;
 };

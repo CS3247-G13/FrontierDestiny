@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "MassEntityConfigAsset.h"
 #include "CoreMinimal.h"
 #include "EnemyData.generated.h"
 
@@ -24,4 +25,7 @@ struct FRONTIERDESTINY_API FEnemyData : public FTableRowBase
 public:
 	UPROPERTY(EditAnywhere)
 	TMap<FName, FEntityAttribute> Attributes;
+
+	UPROPERTY(EditAnywhere)
+	TSoftObjectPtr<UMassEntityConfigAsset> EnemyMassEntityAsset;
 };

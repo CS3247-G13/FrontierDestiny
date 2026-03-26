@@ -43,6 +43,9 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Quest")
 	TSoftObjectPtr<UDataTable> QuestDataTable;
 
+	UPROPERTY(Config, EditAnywhere, Category = "Waves")
+	TSoftObjectPtr<UDataTable> WaveDataTable;
+
 	/** Helper to get the settings instance easily */
 	static const UGlobalTowerSettings* Get() { return GetDefault<UGlobalTowerSettings>(); }
 };

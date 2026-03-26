@@ -13,13 +13,17 @@ TStatId UQuestSubsystem::GetStatId() const
 
 void UQuestSubsystem::StartQuest(FName QuestID)
 {
-	if (AllQuests.Contains(QuestID))
+	UE_LOG(LogTemp, Warning, TEXT("[Quest] Trying to start next quest: %s"), *QuestID.ToString());
+
+	if (UnlockedQuests.Contains(QuestID) && !AllQuests[QuestID].bIsStarted)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("[Quest] Starting next quest: %s"), *QuestID.ToString());
 		CurrentQuest = AllQuests[QuestID];
 
 		CurrentQuest.CurrentMessageIndex = 0;
 		CurrentQuest.CurrentKillCount = 0;
-		CurrentQuest.bIsCompleted = false;
+		AllQuests[QuestID].bIsCompleted = false;
+		AllQuests[QuestID].bIsStarted = true;
 
 		CurrentPrompt = CurrentQuest.Prompt;
 
@@ -28,6 +32,14 @@ void UQuestSubsystem::StartQuest(FName QuestID)
 		if (!CurrentQuest.TargetTag.IsNone())
 		{
 			CachedTargetActor = FindTargetActorByTag(CurrentQuest.TargetTag);
+		}
+
+		for (const FName& NextID : CurrentQuest.NextQuestIDs)
+		{
+			if (!NextID.IsNone())
+			{
+				UnlockedQuests.Add(NextID);
+			}
 		}
 
 		StartMessages();
@@ -50,25 +62,26 @@ void UQuestSubsystem::CompleteQuest()
 
 	TArray<FName> ValidNextQuests;
 
-	for (const FName& NextID : CurrentQuest.NextQuestIDs)
+	if (CurrentQuest.bAutoStartNext)
 	{
-		if (!NextID.IsNone())
+		for (const FName& NextID : CurrentQuest.NextQuestIDs)
 		{
-			UnlockedQuests.Add(NextID);
-			ValidNextQuests.Add(NextID);
-			UE_LOG(LogTemp, Warning, TEXT("Unlocked Quest: %s"), *NextID.ToString());
+			if (!NextID.IsNone())
+			{
+				ValidNextQuests.Add(NextID);
+			}
 		}
-	}
 
-	// autostart if only one valid
-	if (ValidNextQuests.Num() == 1)
-	{
-		FName NextQuestID = ValidNextQuests[0];
+		// autostart if only one valid
+		if (ValidNextQuests.Num() == 1)
+		{
+			FName NextQuestID = ValidNextQuests[0];
 
-		UE_LOG(LogTemp, Warning, TEXT("[Quest] Auto-starting next quest: %s"), *NextQuestID.ToString());
+			UE_LOG(LogTemp, Warning, TEXT("[Quest] Auto-starting next quest: %s"), *NextQuestID.ToString());
 
-		StartQuest(NextQuestID);
-		return;
+			StartQuest(NextQuestID);
+			return;
+		}
 	}
 
 	OnQuestUpdated.Broadcast();
@@ -99,6 +112,14 @@ void UQuestSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 			AllQuests.Add(Row->QuestID, *Row);
 		}
 	}
+
+	UnlockedQuests = {
+		"Onboard_1",
+		"Onboard_2",
+		"Onboard_3",
+		"Onboard_4",
+		"Onboard_5"
+	};
 
 	StartQuest("Onboard_1");
 }

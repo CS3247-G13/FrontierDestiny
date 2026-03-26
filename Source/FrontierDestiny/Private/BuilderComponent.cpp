@@ -15,6 +15,8 @@
 #include "TowerData.h"
 #include "GridActor.h"
 
+#include "QuestSubsystem.h"
+
 UBuilderComponent::UBuilderComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
@@ -52,6 +54,7 @@ void UBuilderComponent::InitializeGhostPool()
 void UBuilderComponent::InitializeReferences()
 {
 	EconomyComponent = GetWorld()->GetGameInstance()->GetSubsystem<UEconomySubsystem>();
+	QuestComponent = GetWorld()->GetGameInstance()->GetSubsystem<UQuestSubsystem>();
 	if (!IsValid(EconomyComponent))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("BuilderComponent on %s could not find EconomySubsystem."), *GetName());
@@ -317,6 +320,8 @@ void UBuilderComponent::ActivateMode()
 	Super::ActivateMode();
 	CheckForClosestGridActor();
 	EnterGridVisual();
+
+	QuestComponent->StartQuest("Onboard_6");
 
 	OnDeselectTowerAction(FInputActionValue());
 }

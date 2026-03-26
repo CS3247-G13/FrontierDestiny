@@ -13,7 +13,8 @@
 				"DeveloperSettings",
 				"UMG",
 				"CoreUObject",
-				"MassEntity"
+				"MassEntity",
+				"MassSpawner"
 			]
 		}
 	],
@@ -44,7 +45,7 @@
 		{
 			"Name": "GameplayStateTree",
 			"Enabled": true
-		},		
+		},
 		{
 			"Name": "StateTree",
 			"Enabled": true
@@ -65,9 +66,5 @@
 			"Name": "ProceduralVegetationEditor",
 			"Enabled": true
 		}
-	],
-  "TargetPlatforms": [],
-  "AdditionalRootDirectories": [],
-  "AdditionalPluginDirectories": [],
-  "EpicSampleNameHash": ""
+	]
 }
