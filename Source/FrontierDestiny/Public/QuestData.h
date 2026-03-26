@@ -48,7 +48,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Quest")
 	FText Prompt;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Quest")
+	UPROPERTY(BlueprintReadWrite, Category="Quest")
 	int32 CurrentMessageIndex = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Quest")
@@ -56,6 +56,9 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Quest")
 	bool bIsCompleted = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Quest")
+	bool bIsStarted = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Quest")
 	TArray<FName> NextQuestIDs;
@@ -69,10 +72,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 RequiredKillCount = 0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(BlueprintReadWrite)
 	int32 CurrentKillCount = 0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(BlueprintReadWrite)
 	float TimeLeft = 0;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Quest")
+	bool bAutoStartNext = false;
 };

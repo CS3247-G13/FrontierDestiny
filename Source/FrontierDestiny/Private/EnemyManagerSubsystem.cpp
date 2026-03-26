@@ -11,6 +11,7 @@
 
 #include "EnemyManagerSubsystem.h"
 
+#include "QuestSubsystem.h"
 
 void UEnemyManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -173,6 +174,11 @@ void UEnemyManagerSubsystem::NotifyEnemyDeath(FMassEntityHandle Handle)
 	AsyncTask(ENamedThreads::GameThread, [this, Handle]()
 	{
 		OnEnemyDeath.Broadcast(Handle);
+
+		if (UQuestSubsystem* QuestSubsystem = GetGameInstance()->GetSubsystem<UQuestSubsystem>())
+		{
+			QuestSubsystem->RegisterEnemyKilled();
+		}
 	});
 }
 
