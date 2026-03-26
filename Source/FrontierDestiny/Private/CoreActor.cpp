@@ -4,6 +4,7 @@
 #include "GameFramework/PlayerController.h"
 #include "QuestSubsystem.h"
 #include "MainHUD.h"
+#include "CoreManagerSubsystem.h"
 
 
 ACoreActor::ACoreActor()
@@ -14,6 +15,11 @@ ACoreActor::ACoreActor()
 void ACoreActor::BeginPlay()
 {
     Super::BeginPlay();
+
+    if (UCoreManagerSubsystem* CoreManager = GetWorld()->GetSubsystem<UCoreManagerSubsystem>())
+    {
+        CoreManager->RegisterCore(this);
+    }
 }
 
 void ACoreActor::ApplyDamage(float Damage)
@@ -25,6 +31,11 @@ void ACoreActor::ApplyDamage(float Damage)
     );
 
     OnCoreHPChanged.Broadcast(this);
+
+    if (CoreData.CurrentHP <= 0.f)
+    {
+        OnCoreDestroyed.Broadcast(this);
+    }
 }
 
 void ACoreActor::ActivateCore()

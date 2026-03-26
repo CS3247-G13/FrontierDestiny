@@ -80,5 +80,4 @@ public:
 
 	FEnemyData GetEnemyData(const FName& EnemyID);
 
-	
 };
