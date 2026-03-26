@@ -3,6 +3,9 @@
 #include "EnemySpawner.h"
 #include "CoreManagerSubsystem.h"
 #include "EnemyManagerSubsystem.h"
+#include "HordeIDFragment.h"
+#include "MassEntitySubsystem.h"
+#include "MassCommandBuffer.h"
 #include "Kismet/GameplayStatics.h"
 
 AEnemySpawner::AEnemySpawner()
@@ -14,9 +17,10 @@ void AEnemySpawner::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (UEnemyWaveManagerSubsystem* WaveManager = GetWorld()->GetSubsystem<UEnemyWaveManagerSubsystem>())
+	if (UEnemyWaveManagerSubsystem* WaveManager = GetGameInstance()->GetSubsystem<UEnemyWaveManagerSubsystem>())
 	{
 		WaveManager->OnSpawnOrderIssued.AddDynamic(this, &AEnemySpawner::HandleSpawnOrder);
+		WaveManager->OnHordeBatchBegin.AddDynamic(this, &AEnemySpawner::HandleHordeBatchBegin);
 		UE_LOG(LogTemp, Log, TEXT("EnemySpawner [%s]: Subscribed to OnSpawnOrderIssued (Tag='%s', CoreIndex=%d, bIsBackup=%d)"),
 			*GetName(), *Tag.ToString(), CoreIndex, bIsBackup);
 	}
@@ -24,6 +28,8 @@ void AEnemySpawner::BeginPlay()
 	{
 		UE_LOG(LogTemp, Warning, TEXT("EnemySpawner [%s]: Could not find EnemyWaveManagerSubsystem — spawn orders will not be received."), *GetName());
 	}
+
+	OnSpawningFinishedEvent.AddDynamic(this, &AEnemySpawner::HandleSpawningFinished);
 }
 
 void AEnemySpawner::HandleSpawnOrder(FGameplayTag SpawnTag, const FHordeBatchDetails& Details)
@@ -65,7 +71,7 @@ void AEnemySpawner::Spawn(const FHordeBatchDetails& Details)
 		{
 			UE_LOG(LogTemp, Log, TEXT("EnemySpawner [%s]: Player too close (%.0f < %.0f) — redirecting to backup '%s'."),
 				*GetName(), FVector::Dist(Player->GetActorLocation(), GetActorLocation()), DisableDistance, *BackupSpawnerTag.ToString());
-			if (UEnemyWaveManagerSubsystem* WaveManager = GetWorld()->GetSubsystem<UEnemyWaveManagerSubsystem>())
+			if (UEnemyWaveManagerSubsystem* WaveManager = GetGameInstance()->GetSubsystem<UEnemyWaveManagerSubsystem>())
 			{
 				WaveManager->OnSpawnOrderIssued.Broadcast(BackupSpawnerTag, Details);
 			}
@@ -115,6 +121,56 @@ void AEnemySpawner::Spawn(const FHordeBatchDetails& Details)
 	}
 
 	Count = TotalCount;
+	SpawnStartIndex = AllSpawnedEntities.Num();
 	UE_LOG(LogTemp, Log, TEXT("EnemySpawner [%s]: Calling DoSpawning()."), *GetName());
 	DoSpawning();
+}
+
+void AEnemySpawner::HandleHordeBatchBegin(FName HordeID)
+{
+	CurrentHordeID = HordeID;
+}
+
+void AEnemySpawner::HandleSpawningFinished()
+{
+	if (CurrentHordeID.IsNone())
+	{
+		return;
+	}
+
+	UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
+	if (!EntitySubsystem)
+	{
+		return;
+	}
+
+	FMassCommandBuffer& CommandBuffer = EntitySubsystem->GetEntityManager().Defer();
+	const FName HordeID = CurrentHordeID;
+
+	int32 TotalStamped = 0;
+	for (int32 i = SpawnStartIndex; i < AllSpawnedEntities.Num(); i++)
+	{
+		TotalStamped += AllSpawnedEntities[i].Entities.Num();
+		for (const FMassEntityHandle& Entity : AllSpawnedEntities[i].Entities)
+		{
+			CommandBuffer.PushCommand<FMassDeferredSetCommand>(
+				[Entity, HordeID](FMassEntityManager& Manager)
+				{
+					if (!Manager.IsEntityValid(Entity))
+					{
+						return;
+					}
+					Manager.AddFragmentToEntity(Entity, FHordeIDFragment::StaticStruct(),
+						[HordeID](void* Fragment, const UScriptStruct&)
+						{
+							static_cast<FHordeIDFragment*>(Fragment)->HordeID = HordeID;
+						});
+				});
+		}
+	}
+
+	if (UEnemyWaveManagerSubsystem* WaveManager = GetGameInstance()->GetSubsystem<UEnemyWaveManagerSubsystem>())
+	{
+		WaveManager->RegisterSpawnedEnemies(HordeID, TotalStamped);
+	}
 }
