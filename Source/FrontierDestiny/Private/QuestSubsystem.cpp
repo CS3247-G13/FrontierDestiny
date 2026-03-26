@@ -21,6 +21,8 @@ void UQuestSubsystem::StartQuest(FName QuestID)
 		CurrentQuest.CurrentKillCount = 0;
 		CurrentQuest.bIsCompleted = false;
 
+		CurrentPrompt = CurrentQuest.Prompt;
+
 		CachedTargetActor = nullptr;
 
 		if (!CurrentQuest.TargetTag.IsNone())
@@ -43,6 +45,8 @@ void UQuestSubsystem::CompleteQuest()
 	CompletedQuests.Add(CurrentQuest.QuestID);
 
 	GetWorld()->GetTimerManager().ClearTimer(MessageTimerHandle);
+
+	CurrentPrompt = FText::GetEmpty();
 
 	TArray<FName> ValidNextQuests;
 
@@ -106,7 +110,7 @@ void UQuestSubsystem::RegisterEnemyKilled()
 	// Add checking if enemy has a certain tag if you want quests to track certain tags
 
 	CurrentQuest.CurrentKillCount++;
-	CurrentQuest.Objective = FText::Format(
+	CurrentQuest.Prompt = FText::Format(
 		FText::FromString("Enemies defeated: {0} / {1}"),
 		FText::AsNumber(CurrentQuest.CurrentKillCount),
 		FText::AsNumber(CurrentQuest.RequiredKillCount)
@@ -126,7 +130,8 @@ void UQuestSubsystem::UpdateTimeLeft(float DeltaTime)
 	{
 		CurrentQuest.TimeLeft -= DeltaTime;
 		UE_LOG(LogTemp, Warning, TEXT("Time Left: %.2f"), CurrentQuest.TimeLeft);
-		CurrentQuest.Objective = FText::Format(
+		CurrentQuest.
+			Prompt = FText::Format(
 			FText::FromString("{0} seconds left!"),
 			FText::AsNumber(FMath::CeilToInt(CurrentQuest.TimeLeft))
 		);
@@ -177,6 +182,9 @@ void UQuestSubsystem::StartMessages()
 {
 	GetWorld()->GetTimerManager().ClearTimer(MessageTimerHandle);
 
+	CurrentMessage = FText::GetEmpty();
+	CurrentFaction = FText::GetEmpty();
+
 	PlayMessage();
 }
 
@@ -185,6 +193,9 @@ void UQuestSubsystem::PlayMessage()
 	if (!CurrentQuest.Messages.IsValidIndex(CurrentQuest.CurrentMessageIndex)) return;
 
 	const FQuestMessage& Msg = CurrentQuest.Messages[CurrentQuest.CurrentMessageIndex];
+
+	CurrentMessage = Msg.Text;
+	CurrentFaction = Msg.Faction;
 
 	OnQuestUpdated.Broadcast();
 
@@ -201,6 +212,11 @@ void UQuestSubsystem::NextMessage()
 {
 	if (CurrentQuest.bIsCompleted)
 	{
+		CurrentMessage = FText::GetEmpty();
+		CurrentFaction = FText::GetEmpty();
+
+		OnQuestUpdated.Broadcast();
+
 		GetWorld()->GetTimerManager().ClearTimer(MessageTimerHandle);
 		return;
 	}
@@ -213,6 +229,11 @@ void UQuestSubsystem::NextMessage()
 	}
 	else
 	{
+		CurrentMessage = FText::GetEmpty();
+		CurrentFaction = FText::GetEmpty();
+			
+		OnQuestUpdated.Broadcast();
+
 		GetWorld()->GetTimerManager().ClearTimer(MessageTimerHandle);
 		if (CurrentQuest.ObjectiveType == EObjectiveType::JustMessage) CompleteObjective();
 	}

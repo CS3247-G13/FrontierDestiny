@@ -26,6 +26,9 @@ struct FQuestMessage
 	FText Text;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FText Faction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float Delay = 5.0f;
 };
 
@@ -40,13 +43,10 @@ public:
 	FName QuestID;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Quest")
-	FText Faction;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Quest")
 	TArray<FQuestMessage> Messages;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Quest")
-	FText Objective;
+	FText Prompt;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Quest")
 	int32 CurrentMessageIndex = 0;

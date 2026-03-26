@@ -76,4 +76,13 @@ public:
 	void NextMessage();
 
 	float GetMessageDisplayTime();
+
+	UPROPERTY(BlueprintReadOnly, Category = "QuestMessages")
+	FText CurrentMessage = FText::GetEmpty();	
+	
+	UPROPERTY(BlueprintReadOnly, Category = "QuestMessages")
+	FText CurrentFaction = FText::GetEmpty();
+	
+	UPROPERTY(BlueprintReadOnly, Category = "QuestMessages")
+	FText CurrentPrompt = FText::GetEmpty();
 };
