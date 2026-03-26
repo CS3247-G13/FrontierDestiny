@@ -3,6 +3,8 @@
 #include "EnemyWaveManagerSubsystem.h"
 #include "GlobalTowerSettings.h"
 #include "CoreManagerSubsystem.h"
+#include "EnemyManagerSubsystem.h"
+#include "EconomySubsystem.h"
 
 const TArray<FWaveBatchRow> UEnemyWaveManagerSubsystem::EmptyBatchArray;
 
@@ -10,6 +12,12 @@ void UEnemyWaveManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection
 {
 	Super::Initialize(Collection);
 	LoadWaveDataFromDataTable();
+	LoadHordeDataFromDataTable();
+
+	if (UEnemyManagerSubsystem* EnemyManager = GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>())
+	{
+		EnemyManager->OnHordeEnemyDeath.AddUObject(this, &UEnemyWaveManagerSubsystem::HandleHordeEnemyDeath);
+	}
 }
 
 void UEnemyWaveManagerSubsystem::Deinitialize()
@@ -61,7 +69,9 @@ void UEnemyWaveManagerSubsystem::TriggerBatch(const FWaveBatchRow& Batch)
 	UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: TriggerBatch — BatchID '%s' (HordeID '%s'), SpawnMap entries: %d"),
 		*Batch.BatchID.ToString(), *Batch.HordeID.ToString(), Batch.SpawnMap.Num());
 
-	UCoreManagerSubsystem* CoreManager = GetWorld()->GetSubsystem<UCoreManagerSubsystem>();
+	OnHordeBatchBegin.Broadcast(Batch.HordeID);
+
+	UCoreManagerSubsystem* CoreManager = GetGameInstance()->GetWorld()->GetSubsystem<UCoreManagerSubsystem>();
 	const int32 CapturedCount = CoreManager ? CoreManager->GetCapturedCoreCount() : 0;
 
 	UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: CapturedCoreCount = %d"), CapturedCount);
@@ -98,7 +108,7 @@ void UEnemyWaveManagerSubsystem::StartHorde(FName HordeID)
 	TArray<FTimerHandle>& Handles = ActiveHordeTimers.Add(HordeID);
 	Handles.Reserve(Batches.Num());
 
-	FTimerManager& TimerManager = GetWorld()->GetTimerManager();
+	FTimerManager& TimerManager = GetGameInstance()->GetWorld()->GetTimerManager();
 	float AbsoluteTime = 0.f;
 
 	for (const FWaveBatchRow& Batch : Batches)
@@ -132,7 +142,7 @@ void UEnemyWaveManagerSubsystem::CancelHorde(FName HordeID)
 		return;
 	}
 
-	FTimerManager& TimerManager = GetWorld()->GetTimerManager();
+	FTimerManager& TimerManager = GetGameInstance()->GetWorld()->GetTimerManager();
 	for (FTimerHandle& Handle : *Handles)
 	{
 		TimerManager.ClearTimer(Handle);
@@ -140,4 +150,68 @@ void UEnemyWaveManagerSubsystem::CancelHorde(FName HordeID)
 
 	ActiveHordeTimers.Remove(HordeID);
 	UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: Cancelled horde '%s'."), *HordeID.ToString());
+}
+
+void UEnemyWaveManagerSubsystem::LoadHordeDataFromDataTable()
+{
+	const UGlobalTowerSettings* Settings = UGlobalTowerSettings::Get();
+	UDataTable* Table = Settings->HordeDataTable.LoadSynchronous();
+
+	if (!Table)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("EnemyWaveManager: No HordeDataTable set in Project Settings > Global Tower Settings."));
+		return;
+	}
+
+	const TMap<FName, uint8*>& RowMap = Table->GetRowMap();
+	for (const auto& Pair : RowMap)
+	{
+		FHordeDataRow* Row = reinterpret_cast<FHordeDataRow*>(Pair.Value);
+		if (!Row || Row->HordeID.IsNone())
+		{
+			continue;
+		}
+		HordeDataMap.Add(Row->HordeID, *Row);
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: Loaded %d horde reward entries."), HordeDataMap.Num());
+}
+
+void UEnemyWaveManagerSubsystem::RegisterSpawnedEnemies(FName HordeID, int32 Count)
+{
+	if (HordeID.IsNone() || Count <= 0)
+	{
+		return;
+	}
+
+	HordeEnemiesRemaining.FindOrAdd(HordeID) += Count;
+	UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: Registered %d enemies for horde '%s' (total now: %d)."),
+		Count, *HordeID.ToString(), HordeEnemiesRemaining[HordeID]);
+}
+
+void UEnemyWaveManagerSubsystem::HandleHordeEnemyDeath(FName HordeID)
+{
+	int32* Remaining = HordeEnemiesRemaining.Find(HordeID);
+	if (!Remaining)
+	{
+		return;
+	}
+
+	(*Remaining)--;
+
+	if (*Remaining <= 0)
+	{
+		HordeEnemiesRemaining.Remove(HordeID);
+		UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: Horde '%s' cleared!"), *HordeID.ToString());
+
+		if (const FHordeDataRow* HordeData = HordeDataMap.Find(HordeID))
+		{
+			if (UEconomySubsystem* Economy = GetGameInstance()->GetSubsystem<UEconomySubsystem>())
+			{
+				Economy->AddFunds(HordeData->Reward);
+			}
+		}
+
+		OnHordeFinished.Broadcast(HordeID);
+	}
 }

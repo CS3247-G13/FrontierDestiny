@@ -14,6 +14,7 @@
 #include "EnemyManagerSubsystem.generated.h"
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnEnemyDeathSignature, FMassEntityHandle);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnHordeEnemyDeathSignature, FName);
 
 UCLASS()
 class FRONTIERDESTINY_API UEnemyManagerSubsystem : public UGameInstanceSubsystem
@@ -72,7 +73,11 @@ public:
 	 *  tracking immediately and broadcasts OnEnemyDeath so towers can react this frame. */
 	void NotifyEnemyDeath(FMassEntityHandle Handle);
 
+	/** Called by the damage processor when a horde-tagged entity dies, while the entity is still valid. */
+	void NotifyHordeEnemyDeath(FName HordeID);
+
 	FOnEnemyDeathSignature OnEnemyDeath;
+	FOnHordeEnemyDeathSignature OnHordeEnemyDeath;
 
 	void LoadEnemyDataFromDataTable();
 

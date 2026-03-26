@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "EnemyDamageMassProcessor.h"
 #include "EnemyManagerSubsystem.h"
+#include "HordeIDFragment.h"
 #include "MassCommonFragments.h"
 #include "MassCommandBuffer.h"
 #include "MassExecutionContext.h"
@@ -33,6 +34,9 @@ void UEnemyDamageMassProcessor::ConfigureQueries(const TSharedRef<FMassEntityMan
 	// ReadOnly for Damage as we only need its value
 	EntityQuery.AddRequirement<FDamageFragment>(EMassFragmentAccess::ReadOnly);
 
+	// Optional — only present on enemies spawned via the wave system
+	EntityQuery.AddRequirement<FHordeIDFragment>(EMassFragmentAccess::ReadOnly, EMassFragmentPresence::Optional);
+
 	EntityQuery.RegisterWithProcessor(*this);
 }
 
@@ -46,6 +50,7 @@ void UEnemyDamageMassProcessor::Execute(FMassEntityManager& EntityManager, FMass
 		{
 			TArrayView<FHealthFragment> HealthList = Context.GetMutableFragmentView<FHealthFragment>();
 			TConstArrayView<FDamageFragment> DamageList = Context.GetFragmentView<FDamageFragment>();
+			TConstArrayView<FHordeIDFragment> HordeIDList = Context.GetFragmentView<FHordeIDFragment>();
 			const int32 NumEntities = Context.GetNumEntities();
 
 			for (int32 EntityIdx = 0; EntityIdx < NumEntities; EntityIdx++)
@@ -60,6 +65,10 @@ void UEnemyDamageMassProcessor::Execute(FMassEntityManager& EntityManager, FMass
 				{
 					if (EnemyManager)
 					{
+						if (!HordeIDList.IsEmpty())
+						{
+							EnemyManager->NotifyHordeEnemyDeath(HordeIDList[EntityIdx].HordeID);
+						}
 						EnemyManager->NotifyEnemyDeath(Entity);
 					}
 					Context.Defer().DestroyEntity(Entity);

@@ -167,6 +167,14 @@ void UEnemyManagerSubsystem::LoadEnemyDataFromDataTable()
 	}
 }
 
+void UEnemyManagerSubsystem::NotifyHordeEnemyDeath(FName HordeID)
+{
+	AsyncTask(ENamedThreads::GameThread, [this, HordeID]()
+	{
+		OnHordeEnemyDeath.Broadcast(HordeID);
+	});
+}
+
 void UEnemyManagerSubsystem::NotifyEnemyDeath(FMassEntityHandle Handle)
 {
 	// Called from a Mass processor which may be off the game thread.

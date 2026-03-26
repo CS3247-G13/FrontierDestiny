@@ -44,4 +44,13 @@ public:
 private:
 	UFUNCTION()
 	void HandleSpawnOrder(FGameplayTag SpawnTag, const FHordeBatchDetails& Details);
+
+	UFUNCTION()
+	void HandleHordeBatchBegin(FName HordeID);
+
+	UFUNCTION()
+	void HandleSpawningFinished();
+
+	FName CurrentHordeID;
+	int32 SpawnStartIndex = 0;
 };
