@@ -57,6 +57,10 @@ struct FRONTIERDESTINY_API FTowerDisplay
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FOnTowerSelectionChange, FTowerDisplay, SelectedTower, FTowerDisplay, NextTower1, FTowerDisplay, NextTower2, FTowerDisplay, NextTower3);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTowerBuildingNotification, FString, Notificatoin);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnHoverTowerStart);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnHoverTowerStop);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnTowerSelected);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnTowerDeselected);
 
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class FRONTIERDESTINY_API UBuilderComponent : public UModeComponent
@@ -204,6 +208,19 @@ private:
 	FOnTowerBuildingNotification OnTowerBuildingNotification;
 
 	// ====== DELETE TOWER ====== //
+public:
+	UPROPERTY(BlueprintAssignable)
+	FOnHoverTowerStart OnHoverTowerStart;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnHoverTowerStop OnHoverTowerStop;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnTowerSelected OnTowerSelected;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnTowerDeselected OnTowerDeselected;
+
 private:
 	UPROPERTY()
 	TObjectPtr<ATowerActor> HoveredTower;

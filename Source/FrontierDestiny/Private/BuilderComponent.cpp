@@ -462,8 +462,11 @@ void UBuilderComponent::ChangeTowerSelection(TOptional<FName> NewTower)
 			ClosestGridActor->UpdateOccupancyTexture(TArray<FTowerPlacementIntent>());
 			UpdatePostProcessComponentOccupancyBitmask();
 		}
+		OnTowerDeselected.Broadcast();
 		return;
 	}
+
+	OnTowerSelected.Broadcast();
 }
 
 void UBuilderComponent::TryBuildTowers()
@@ -741,8 +744,9 @@ void UBuilderComponent::RotateTower(bool Clockwise)
 
 void UBuilderComponent::DeleteHoveredTower()
 {
-	HoveredTower->DestroyTower();
+	ATowerActor* Temp = HoveredTower;
 	UpdateHoveredTower(nullptr);
+	Temp->DestroyTower();
 	if (IsValid(ClosestGridActor))
 	{
 		ClosestGridActor->UpdateOccupancyTexture(TArray<FTowerPlacementIntent>());
@@ -755,14 +759,19 @@ void UBuilderComponent::UpdateHoveredTower(ATowerActor* NewHoveredTower)
 	{
 		return;
 	}
+
 	if (IsValid(HoveredTower))
 	{
 		HoveredTower->ClearOverlayMaterial();
+		OnHoverTowerStop.Broadcast();
 	}
+
 	HoveredTower = NewHoveredTower;
+
 	if (IsValid(HoveredTower))
 	{
 		HoveredTower->SetInvalidOverlayMaterial();
+		OnHoverTowerStart.Broadcast();
 	}
 }
 
