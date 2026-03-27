@@ -15,6 +15,8 @@
 
 #include "QuestSubsystem.h"
 
+static constexpr float MitigatedFadeDuration = 1.5f;
+
 void UEnemyManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
@@ -30,6 +32,15 @@ void UEnemyManagerSubsystem::InitializeHealthbars()
 	EnemyPositions.SetNum(1000);
 	EnemyVisibilities.SetNum(1000);
 	ActiveEntityHandles.SetNum(1000);
+	VitalityRatios.SetNum(1000);
+	BurnDurations.SetNum(1000);
+	SlowDurations.SetNum(1000);
+	StunDurations.SetNum(1000);
+	ModifierFlags.SetNum(1000);
+	SplitRatios.SetNum(1000);
+	SplitEffects.SetNum(1000);
+	MitigatedDamageAmounts.SetNum(1000);
+	MitigatedDamageFadeTimers.SetNum(1000);
 }
 
 FMassEntityHandle UEnemyManagerSubsystem::GetEnemyEntityHandle(UInstancedStaticMeshComponent* Component, int32 Item) const
@@ -79,40 +90,52 @@ void UEnemyManagerSubsystem::SpawnHitEffects(FVector Location, int32 Damage)
 	}
 }
 
-void UEnemyManagerSubsystem::ApplyDamageToEnemy(FMassEntityHandle Handle, int32 DamageThisHit, FVector ImpactLocation)
+void UEnemyManagerSubsystem::NotifyDamageMitigated(FMassEntityHandle Handle, float MitigatedAmount)
+{
+	AsyncTask(ENamedThreads::GameThread, [this, Handle, MitigatedAmount]()
+	{
+		if (int32* Slot = EntitySlotMap.Find(Handle))
+		{
+			MitigatedDamageAmounts[*Slot]    = MitigatedAmount;
+			MitigatedDamageFadeTimers[*Slot] = MitigatedFadeDuration;
+		}
+	});
+}
+
+void UEnemyManagerSubsystem::ApplyDamageToEnemy(FMassEntityHandle Handle, int32 DamageThisHit, FVector ImpactLocation, EDamageType DamageType)
 {
 	OnEnemyDamageTaken.Broadcast(ImpactLocation, DamageThisHit);
 
-	// Handle exists
 	UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
 
 	if (EntitySubsystem)
 	{
-		// 1. Access the EntityManager from the Subsystem
 		const FMassEntityManager& EntityManager = EntitySubsystem->GetEntityManager();
-
-		// 2. Use Defer() to get the system-managed Command Buffer
 		FMassCommandBuffer& CommandBuffer = EntityManager.Defer();
 
-		// 3. Add Damage instead
 		CommandBuffer.PushCommand<FMassDeferredSetCommand>(
-			[Handle, DamageThisHit](FMassEntityManager& Manager)
+			[Handle, DamageThisHit, DamageType](FMassEntityManager& Manager)
 			{
 				if (!Manager.IsEntityValid(Handle)) return;
 
 				FDamageFragment* Damage = Manager.GetFragmentDataPtr<FDamageFragment>(Handle);
 				if (Damage)
 				{
-					// Fragment exists — accumulate
 					Damage->DamageAmount += DamageThisHit;
+					// Keep the first damage type set this frame (don't overwrite with None)
+					if (DamageType != EDamageType::None)
+					{
+						Damage->DamageType = DamageType;
+					}
 				}
 				else
 				{
-					// Fragment missing — add it with initial value via initializer callback
 					Manager.AddFragmentToEntity(Handle, FDamageFragment::StaticStruct(),
-						[DamageThisHit](void* Fragment, const UScriptStruct&)
+						[DamageThisHit, DamageType](void* Fragment, const UScriptStruct&)
 						{
-							static_cast<FDamageFragment*>(Fragment)->DamageAmount = DamageThisHit;
+							auto* Frag = static_cast<FDamageFragment*>(Fragment);
+							Frag->DamageAmount = DamageThisHit;
+							Frag->DamageType   = DamageType;
 						});
 				}
 			}
@@ -145,13 +168,13 @@ void UEnemyManagerSubsystem::AssignNiagaraComponent(UNiagaraComponent* Component
 	NiagaraComponent = Component;
 }
 
-void UEnemyManagerSubsystem::UpdateHealthbarInformation(TArray<float>& UpdatedHealthRatios, TArray<FVector>& UpdatedEnemyPositions, TArray<FMassEntityHandle>& UpdatedEntityHandles)
+void UEnemyManagerSubsystem::UpdateHealthbarInformation(FHealthbarFrameData& Data)
 {
-	// Assign a stable slot to any entity we haven't seen before,
-	// then write directly into that slot so Particles.ID always maps to the same enemy.
-	for (int32 i = 0; i < UpdatedEntityHandles.Num(); i++)
+	const float DeltaTime = Data.DeltaTime;
+
+	for (int32 i = 0; i < Data.Handles.Num(); i++)
 	{
-		FMassEntityHandle Handle = UpdatedEntityHandles[i];
+		FMassEntityHandle Handle = Data.Handles[i];
 
 		if (!EntitySlotMap.Contains(Handle))
 		{
@@ -160,22 +183,61 @@ void UEnemyManagerSubsystem::UpdateHealthbarInformation(TArray<float>& UpdatedHe
 		}
 
 		int32 Slot = EntitySlotMap[Handle];
-		HealthRatios[Slot]        = UpdatedHealthRatios[i];
-		EnemyPositions[Slot]      = UpdatedEnemyPositions[i];
+
+		HealthRatios[Slot]        = Data.HealthRatios[i];
+		EnemyPositions[Slot]      = Data.Positions[i];
 		EnemyVisibilities[Slot]   = 1.0f;
 		ActiveEntityHandles[Slot] = Handle;
+		VitalityRatios[Slot]      = Data.VitalityRatios[i];
+		BurnDurations[Slot]       = Data.BurnDurations[i];
+		SlowDurations[Slot]       = Data.SlowDurations[i];
+		StunDurations[Slot]       = Data.StunDurations[i];
+		ModifierFlags[Slot]       = Data.ModifierFlags[i];
+		SplitRatios[Slot]         = Data.SplitRatios[i];
+		SplitEffects[Slot]        = Data.SplitEffects[i];
+	}
+
+	// Tick mitigated damage fade
+	for (int32 Slot = 0; Slot < MitigatedDamageFadeTimers.Num(); Slot++)
+	{
+		if (MitigatedDamageFadeTimers[Slot] > 0.f)
+		{
+			MitigatedDamageFadeTimers[Slot] -= DeltaTime;
+			const float Alpha = FMath::Clamp(MitigatedDamageFadeTimers[Slot] / MitigatedFadeDuration, 0.f, 1.f);
+			MitigatedDamageAmounts[Slot] *= Alpha;
+
+			if (MitigatedDamageFadeTimers[Slot] <= 0.f)
+			{
+				MitigatedDamageFadeTimers[Slot] = 0.f;
+				MitigatedDamageAmounts[Slot]    = 0.f;
+			}
+		}
 	}
 
 	if (!NiagaraComponent) return;
 
 	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayPosition(
 		NiagaraComponent, FName("Enemy Positions"), EnemyPositions);
-
 	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
 		NiagaraComponent, FName("Enemy Health Ratios"), HealthRatios);
-
 	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
 		NiagaraComponent, FName("Enemy Visibilities"), EnemyVisibilities);
+	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
+		NiagaraComponent, FName("Enemy Vitality Ratios"), VitalityRatios);
+	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
+		NiagaraComponent, FName("Enemy Burn Durations"), BurnDurations);
+	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
+		NiagaraComponent, FName("Enemy Slow Durations"), SlowDurations);
+	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
+		NiagaraComponent, FName("Enemy Stun Durations"), StunDurations);
+	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
+		NiagaraComponent, FName("Enemy Modifier Flags"), ModifierFlags);
+	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
+		NiagaraComponent, FName("Enemy Split Ratios"), SplitRatios);
+	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
+		NiagaraComponent, FName("Enemy Split Effects"), SplitEffects);
+	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
+		NiagaraComponent, FName("Enemy Mitigated Damage"), MitigatedDamageAmounts);
 }
 
 void UEnemyManagerSubsystem::LoadEnemyDataFromDataTable()

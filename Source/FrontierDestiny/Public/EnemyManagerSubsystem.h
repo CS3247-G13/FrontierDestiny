@@ -7,6 +7,7 @@
 #include "MassEnemyTarget.h"
 #include "NiagaraComponent.h"
 #include "MassEntityHandle.h"
+#include "EnemyDamageMassProcessor.h"
 
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -28,14 +29,28 @@ public:
 	// Healthbars
 	UPROPERTY()
 	TObjectPtr<UNiagaraComponent> NiagaraComponent;
+
+	// Per-slot arrays pushed to Niagara every frame
 	TArray<float> HealthRatios;
 	TArray<FVector> EnemyPositions;
 	TArray<float> EnemyVisibilities;
+	TArray<float> VitalityRatios;
+	TArray<float> BurnDurations;
+	TArray<float> SlowDurations;
+	TArray<float> StunDurations;
+	TArray<float> ModifierFlags;      // booleans packed as int cast to float
+	TArray<float> SplitRatios;        // where the upper/lower healthbar split is (0 = none)
+	TArray<float> SplitEffects;       // which visual for the upper portion
+	TArray<float> MitigatedDamageAmounts; // fading mitigated damage bar (amorphic + fragmented)
+
+	// Internal fade state — not pushed to Niagara
+	TArray<float> MitigatedDamageFadeTimers;
+
 	void InitializeHealthbars();
 
 	FMassEntityHandle GetEnemyEntityHandle(UInstancedStaticMeshComponent* Component, int32 Item) const;
 
-	void ApplyDamageToEnemy(FMassEntityHandle Handle, int32 DamageThisHit, FVector ImpactLocation);
+	void ApplyDamageToEnemy(FMassEntityHandle Handle, int32 DamageThisHit, FVector ImpactLocation, EDamageType DamageType = EDamageType::None);
 
 	UFUNCTION(BlueprintCallable)
 	void ApplyDamageToTarget(FMassEnemyTarget Target, int32 Damage, FVector ImpactLocation);
@@ -61,9 +76,28 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void AssignNiagaraComponent(UNiagaraComponent* Component);
 
-	void UpdateHealthbarInformation(TArray<float>& UpdatedHealthRatios, TArray<FVector>& UpdatedEnemyPositions, TArray<FMassEntityHandle>& UpdatedEntityHandles);
+	/** Data bundle built by HealthbarUpdateProcessor each frame and consumed by UpdateHealthbarInformation. */
+	struct FHealthbarFrameData
+	{
+		TArray<float>            HealthRatios;
+		TArray<FVector>          Positions;
+		TArray<FMassEntityHandle> Handles;
+		TArray<float>            VitalityRatios;
+		TArray<float>            BurnDurations;
+		TArray<float>            SlowDurations;
+		TArray<float>            StunDurations;
+		TArray<float>            ModifierFlags;
+		TArray<float>            SplitRatios;
+		TArray<float>            SplitEffects;
+		float                    DeltaTime = 0.f;
+	};
+
+	void UpdateHealthbarInformation(FHealthbarFrameData& Data);
 
 	void SpawnHitEffects(FVector Location, int32 Damage);
+
+	/** Called by EnemyDamageMassProcessor when amorphic or fragmented mitigates damage. */
+	void NotifyDamageMitigated(FMassEntityHandle Handle, float MitigatedAmount);
 
 	/** Returns all active entity handles whose position is within Radius of Center */
 	void GetEntitiesInRange(FVector Center, float Radius, TArray<FMassEntityHandle>& OutHandles) const;
