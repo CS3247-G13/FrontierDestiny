@@ -21,16 +21,12 @@ ATowerActor::ATowerActor()
 	RangeComponent = CreateDefaultSubobject<USphereComponent>(TEXT("RangeComponent"));
 	RangeComponent->SetupAttachment(RootComponent);
 
-	// Initial detection settings in constructor
 	RangeComponent->SetSphereRadius(TowerData.Range);
 
-	// Range component is visual only — range detection uses periodic Mass entity queries
+	RangeComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	RangeComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
-	RangeComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	RangeComponent->SetGenerateOverlapEvents(false);
-
-	
-	OverlapCheckInterval = 0.2f;
+	RangeComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	RangeComponent->SetGenerateOverlapEvents(false); // enabled only when tower activates
 }
 
 void ATowerActor::OnConstruction(const FTransform& Transform)
@@ -80,12 +76,18 @@ void ATowerActor::ActivateTower()
 {
 	bTowerIsInactive = false;
 
-	FTimerManagerTimerParameters TimerParams;
-	TimerParams.bLoop = true;
-	TimerParams.bMaxOncePerFrame = true;
-	TimerParams.FirstDelay = -1.f;
-	// Optimization: Instead of checking every tick, we check every X seconds
-	GetWorldTimerManager().SetTimer(OverlapCheckTimerHandle, this, &ATowerActor::CheckAllOverlaps, OverlapCheckInterval, TimerParams);
+	RangeComponent->SetGenerateOverlapEvents(true);
+	RangeComponent->OnComponentBeginOverlap.AddDynamic(this, &ATowerActor::OnRangeBeginOverlap);
+	RangeComponent->OnComponentEndOverlap.AddDynamic(this, &ATowerActor::OnRangeEndOverlap);
+
+	// Fire BeginOverlap for any enemies already inside the radius
+	RangeComponent->UpdateOverlaps();
+
+	// Clean up OverlappingTargets if an enemy dies while inside range
+	if (UEnemyManagerSubsystem* EnemyManager = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>())
+	{
+		EnemyManager->OnEnemyDeath.AddUObject(this, &ATowerActor::OnTrackedEnemyDied);
+	}
 
 	OnTowerActive();
 }
@@ -163,8 +165,12 @@ void ATowerActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 	if (!bIsGhost)
 	{
-		GetWorldTimerManager().ClearTimer(OverlapCheckTimerHandle);
 		GetWorldTimerManager().ClearTimer(BuildTimerHandle);
+
+		if (UEnemyManagerSubsystem* EnemyManager = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>())
+		{
+			EnemyManager->OnEnemyDeath.RemoveAll(this);
+		}
 	}
 }
 
@@ -239,45 +245,52 @@ void ATowerActor::UpdateGhostMaterials()
 	}
 }
 
-void ATowerActor::CheckAllOverlaps()
+void ATowerActor::OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (bIsGhost) return;
-
 	UEnemyManagerSubsystem* EnemyManager = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
 	if (!EnemyManager) return;
 
-	TArray<FMassEntityHandle> CurrentlyInRange;
-	EnemyManager->GetEntitiesInRange(GetActorLocation(), TowerData.Range, CurrentlyInRange);
+	UInstancedStaticMeshComponent* ISMC = Cast<UInstancedStaticMeshComponent>(OtherComp);
+	if (!ISMC) return;
 
-	// Entities that just entered range
-	for (const FMassEntityHandle& Handle : CurrentlyInRange)
-	{
-		if (!OverlappingTargets.Contains(Handle))
-		{
-			OverlappingTargets.Add(Handle);
-			FMassEnemyTarget Target;
-			Target.EntityHandle = Handle;
-			Target.Position = EnemyManager->GetEntityPosition(Handle);
-			OnTargetEnterRange(Target);
-		}
-	}
+	FMassEntityHandle Handle = EnemyManager->GetEnemyEntityHandle(ISMC, OtherBodyIndex);
+	if (!Handle.IsSet() || OverlappingTargets.Contains(Handle)) return;
 
-	// Entities that left range or were destroyed
-	TSet<FMassEntityHandle> ToRemove;
-	for (const FMassEntityHandle& Handle : OverlappingTargets)
-	{
-		if (!CurrentlyInRange.Contains(Handle))
-		{
-			ToRemove.Add(Handle);
-		}
-	}
-	for (const FMassEntityHandle& Handle : ToRemove)
-	{
-		OverlappingTargets.Remove(Handle);
-		FMassEnemyTarget Target;
-		Target.EntityHandle = Handle;
-		OnTargetLeaveRange(Target);
-	}
+	OverlappingTargets.Add(Handle);
+
+	FMassEnemyTarget Target;
+	Target.EntityHandle = Handle;
+	Target.Position = EnemyManager->GetEntityPosition(Handle);
+	OnTargetEnterRange(Target);
+}
+
+void ATowerActor::OnRangeEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	UEnemyManagerSubsystem* EnemyManager = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
+	if (!EnemyManager) return;
+
+	UInstancedStaticMeshComponent* ISMC = Cast<UInstancedStaticMeshComponent>(OtherComp);
+	if (!ISMC) return;
+
+	FMassEntityHandle Handle = EnemyManager->GetEnemyEntityHandle(ISMC, OtherBodyIndex);
+	if (!Handle.IsSet() || !OverlappingTargets.Contains(Handle)) return;
+
+	OverlappingTargets.Remove(Handle);
+
+	FMassEnemyTarget Target;
+	Target.EntityHandle = Handle;
+	OnTargetLeaveRange(Target);
+}
+
+void ATowerActor::OnTrackedEnemyDied(FMassEntityHandle Handle)
+{
+	if (!OverlappingTargets.Contains(Handle)) return;
+
+	OverlappingTargets.Remove(Handle);
+
+	FMassEnemyTarget Target;
+	Target.EntityHandle = Handle;
+	OnTargetLeaveRange(Target);
 }
 
 void ATowerActor::OnTargetEnterRange_Implementation(FMassEnemyTarget Target)

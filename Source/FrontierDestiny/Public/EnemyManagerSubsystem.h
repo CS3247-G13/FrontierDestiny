@@ -15,6 +15,7 @@
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnEnemyDeathSignature, FMassEntityHandle);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnHordeEnemyDeathSignature, FName);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnEnemyDamageTakenSignature, FVector, int32);
 
 UCLASS()
 class FRONTIERDESTINY_API UEnemyManagerSubsystem : public UGameInstanceSubsystem
@@ -34,10 +35,14 @@ public:
 
 	FMassEntityHandle GetEnemyEntityHandle(UInstancedStaticMeshComponent* Component, int32 Item) const;
 
-	void ApplyDamageToEnemy(FMassEntityHandle Handle, int DamageThisHit);
+	void ApplyDamageToEnemy(FMassEntityHandle Handle, int32 DamageThisHit, FVector ImpactLocation);
 
 	UFUNCTION(BlueprintCallable)
-	void ApplyDamageToTarget(FMassEnemyTarget Target, int32 Damage);
+	void ApplyDamageToTarget(FMassEnemyTarget Target, int32 Damage, FVector ImpactLocation);
+
+	/** Convenience: resolves the entity from a hit result and applies damage. Returns false if the hit wasn't on a Mass enemy. */
+	UFUNCTION(BlueprintCallable)
+	bool ApplyDamageByHit(const FHitResult& Hit, int32 Damage);
 
 	UFUNCTION(BlueprintPure)
 	bool IsTargetValid(FMassEnemyTarget Target) const;
@@ -58,6 +63,8 @@ public:
 
 	void UpdateHealthbarInformation(TArray<float>& UpdatedHealthRatios, TArray<FVector>& UpdatedEnemyPositions, TArray<FMassEntityHandle>& UpdatedEntityHandles);
 
+	void SpawnHitEffects(FVector Location, int32 Damage);
+
 	/** Returns all active entity handles whose position is within Radius of Center */
 	void GetEntitiesInRange(FVector Center, float Radius, TArray<FMassEntityHandle>& OutHandles) const;
 
@@ -69,6 +76,9 @@ public:
 
 	TArray<FMassEntityHandle> ActiveEntityHandles;
 
+	TMap<FMassEntityHandle, int32> EntitySlotMap;
+	TArray<int32> FreeSlots;
+
 	/** Called by the damage processor when an entity's health reaches zero. Removes it from
 	 *  tracking immediately and broadcasts OnEnemyDeath so towers can react this frame. */
 	void NotifyEnemyDeath(FMassEntityHandle Handle);
@@ -78,6 +88,7 @@ public:
 
 	FOnEnemyDeathSignature OnEnemyDeath;
 	FOnHordeEnemyDeathSignature OnHordeEnemyDeath;
+	FOnEnemyDamageTakenSignature OnEnemyDamageTaken;
 
 	void LoadEnemyDataFromDataTable();
 

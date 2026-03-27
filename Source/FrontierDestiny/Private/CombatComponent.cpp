@@ -235,14 +235,8 @@ void UCombatComponent::ShootDirection(FVector Direction)
 	UE_LOG(LogTemp, Warning, TEXT("HIT"));
 	// Try to hit MassEntity
 	{
-		// Cast the hit component to ISMC
-		UInstancedStaticMeshComponent* HitISMC = Cast<UInstancedStaticMeshComponent>(Hit.GetComponent());
-
 		UEnemyManagerSubsystem* EnemyManagerSubsystem = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
-
-		FMassEntityHandle Handle = EnemyManagerSubsystem->GetEnemyEntityHandle(HitISMC, Hit.Item);
-
-		EnemyManagerSubsystem->ApplyDamageToEnemy(Handle, GetPlayerData().WeaponDataMap[CurrentWeapon].GetDamage());
+		EnemyManagerSubsystem->ApplyDamageByHit(Hit, GetPlayerData().WeaponDataMap[CurrentWeapon].GetDamage());
 	}
 }
 

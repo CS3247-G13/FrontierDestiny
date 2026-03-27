@@ -4,12 +4,14 @@
 #include "GlobalTowerSettings.h"
 #include "Async/TaskGraphInterfaces.h"
 #include "NiagaraDataInterfaceArrayFunctionLibrary.h"
+#include "NiagaraFunctionLibrary.h"
 #include "MassEntitySubsystem.h"
 
 #include "MassRepresentationSubsystem.h"
 #include "EnemyDamageMassProcessor.h"
 
 #include "EnemyManagerSubsystem.h"
+#include "DamageNumber.h"
 
 #include "QuestSubsystem.h"
 
@@ -18,6 +20,8 @@ void UEnemyManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	Super::Initialize(Collection);
 	LoadEnemyDataFromDataTable();
 	InitializeHealthbars();
+
+	OnEnemyDamageTaken.AddUObject(this, &UEnemyManagerSubsystem::SpawnHitEffects);
 }
 
 void UEnemyManagerSubsystem::InitializeHealthbars()
@@ -25,7 +29,7 @@ void UEnemyManagerSubsystem::InitializeHealthbars()
 	HealthRatios.SetNum(1000);
 	EnemyPositions.SetNum(1000);
 	EnemyVisibilities.SetNum(1000);
-	ActiveEntityHandles.Reserve(1000);
+	ActiveEntityHandles.SetNum(1000);
 }
 
 FMassEntityHandle UEnemyManagerSubsystem::GetEnemyEntityHandle(UInstancedStaticMeshComponent* Component, int32 Item) const
@@ -51,8 +55,34 @@ FMassEntityHandle UEnemyManagerSubsystem::GetEnemyEntityHandle(UInstancedStaticM
 	return Handle;
 }
 
-void UEnemyManagerSubsystem::ApplyDamageToEnemy(FMassEntityHandle Handle, int DamageThisHit)
+void UEnemyManagerSubsystem::SpawnHitEffects(FVector Location, int32 Damage)
 {
+	UWorld* World = GetWorld();
+	if (!World) return;
+
+	const UGlobalTowerSettings* Settings = UGlobalTowerSettings::Get();
+
+	if (UNiagaraSystem* Splatter = Settings->BloodSplatterEffect.LoadSynchronous())
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(World, Splatter, Location);
+	}
+
+	if (Settings->DamageNumberClass)
+	{
+		FActorSpawnParameters Params;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		ADamageNumber* Num = World->SpawnActor<ADamageNumber>(Settings->DamageNumberClass, Location, FRotator::ZeroRotator, Params);
+		if (Num)
+		{
+			Num->DamageNumber = Damage;
+		}
+	}
+}
+
+void UEnemyManagerSubsystem::ApplyDamageToEnemy(FMassEntityHandle Handle, int32 DamageThisHit, FVector ImpactLocation)
+{
+	OnEnemyDamageTaken.Broadcast(ImpactLocation, DamageThisHit);
+
 	// Handle exists
 	UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
 
@@ -117,20 +147,27 @@ void UEnemyManagerSubsystem::AssignNiagaraComponent(UNiagaraComponent* Component
 
 void UEnemyManagerSubsystem::UpdateHealthbarInformation(TArray<float>& UpdatedHealthRatios, TArray<FVector>& UpdatedEnemyPositions, TArray<FMassEntityHandle>& UpdatedEntityHandles)
 {
-	// Update stored arrays
-	HealthRatios = UpdatedHealthRatios;
-	EnemyPositions = UpdatedEnemyPositions;
-	ActiveEntityHandles = UpdatedEntityHandles;
-
-	// Set visibility — 1.0 for active entities, 0.0 for empty slots
-	for (int32 i = 0; i < EnemyVisibilities.Num(); i++)
+	// Assign a stable slot to any entity we haven't seen before,
+	// then write directly into that slot so Particles.ID always maps to the same enemy.
+	for (int32 i = 0; i < UpdatedEntityHandles.Num(); i++)
 	{
-		EnemyVisibilities[i] = i < EnemyPositions.Num() ? 1.0f : 0.0f;
+		FMassEntityHandle Handle = UpdatedEntityHandles[i];
+
+		if (!EntitySlotMap.Contains(Handle))
+		{
+			int32 Slot = FreeSlots.Num() > 0 ? FreeSlots.Pop() : EntitySlotMap.Num();
+			EntitySlotMap.Add(Handle, Slot);
+		}
+
+		int32 Slot = EntitySlotMap[Handle];
+		HealthRatios[Slot]        = UpdatedHealthRatios[i];
+		EnemyPositions[Slot]      = UpdatedEnemyPositions[i];
+		EnemyVisibilities[Slot]   = 1.0f;
+		ActiveEntityHandles[Slot] = Handle;
 	}
 
 	if (!NiagaraComponent) return;
 
-	// Convert FVector to FNiagaraPosition
 	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayPosition(
 		NiagaraComponent, FName("Enemy Positions"), EnemyPositions);
 
@@ -181,6 +218,20 @@ void UEnemyManagerSubsystem::NotifyEnemyDeath(FMassEntityHandle Handle)
 	// Defer to game thread since broadcast subscribers touch Blueprint/timer systems.
 	AsyncTask(ENamedThreads::GameThread, [this, Handle]()
 	{
+		if (int32* Slot = EntitySlotMap.Find(Handle))
+		{
+			EnemyVisibilities[*Slot] = 0.0f;
+			ActiveEntityHandles[*Slot] = FMassEntityHandle();
+			FreeSlots.Add(*Slot);
+			EntitySlotMap.Remove(Handle);
+
+			if (NiagaraComponent)
+			{
+				UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
+					NiagaraComponent, FName("Enemy Visibilities"), EnemyVisibilities);
+			}
+		}
+
 		OnEnemyDeath.Broadcast(Handle);
 
 		if (UQuestSubsystem* QuestSubsystem = GetGameInstance()->GetSubsystem<UQuestSubsystem>())
@@ -190,9 +241,21 @@ void UEnemyManagerSubsystem::NotifyEnemyDeath(FMassEntityHandle Handle)
 	});
 }
 
-void UEnemyManagerSubsystem::ApplyDamageToTarget(FMassEnemyTarget Target, int32 Damage)
+void UEnemyManagerSubsystem::ApplyDamageToTarget(FMassEnemyTarget Target, int32 Damage, FVector ImpactLocation)
 {
-	ApplyDamageToEnemy(Target.EntityHandle, Damage);
+	ApplyDamageToEnemy(Target.EntityHandle, Damage, ImpactLocation);
+}
+
+bool UEnemyManagerSubsystem::ApplyDamageByHit(const FHitResult& Hit, int32 Damage)
+{
+	UInstancedStaticMeshComponent* HitISMC = Cast<UInstancedStaticMeshComponent>(Hit.GetComponent());
+	if (!HitISMC || Hit.Item == INDEX_NONE) return false;
+
+	FMassEntityHandle Handle = GetEnemyEntityHandle(HitISMC, Hit.Item);
+	if (!Handle.IsSet()) return false;
+
+	ApplyDamageToEnemy(Handle, Damage, Hit.ImpactPoint);
+	return true;
 }
 
 bool UEnemyManagerSubsystem::IsTargetValid(FMassEnemyTarget Target) const

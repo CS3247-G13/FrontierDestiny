@@ -84,10 +84,6 @@ public:
 	UFUNCTION(BlueprintNativeEvent, Category = "Tower Functions")
 	void OnTargetLeaveRange(FMassEnemyTarget Target);
 
-	/** Time interval between overlap checks (Optimization) */
-	UPROPERTY(EditAnywhere, Category = "Setup")
-	float OverlapCheckInterval;
-
 	UPROPERTY()
 	TObjectPtr<AGridActor> GridActor;
 	UPROPERTY()
@@ -99,11 +95,14 @@ public:
 
 private:
 	UFUNCTION()
-	void CheckAllOverlaps();
+	void OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void OnRangeEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
+	void OnTrackedEnemyDied(FMassEntityHandle Handle);
 
 	void UpdateGhostMaterials();
-
-	FTimerHandle OverlapCheckTimerHandle;
 
 	FTimerHandle BuildTimerHandle;
 
