@@ -1,10 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+#include "TowerManagerSubsystem.h"
 #include "TowerActor.h"
 #include "GlobalTowerSettings.h"
 #include "UpgradeManagerSubsystem.h"
 
-#include "TowerManagerSubsystem.h"
 
 void UTowerManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {

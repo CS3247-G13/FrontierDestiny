@@ -1,8 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+#include "PlayerManagerSubsystem.h"
 #include "GlobalTowerSettings.h"
 #include "UpgradeManagerSubsystem.h"
-#include "PlayerManagerSubsystem.h"
 
 void UPlayerManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {

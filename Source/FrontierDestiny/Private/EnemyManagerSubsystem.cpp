@@ -1,6 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
+#include "EnemyManagerSubsystem.h"
+
 #include "GlobalTowerSettings.h"
 #include "Async/TaskGraphInterfaces.h"
 #include "NiagaraDataInterfaceArrayFunctionLibrary.h"
@@ -10,7 +12,6 @@
 #include "MassRepresentationSubsystem.h"
 #include "EnemyDamageMassProcessor.h"
 
-#include "EnemyManagerSubsystem.h"
 #include "StatusEffectFragments.h"
 #include "DamageNumber.h"
 

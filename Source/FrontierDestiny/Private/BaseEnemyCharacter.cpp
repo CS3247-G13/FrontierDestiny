@@ -1,8 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "EnemyManagerSubsystem.h"
 #include "BaseEnemyCharacter.h"
+#include "EnemyManagerSubsystem.h"
 #include "QuestSubsystem.h"
 #include "StatComponent.h"
 #include "EnemyModifier.h"

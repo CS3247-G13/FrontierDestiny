@@ -1,5 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+#include "HealthbarUpdateProcessor.h"
+
 #include "MassCommonFragments.h"
 #include "MassCommandBuffer.h"
 #include "MassExecutionContext.h"
@@ -7,7 +9,6 @@
 #include "EnemyManagerSubsystem.h"
 #include "StatusEffectFragments.h"
 
-#include "HealthbarUpdateProcessor.h"
 
 UHealthbarUpdateProcessor::UHealthbarUpdateProcessor()
 {
