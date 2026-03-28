@@ -1,9 +1,10 @@
 #include "DamageNumber.h"
 #include "Components/TextRenderComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "GameFramework/PlayerController.h"
 
 ADamageNumber::ADamageNumber()
 {
-	// We need Tick enabled to handle the scaling animation
 	PrimaryActorTick.bCanEverTick = true;
 
 	TextRender = CreateDefaultSubobject<UTextRenderComponent>(TEXT("TextRender"));
@@ -12,41 +13,48 @@ ADamageNumber::ADamageNumber()
 	TextRender->SetText(FText::FromString("-"));
 	TextRender->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
 	TextRender->SetVerticalAlignment(EVerticalTextAligment::EVRTA_TextCenter);
+}
 
-	Lifetime = 1.0f;
-	Progress = 0.0f;
+void ADamageNumber::SetDamageNumber(int32 Value)
+{
+	DamageNumber = Value;
+	TextRender->SetText(FText::AsNumber(DamageNumber));
 }
 
 void ADamageNumber::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Reset progress on spawn
-	Progress = 0.0f;
-
-	TextRender->SetText(FText::AsNumber(DamageNumber));
+	Progress = 0.f;
 }
 
 void ADamageNumber::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (Lifetime > 0.0f)
+	Progress += DeltaTime;
+
+	// Rise upward
+	AddActorWorldOffset(FVector(0.f, 0.f, RiseSpeed * DeltaTime));
+
+	// Fade out — eased so it stays visible longer then fades at the end
+	const float Alpha = FMath::Clamp(1.f - (Progress / Lifetime), 0.f, 1.f);
+	const float Opacity = FMath::Pow(Alpha, 0.5f);
+	TextRender->SetTextRenderColor(FColor(255, 255, 255, FMath::RoundToInt(Opacity * 255.f)));
+
+	// Face the player camera
+	if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
 	{
-		// Update progress based on elapsed time
-		Progress += DeltaTime;
+		FVector CameraLocation;
+		FRotator CameraRotation;
+		PC->GetPlayerViewPoint(CameraLocation, CameraRotation);
 
-		// Calculate a value that goes from 1.0 down to 0.0
-		float ScaleValue = FMath::Clamp(1.0f - (Progress / Lifetime), 0.0f, 1.0f);
+		const FRotator LookAt = (CameraLocation - GetActorLocation()).Rotation();
+		SetActorRotation(LookAt);
+	}
 
-		// Apply to X and Y scale
-		// TextRender components use these parameters for the mesh scaling
-		TextRender->SetRelativeScale3D(FVector(ScaleValue, ScaleValue, 1.0f));
-
-		// Destroy the actor once it's no longer visible
-		if (Progress >= Lifetime)
-		{
-			Destroy();
-		}
+	if (Progress >= Lifetime)
+	{
+		Destroy();
 	}
 }

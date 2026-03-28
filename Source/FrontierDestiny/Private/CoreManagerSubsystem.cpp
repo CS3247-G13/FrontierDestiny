@@ -34,6 +34,48 @@ ACoreActor* UCoreManagerSubsystem::GetCore(int32 CoreIndex) const
 	return Found ? const_cast<ACoreActor*>(*Found) : nullptr;
 }
 
+FVector UCoreManagerSubsystem::GetNearestActiveCoreLocation(FVector FromLocation) const
+{
+	float BestDistSq = FLT_MAX;
+	FVector BestLocation = FVector::ZeroVector;
+
+	for (const auto& Pair : CoreMap)
+	{
+		const ACoreActor* Core = Pair.Value;
+		if (!Core || !Core->bIsCoreActive) continue;
+
+		const float DistSq = FVector::DistSquared(FromLocation, Core->GetActorLocation());
+		if (DistSq < BestDistSq)
+		{
+			BestDistSq = DistSq;
+			BestLocation = Core->GetActorLocation();
+		}
+	}
+
+	return BestLocation;
+}
+
+ACoreActor* UCoreManagerSubsystem::GetNearestActiveCore(FVector FromLocation) const
+{
+	float BestDistSq = FLT_MAX;
+	ACoreActor* BestCore = nullptr;
+
+	for (const auto& Pair : CoreMap)
+	{
+		ACoreActor* Core = Pair.Value;
+		if (!Core || !Core->bIsCoreActive) continue;
+
+		const float DistSq = FVector::DistSquared(FromLocation, Core->GetActorLocation());
+		if (DistSq < BestDistSq)
+		{
+			BestDistSq = DistSq;
+			BestCore = Core;
+		}
+	}
+
+	return BestCore;
+}
+
 void UCoreManagerSubsystem::HandleCoreActivated(ACoreActor* Core)
 {
 	CapturedCoreCount++;

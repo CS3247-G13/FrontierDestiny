@@ -1,12 +1,54 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "EnemySpawner.h"
+#include "NativeGameplayTags.h"
 #include "CoreManagerSubsystem.h"
 #include "EnemyManagerSubsystem.h"
 #include "HordeIDFragment.h"
 #include "MassEntitySubsystem.h"
 #include "MassCommandBuffer.h"
 #include "Kismet/GameplayStatics.h"
+
+UE_DEFINE_GAMEPLAY_TAG(TAG_Modifier_Fast,         "Enemy.Modifier.Fast")
+UE_DEFINE_GAMEPLAY_TAG(TAG_Modifier_Strong,       "Enemy.Modifier.Strong")
+UE_DEFINE_GAMEPLAY_TAG(TAG_Modifier_Vitality,     "Enemy.Modifier.Vitality")
+UE_DEFINE_GAMEPLAY_TAG(TAG_Modifier_Armoured,     "Enemy.Modifier.Armoured")
+UE_DEFINE_GAMEPLAY_TAG(TAG_Modifier_Reflective,   "Enemy.Modifier.Reflective")
+UE_DEFINE_GAMEPLAY_TAG(TAG_Modifier_Insulated,    "Enemy.Modifier.Insulated")
+UE_DEFINE_GAMEPLAY_TAG(TAG_Modifier_Stealthy,     "Enemy.Modifier.Stealthy")
+UE_DEFINE_GAMEPLAY_TAG(TAG_Modifier_Nimble,       "Enemy.Modifier.Nimble")
+UE_DEFINE_GAMEPLAY_TAG(TAG_Modifier_Pyroclastic,  "Enemy.Modifier.Pyroclastic")
+UE_DEFINE_GAMEPLAY_TAG(TAG_Modifier_Amorphic,     "Enemy.Modifier.Amorphic")
+UE_DEFINE_GAMEPLAY_TAG(TAG_Modifier_Distorted,    "Enemy.Modifier.Distorted")
+UE_DEFINE_GAMEPLAY_TAG(TAG_Modifier_Fragmented,   "Enemy.Modifier.Fragmented")
+
+static FModifierFragment BuildModifierFragment(const FEnemySpawnEntry& Entry)
+{
+	const FGameplayTagContainer& Tags = Entry.Modifiers;
+	FModifierFragment Mod;
+
+	Mod.bFast        = Tags.HasTag(TAG_Modifier_Fast);
+	Mod.bStrong      = Tags.HasTag(TAG_Modifier_Strong);
+	Mod.bVitality    = Tags.HasTag(TAG_Modifier_Vitality);
+	Mod.bArmoured    = Tags.HasTag(TAG_Modifier_Armoured);
+	Mod.bReflective  = Tags.HasTag(TAG_Modifier_Reflective);
+	Mod.bInsulated   = Tags.HasTag(TAG_Modifier_Insulated);
+	Mod.bStealthy    = Tags.HasTag(TAG_Modifier_Stealthy);
+	Mod.bNimble      = Tags.HasTag(TAG_Modifier_Nimble);
+	Mod.bPyroclastic = Tags.HasTag(TAG_Modifier_Pyroclastic);
+	Mod.bAmorphic    = Tags.HasTag(TAG_Modifier_Amorphic);
+	Mod.bDistorted   = Tags.HasTag(TAG_Modifier_Distorted);
+	Mod.bFragmented  = Tags.HasTag(TAG_Modifier_Fragmented);
+
+	Mod.KineticResistance         = Mod.bArmoured    ? 0.5f : Entry.KineticResistance;
+	Mod.LaserResistance           = Mod.bReflective  ? 0.5f : Entry.LaserResistance;
+	Mod.ElectricResistance        = Mod.bInsulated   ? 0.5f : Entry.ElectricResistance;
+	Mod.AmorphicDamageCap         = Mod.bAmorphic   ? Entry.AmorphicDamageCap         : 0.f;
+	Mod.FragmentedChunkSize       = Mod.bFragmented  ? Entry.FragmentedChunkSize        : 0.f;
+	Mod.DistortionSpeedMultiplier = Mod.bDistorted   ? Entry.DistortionSpeedMultiplier  : 1.5f;
+
+	return Mod;
+}
 
 AEnemySpawner::AEnemySpawner()
 {
@@ -101,6 +143,11 @@ void AEnemySpawner::Spawn(const FHordeBatchDetails& Details)
 	UE_LOG(LogTemp, Log, TEXT("EnemySpawner [%s]: Spawning %d enemies across %d types."), *GetName(), TotalCount, Details.Enemies.Num());
 
 	EntityTypes.Empty();
+	PendingModifierFragments.Empty();
+	PendingHasModifiers.Empty();
+	PendingSpeedMultipliers.Empty();
+	PendingDamageMultipliers.Empty();
+	PendingVitalityAmounts.Empty();
 	for (const auto& EnemyInfo : Details.Enemies)
 	{
 		FEnemyData EnemyData = Subsystem->GetEnemyData(EnemyInfo.EnemyID);
@@ -118,6 +165,13 @@ void AEnemySpawner::Spawn(const FHordeBatchDetails& Details)
 		Type.EntityConfig = EnemyData.EnemyMassEntityAsset;
 		Type.Proportion = (float)EnemyInfo.Count / (float)TotalCount;
 		EntityTypes.Add(Type);
+
+		const FModifierFragment ModFrag = BuildModifierFragment(EnemyInfo);
+		PendingModifierFragments.Add(ModFrag);
+		PendingHasModifiers.Add(!EnemyInfo.Modifiers.IsEmpty());
+		PendingSpeedMultipliers.Add(ModFrag.bFast     ? EnemyInfo.FastSpeedMultiplier    : 1.f);
+		PendingDamageMultipliers.Add(ModFrag.bStrong  ? EnemyInfo.StrongDamageMultiplier : 1.f);
+		PendingVitalityAmounts.Add(ModFrag.bVitality  ? EnemyInfo.VitalityAmount         : 0.f);
 	}
 
 	Count = TotalCount;
@@ -151,20 +205,65 @@ void AEnemySpawner::HandleSpawningFinished()
 	for (int32 i = SpawnStartIndex; i < AllSpawnedEntities.Num(); i++)
 	{
 		TotalStamped += AllSpawnedEntities[i].Entities.Num();
+
+		const int32 ModIdx = i - SpawnStartIndex;
+		const bool bApplyModifiers = PendingHasModifiers.IsValidIndex(ModIdx) && PendingHasModifiers[ModIdx];
+		const FModifierFragment ModFrag        = bApplyModifiers ? PendingModifierFragments[ModIdx] : FModifierFragment{};
+		const float SpeedMultiplier            = PendingSpeedMultipliers.IsValidIndex(ModIdx)   ? PendingSpeedMultipliers[ModIdx]   : 1.f;
+		const float DamageMultiplier           = PendingDamageMultipliers.IsValidIndex(ModIdx)  ? PendingDamageMultipliers[ModIdx]  : 1.f;
+		const float VitalityAmount             = PendingVitalityAmounts.IsValidIndex(ModIdx)    ? PendingVitalityAmounts[ModIdx]    : 0.f;
+
 		for (const FMassEntityHandle& Entity : AllSpawnedEntities[i].Entities)
 		{
 			CommandBuffer.PushCommand<FMassDeferredSetCommand>(
-				[Entity, HordeID](FMassEntityManager& Manager)
+				[Entity, HordeID, bApplyModifiers, ModFrag, SpeedMultiplier, DamageMultiplier, VitalityAmount](FMassEntityManager& Manager)
 				{
-					if (!Manager.IsEntityValid(Entity))
-					{
-						return;
-					}
+					if (!Manager.IsEntityValid(Entity)) return;
+
 					Manager.AddFragmentToEntity(Entity, FHordeIDFragment::StaticStruct(),
 						[HordeID](void* Fragment, const UScriptStruct&)
 						{
 							static_cast<FHordeIDFragment*>(Fragment)->HordeID = HordeID;
 						});
+
+					if (bApplyModifiers)
+					{
+						Manager.AddFragmentToEntity(Entity, FModifierFragment::StaticStruct(),
+							[ModFrag](void* Fragment, const UScriptStruct&)
+							{
+								*static_cast<FModifierFragment*>(Fragment) = ModFrag;
+							});
+
+						if (ModFrag.bPyroclastic)
+						{
+							Manager.AddFragmentToEntity(Entity, FPyroclasticFragment::StaticStruct(),
+								[](void*, const UScriptStruct&){});
+						}
+
+						if (VitalityAmount > 0.f)
+						{
+							Manager.AddFragmentToEntity(Entity, FVitalityFragment::StaticStruct(),
+								[VitalityAmount](void* Fragment, const UScriptStruct&)
+								{
+									auto* Frag = static_cast<FVitalityFragment*>(Fragment);
+									Frag->Value    = VitalityAmount;
+									Frag->MaxValue = VitalityAmount;
+								});
+						}
+
+						FStatsFragment* Stats = Manager.GetFragmentDataPtr<FStatsFragment>(Entity);
+						if (Stats)
+						{
+							Stats->BaseSpeed  *= SpeedMultiplier;
+							Stats->BaseDamage *= DamageMultiplier;
+
+							// Snapshot after multipliers so distortion ramps from the boosted speed
+							if (ModFrag.bDistorted)
+							{
+								Stats->InitialBaseSpeed = Stats->BaseSpeed;
+							}
+						}
+					}
 				});
 		}
 	}

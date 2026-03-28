@@ -7,6 +7,7 @@
 #include "GlobalTowerSettings.generated.h"
 
 class UMaterialInterface;
+class UNiagaraSystem;
 
 /**
  * Global settings for the Tower Defense system.
@@ -48,6 +49,10 @@ public:
 
 	UPROPERTY(Config, EditAnywhere, Category = "Waves")
 	TSoftObjectPtr<UDataTable> HordeDataTable;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Effects")
+	TSoftObjectPtr<UNiagaraSystem> BloodSplatterEffect;
+
 
 	/** Helper to get the settings instance easily */
 	static const UGlobalTowerSettings* Get() { return GetDefault<UGlobalTowerSettings>(); }

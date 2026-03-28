@@ -24,9 +24,20 @@ struct FRONTIERDESTINY_API FEnemySpawnEntry
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Wave")
 	int32 Count = 0;
 
-	/** Modifier tags applied to each spawned enemy (e.g. "Fast", "Nimble"). */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Wave")
-	TArray<FName> Modifiers;
+	/** Modifier tags applied to each spawned enemy. Use Enemy.Modifier.* tags defined in EnemySpawner. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers")
+	FGameplayTagContainer Modifiers;
+
+	// Numeric modifier values — only relevant if the corresponding tag is present
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers") float FastSpeedMultiplier       = 2.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers") float StrongDamageMultiplier    = 2.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers") float VitalityAmount            = 50.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers") float KineticResistance         = 1.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers") float LaserResistance          = 1.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers") float ElectricResistance       = 1.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers") float AmorphicDamageCap        = 10.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers") float FragmentedChunkSize      = 10.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers") float DistortionSpeedMultiplier = 1.5f;
 };
 
 /**
