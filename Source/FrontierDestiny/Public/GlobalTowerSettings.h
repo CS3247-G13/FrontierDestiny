@@ -53,6 +53,9 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Effects")
 	TSoftObjectPtr<UNiagaraSystem> BloodSplatterEffect;
 
+	UPROPERTY(Config, EditAnywhere, Category = "Effects")
+	TSoftObjectPtr<UNiagaraSystem> ArcLightningEffect;
+
 
 	/** Helper to get the settings instance easily */
 	static const UGlobalTowerSettings* Get() { return GetDefault<UGlobalTowerSettings>(); }

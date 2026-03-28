@@ -29,4 +29,7 @@ private:
 	FMassEntityQuery SpeedEffectQuery;
 	FMassEntityQuery BurnQuery;
 	FMassEntityQuery PyroclasticQuery;
+	FMassEntityQuery SuppressedQuery;
+	FMassEntityQuery CompoundingInjuryQuery;
+	FMassEntityQuery ConduitMarkerQuery;
 };

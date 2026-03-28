@@ -78,6 +78,36 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ApplyBurn(FMassEnemyTarget Target, float Duration, float DamagePerTick, float TickInterval = 1.f);
 
+	/** Adds compounding bonus damage per consecutive hit within a time window. */
+	void ApplyCompoundingInjury(FMassEnemyTarget Target, float DamagePerStack, float MaxBonus, float TimeWindow);
+
+	/** Marks the target as arc-charged. If another arc-charged enemy is already within range, arcs between them, applies electric damage to both, and clears both fragments. */
+	void ApplyArcShot(FMassEnemyTarget Target, float Range, float Damage);
+
+	/** Applies a conduit marker to the target. Immediately arcs to all other conduit-marked enemies within range. Marker persists until it expires. */
+	void ApplyConduitMarker(FMassEnemyTarget Target, float Duration, float Range, float ArcDamage);
+
+	/** Called by StatusEffectProcessor when a conduit marker fragment expires. */
+	void NotifyConduitMarkerExpired(FMassEntityHandle Handle);
+
+	FMassEntityHandle ArcChargedEntity;
+	TSet<FMassEntityHandle> ConduitMarkedEntities;
+
+	/** Tracks consecutive hits within a time window. Applies a slow when ShotThreshold is reached. Ignored if nimble. */
+	void ApplySuppressed(FMassEnemyTarget Target, int32 ShotThreshold, float TimeWindow, float SlowAmount, float SlowDuration);
+
+	/** Marks the target as ruptured — if it dies this processor frame it will explode for AoE damage. Cleared otherwise. */
+	void ApplyRuptured(FMassEnemyTarget Target, float Damage, float Radius);
+
+	/** Marks the target for Devastating Blow — if HP ratio exceeds threshold when processed, damage is multiplied. Cleared by damage processor. */
+	void ApplyDevastatingBlow(FMassEnemyTarget Target, float HPThreshold, float Multiplier);
+
+	/** Marks the target for Ballistic Recall — if it dies, restores AmmoRegain bullets to the player. */
+	void ApplyBallisticRecall(FMassEnemyTarget Target, int32 AmmoRegain);
+
+	/** Deals AoE kinetic damage to all enemies within Radius of Position. Called by the damage processor on rupture death. */
+	void Rupture(FVector Position, float Damage, float Radius);
+
 	/** Returns true if both targets reference the same Mass entity (compares Index + SerialNumber). */
 	UFUNCTION(BlueprintPure)
 	bool IsSameTarget(FMassEnemyTarget A, FMassEnemyTarget B) const;

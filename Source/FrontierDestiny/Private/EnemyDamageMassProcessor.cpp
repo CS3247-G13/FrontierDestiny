@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "EnemyDamageMassProcessor.h"
 #include "EnemyManagerSubsystem.h"
+#include "PlayerManagerSubsystem.h"
 #include "HordeIDFragment.h"
 #include "StatusEffectFragments.h"
 #include "MassCommonFragments.h"
@@ -36,6 +37,11 @@ void UEnemyDamageMassProcessor::ConfigureQueries(const TSharedRef<FMassEntityMan
 	EntityQuery.AddRequirement<FVitalityFragment>(EMassFragmentAccess::ReadWrite, EMassFragmentPresence::Optional);
 	EntityQuery.AddRequirement<FStatsFragment>(EMassFragmentAccess::ReadWrite,      EMassFragmentPresence::Optional);
 	EntityQuery.AddRequirement<FPyroclasticFragment>(EMassFragmentAccess::ReadWrite, EMassFragmentPresence::Optional);
+	EntityQuery.AddRequirement<FRupturedFragment>(EMassFragmentAccess::ReadOnly,        EMassFragmentPresence::Optional);
+	EntityQuery.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadOnly,       EMassFragmentPresence::Optional);
+	EntityQuery.AddRequirement<FCompoundingInjuryFragment>(EMassFragmentAccess::ReadWrite, EMassFragmentPresence::Optional);
+	EntityQuery.AddRequirement<FDevastatedFragment>(EMassFragmentAccess::ReadOnly, EMassFragmentPresence::Optional);
+	EntityQuery.AddRequirement<FBallisticRecallFragment>(EMassFragmentAccess::ReadOnly, EMassFragmentPresence::Optional);
 
 	EntityQuery.RegisterWithProcessor(*this);
 }
@@ -54,12 +60,22 @@ void UEnemyDamageMassProcessor::Execute(FMassEntityManager& EntityManager, FMass
 			TArrayView<FModifierFragment>      ModifierList = Context.GetMutableFragmentView<FModifierFragment>();
 			TArrayView<FVitalityFragment>      VitalityList = Context.GetMutableFragmentView<FVitalityFragment>();
 			TArrayView<FStatsFragment>         StatsList       = Context.GetMutableFragmentView<FStatsFragment>();
-			TArrayView<FPyroclasticFragment>   PyroclasticList = Context.GetMutableFragmentView<FPyroclasticFragment>();
+			TArrayView<FPyroclasticFragment>        PyroclasticList = Context.GetMutableFragmentView<FPyroclasticFragment>();
+			TConstArrayView<FRupturedFragment>          RupturedList          = Context.GetFragmentView<FRupturedFragment>();
+			TConstArrayView<FTransformFragment>         TransformList         = Context.GetFragmentView<FTransformFragment>();
+			TArrayView<FCompoundingInjuryFragment>      CompoundingInjuryList = Context.GetMutableFragmentView<FCompoundingInjuryFragment>();
+			TConstArrayView<FDevastatedFragment>        DevastatedList        = Context.GetFragmentView<FDevastatedFragment>();
+			TConstArrayView<FBallisticRecallFragment>   BallisticRecallList   = Context.GetFragmentView<FBallisticRecallFragment>();
 
-			const bool bHasModifiers   = !ModifierList.IsEmpty();
-			const bool bHasVitality    = !VitalityList.IsEmpty();
-			const bool bHasStats       = !StatsList.IsEmpty();
-			const bool bHasPyroclastic = !PyroclasticList.IsEmpty();
+			const bool bHasModifiers         = !ModifierList.IsEmpty();
+			const bool bHasVitality          = !VitalityList.IsEmpty();
+			const bool bHasStats             = !StatsList.IsEmpty();
+			const bool bHasPyroclastic       = !PyroclasticList.IsEmpty();
+			const bool bHasRuptured          = !RupturedList.IsEmpty();
+			const bool bHasTransform         = !TransformList.IsEmpty();
+			const bool bHasCompoundingInjury = !CompoundingInjuryList.IsEmpty();
+			const bool bHasDevastated        = !DevastatedList.IsEmpty();
+			const bool bHasBallisticRecall   = !BallisticRecallList.IsEmpty();
 			const int32 NumEntities  = Context.GetNumEntities();
 
 			for (int32 EntityIdx = 0; EntityIdx < NumEntities; EntityIdx++)
@@ -69,6 +85,25 @@ void UEnemyDamageMassProcessor::Execute(FMassEntityManager& EntityManager, FMass
 				const FMassEntityHandle Entity = Context.GetEntity(EntityIdx);
 
 				float FinalDamage = Damage.DamageAmount;
+
+				if (bHasCompoundingInjury)
+				{
+					FCompoundingInjuryFragment& CI = CompoundingInjuryList[EntityIdx];
+					if (CI.bAppliedThisFrame)
+					{
+						FinalDamage += FMath::Min(CI.Shots * CI.DamagePerStack, CI.MaxBonus);
+						CI.bAppliedThisFrame = false;
+					}
+				}
+
+				if (bHasDevastated)
+				{
+					const FDevastatedFragment& Dev = DevastatedList[EntityIdx];
+					if (Health.Value > Dev.HPThreshold)
+					{
+						FinalDamage *= Dev.Multiplier;
+					}
+				}
 
 				if (bHasModifiers)
 				{
@@ -135,6 +170,26 @@ void UEnemyDamageMassProcessor::Execute(FMassEntityManager& EntityManager, FMass
 				{
 					if (EnemyManager)
 					{
+						if (bHasRuptured && bHasTransform)
+						{
+							const FRupturedFragment& Ruptured = RupturedList[EntityIdx];
+							const FVector Position = TransformList[EntityIdx].GetTransform().GetLocation();
+							EnemyManager->Rupture(Position, Ruptured.Damage, Ruptured.Radius);
+						}
+
+						if (bHasBallisticRecall)
+						{
+							const int32 AmmoRegain = BallisticRecallList[EntityIdx].AmmoRegain;
+							UGameInstance* GI = EnemyManager->GetGameInstance();
+							AsyncTask(ENamedThreads::GameThread, [GI, AmmoRegain]()
+							{
+								if (UPlayerManagerSubsystem* PM = GI->GetSubsystem<UPlayerManagerSubsystem>())
+								{
+									PM->RestoreBullets(AmmoRegain);
+								}
+							});
+						}
+
 						if (!HordeIDList.IsEmpty())
 						{
 							EnemyManager->NotifyHordeEnemyDeath(HordeIDList[EntityIdx].HordeID);
@@ -146,6 +201,14 @@ void UEnemyDamageMassProcessor::Execute(FMassEntityManager& EntityManager, FMass
 				else
 				{
 					Context.Defer().RemoveFragment<FDamageFragment>(Entity);
+					if (bHasRuptured)
+					{
+						Context.Defer().RemoveFragment<FRupturedFragment>(Entity);
+					}
+					if (bHasDevastated)
+					{
+						Context.Defer().RemoveFragment<FDevastatedFragment>(Entity);
+					}
 
 					// Distorted: scale BaseSpeed based on damage taken so far
 					if (bHasModifiers && bHasStats && ModifierList[EntityIdx].bDistorted)

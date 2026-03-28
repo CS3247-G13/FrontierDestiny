@@ -3,6 +3,7 @@
 #include "StatusEffectProcessor.h"
 #include "StatusEffectFragments.h"
 #include "EnemyDamageMassProcessor.h"
+#include "EnemyManagerSubsystem.h"
 #include "MassCommandBuffer.h"
 #include "MassExecutionContext.h"
 #include "MassCommandBuffer.h"
@@ -41,6 +42,21 @@ void UStatusEffectProcessor::ConfigureQueries(const TSharedRef<FMassEntityManage
 	BurnQuery.AddRequirement<FBurnFragment>(EMassFragmentAccess::ReadWrite);
 	BurnQuery.AddRequirement<FHealthFragment>(EMassFragmentAccess::ReadOnly);
 	BurnQuery.RegisterWithProcessor(*this);
+
+	// Only runs on entities currently being suppressed
+	SuppressedQuery.Initialize(EntityManager);
+	SuppressedQuery.AddRequirement<FSuppressedFragment>(EMassFragmentAccess::ReadWrite);
+	SuppressedQuery.RegisterWithProcessor(*this);
+
+	// Only runs on entities with active compounding injury stacks
+	CompoundingInjuryQuery.Initialize(EntityManager);
+	CompoundingInjuryQuery.AddRequirement<FCompoundingInjuryFragment>(EMassFragmentAccess::ReadWrite);
+	CompoundingInjuryQuery.RegisterWithProcessor(*this);
+
+	// Only runs on entities with an active conduit marker
+	ConduitMarkerQuery.Initialize(EntityManager);
+	ConduitMarkerQuery.AddRequirement<FConduitMarkerFragment>(EMassFragmentAccess::ReadWrite);
+	ConduitMarkerQuery.RegisterWithProcessor(*this);
 }
 
 void UStatusEffectProcessor::Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context)
@@ -107,6 +123,63 @@ void UStatusEffectProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 			if (Pyro.TimeToShield > 0.f)
 			{
 				Pyro.TimeToShield = FMath::Max(0.f, Pyro.TimeToShield - DeltaTime);
+			}
+		}
+	});
+
+	// --- Suppressing fire window tick ---
+	SuppressedQuery.ForEachEntityChunk(Context, [DeltaTime](FMassExecutionContext& Context)
+	{
+		TArrayView<FSuppressedFragment> SuppressedList = Context.GetMutableFragmentView<FSuppressedFragment>();
+		const int32 NumEntities = Context.GetNumEntities();
+
+		for (int32 i = 0; i < NumEntities; i++)
+		{
+			FSuppressedFragment& Suppressed = SuppressedList[i];
+			Suppressed.RemainingTime -= DeltaTime;
+			if (Suppressed.RemainingTime <= 0.f)
+			{
+				Context.Defer().RemoveFragment<FSuppressedFragment>(Context.GetEntity(i));
+			}
+		}
+	});
+
+	// --- Compounding injury window tick ---
+	CompoundingInjuryQuery.ForEachEntityChunk(Context, [DeltaTime](FMassExecutionContext& Context)
+	{
+		TArrayView<FCompoundingInjuryFragment> CIList = Context.GetMutableFragmentView<FCompoundingInjuryFragment>();
+		const int32 NumEntities = Context.GetNumEntities();
+
+		for (int32 i = 0; i < NumEntities; i++)
+		{
+			FCompoundingInjuryFragment& CI = CIList[i];
+			CI.RemainingTime -= DeltaTime;
+			if (CI.RemainingTime <= 0.f)
+			{
+				Context.Defer().RemoveFragment<FCompoundingInjuryFragment>(Context.GetEntity(i));
+			}
+		}
+	});
+
+	// --- Conduit marker duration tick ---
+	UEnemyManagerSubsystem* EnemyManager = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
+	ConduitMarkerQuery.ForEachEntityChunk(Context, [DeltaTime, EnemyManager](FMassExecutionContext& Context)
+	{
+		TArrayView<FConduitMarkerFragment> ConduitList = Context.GetMutableFragmentView<FConduitMarkerFragment>();
+		const int32 NumEntities = Context.GetNumEntities();
+
+		for (int32 i = 0; i < NumEntities; i++)
+		{
+			FConduitMarkerFragment& Conduit = ConduitList[i];
+			Conduit.Duration -= DeltaTime;
+			if (Conduit.Duration <= 0.f)
+			{
+				const FMassEntityHandle Entity = Context.GetEntity(i);
+				Context.Defer().RemoveFragment<FConduitMarkerFragment>(Entity);
+				if (EnemyManager)
+				{
+					EnemyManager->NotifyConduitMarkerExpired(Entity);
+				}
 			}
 		}
 	});

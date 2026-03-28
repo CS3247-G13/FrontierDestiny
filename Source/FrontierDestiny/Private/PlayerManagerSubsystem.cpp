@@ -99,3 +99,8 @@ void UPlayerManagerSubsystem::HandleUpgradeDeactivated(const FUpgradeData& Upgra
 {
 	SetUpgradeBoolean(Upgrade.TargetID, false);
 }
+
+void UPlayerManagerSubsystem::RestoreBullets(int32 Amount)
+{
+	OnRestoreBullets.Broadcast(Amount);
+}
