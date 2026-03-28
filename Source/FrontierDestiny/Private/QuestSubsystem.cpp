@@ -91,7 +91,6 @@ void UQuestSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 
-	return;
 	const UGlobalTowerSettings* Settings = UGlobalTowerSettings::Get();
 
 	if (!Settings)
