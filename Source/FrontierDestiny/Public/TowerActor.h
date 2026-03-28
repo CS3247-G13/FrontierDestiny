@@ -101,10 +101,14 @@ private:
 	void OnRangeEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
 	void OnTrackedEnemyDied(FMassEntityHandle Handle);
+	void CheckEnemiesInRange();
+	void AddTarget(FMassEnemyTarget Target);
+	void RemoveTarget(FMassEntityHandle Handle);
 
 	void UpdateGhostMaterials();
 
 	FTimerHandle BuildTimerHandle;
+	FTimerHandle RangeCheckTimerHandle;
 
 	void InitializeGhostTower();
 

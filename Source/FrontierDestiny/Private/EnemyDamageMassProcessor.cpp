@@ -8,12 +8,6 @@
 #include "MassExecutionContext.h"
 #include <MassRepresentationSubsystem.h>
 
-static constexpr float KineticDRMultiplier  = 0.5f;
-static constexpr float LaserDRMultiplier    = 0.5f;
-static constexpr float ElectricDRMultiplier = 0.5f;
-static constexpr float AmorphicDamageCap    = 7.f;
-static constexpr float FragmentedChunkSize  = 8.f;
-
 // Required for UE 5.1+ to optimize compile times
 #include UE_INLINE_GENERATED_CPP_BY_NAME(EnemyDamageMassProcessor)
 
@@ -38,8 +32,10 @@ void UEnemyDamageMassProcessor::ConfigureQueries(const TSharedRef<FMassEntityMan
 	EntityQuery.AddRequirement<FHealthFragment>(EMassFragmentAccess::ReadWrite);
 	EntityQuery.AddRequirement<FDamageFragment>(EMassFragmentAccess::ReadOnly);
 	EntityQuery.AddRequirement<FHordeIDFragment>(EMassFragmentAccess::ReadOnly,  EMassFragmentPresence::Optional);
-	EntityQuery.AddRequirement<FModifierFragment>(EMassFragmentAccess::ReadOnly, EMassFragmentPresence::Optional);
+	EntityQuery.AddRequirement<FModifierFragment>(EMassFragmentAccess::ReadWrite, EMassFragmentPresence::Optional);
 	EntityQuery.AddRequirement<FVitalityFragment>(EMassFragmentAccess::ReadWrite, EMassFragmentPresence::Optional);
+	EntityQuery.AddRequirement<FStatsFragment>(EMassFragmentAccess::ReadWrite,      EMassFragmentPresence::Optional);
+	EntityQuery.AddRequirement<FPyroclasticFragment>(EMassFragmentAccess::ReadWrite, EMassFragmentPresence::Optional);
 
 	EntityQuery.RegisterWithProcessor(*this);
 }
@@ -52,14 +48,18 @@ void UEnemyDamageMassProcessor::Execute(FMassEntityManager& EntityManager, FMass
 
 	EntityQuery.ForEachEntityChunk(Context, [this, EnemyManager](FMassExecutionContext& Context)
 		{
-			TArrayView<FHealthFragment>    HealthList   = Context.GetMutableFragmentView<FHealthFragment>();
+			TArrayView<FHealthFragment>        HealthList   = Context.GetMutableFragmentView<FHealthFragment>();
 			TConstArrayView<FDamageFragment>   DamageList   = Context.GetFragmentView<FDamageFragment>();
 			TConstArrayView<FHordeIDFragment>  HordeIDList  = Context.GetFragmentView<FHordeIDFragment>();
-			TConstArrayView<FModifierFragment> ModifierList = Context.GetFragmentView<FModifierFragment>();
-			TArrayView<FVitalityFragment>  VitalityList = Context.GetMutableFragmentView<FVitalityFragment>();
+			TArrayView<FModifierFragment>      ModifierList = Context.GetMutableFragmentView<FModifierFragment>();
+			TArrayView<FVitalityFragment>      VitalityList = Context.GetMutableFragmentView<FVitalityFragment>();
+			TArrayView<FStatsFragment>         StatsList       = Context.GetMutableFragmentView<FStatsFragment>();
+			TArrayView<FPyroclasticFragment>   PyroclasticList = Context.GetMutableFragmentView<FPyroclasticFragment>();
 
-			const bool bHasModifiers = !ModifierList.IsEmpty();
-			const bool bHasVitality  = !VitalityList.IsEmpty();
+			const bool bHasModifiers   = !ModifierList.IsEmpty();
+			const bool bHasVitality    = !VitalityList.IsEmpty();
+			const bool bHasStats       = !StatsList.IsEmpty();
+			const bool bHasPyroclastic = !PyroclasticList.IsEmpty();
 			const int32 NumEntities  = Context.GetNumEntities();
 
 			for (int32 EntityIdx = 0; EntityIdx < NumEntities; EntityIdx++)
@@ -72,28 +72,28 @@ void UEnemyDamageMassProcessor::Execute(FMassEntityManager& EntityManager, FMass
 
 				if (bHasModifiers)
 				{
-					const FModifierFragment& Mod = ModifierList[EntityIdx];
+					FModifierFragment& Mod = ModifierList[EntityIdx];
 
-					// Damage resistance
-					if (Mod.bArmoured   && Damage.DamageType == EDamageType::Kinetic)  FinalDamage *= KineticDRMultiplier;
-					if (Mod.bReflective && Damage.DamageType == EDamageType::Laser)    FinalDamage *= LaserDRMultiplier;
-					if (Mod.bInsulated  && Damage.DamageType == EDamageType::Electric) FinalDamage *= ElectricDRMultiplier;
+					// Damage resistance (1.0 = no change, lower = more resistant)
+					if (Damage.DamageType == EDamageType::Kinetic)  FinalDamage *= Mod.KineticResistance;
+					if (Damage.DamageType == EDamageType::Laser)    FinalDamage *= Mod.LaserResistance;
+					if (Damage.DamageType == EDamageType::Electric) FinalDamage *= Mod.ElectricResistance;
 
-					// Amorphic: cap damage per hit at 7
-					if (Mod.bAmorphic && FinalDamage > AmorphicDamageCap)
+					// Amorphic: cap damage per hit
+					if (Mod.AmorphicDamageCap > 0.f && FinalDamage > Mod.AmorphicDamageCap)
 					{
-						const float Mitigated = FinalDamage - AmorphicDamageCap;
-						FinalDamage = AmorphicDamageCap;
+						const float Mitigated = FinalDamage - Mod.AmorphicDamageCap;
+						FinalDamage = Mod.AmorphicDamageCap;
 						if (EnemyManager)
 						{
 							EnemyManager->NotifyDamageMitigated(Entity, Mitigated);
 						}
 					}
 
-					// Fragmented: damage must be a multiple of 8, excess is mitigated
-					if (Mod.bFragmented && FinalDamage > 0.f)
+					// Fragmented: damage floored to nearest multiple of FragmentedChunkSize
+					if (Mod.FragmentedChunkSize > 0.f && FinalDamage > 0.f)
 					{
-						const float Floored = FMath::Floor(FinalDamage / FragmentedChunkSize) * FragmentedChunkSize;
+						const float Floored = FMath::Floor(FinalDamage / Mod.FragmentedChunkSize) * Mod.FragmentedChunkSize;
 						const float Mitigated = FinalDamage - Floored;
 						FinalDamage = Floored;
 						if (EnemyManager && Mitigated > 0.f)
@@ -103,7 +103,18 @@ void UEnemyDamageMassProcessor::Execute(FMassEntityManager& EntityManager, FMass
 					}
 				}
 
-				// Drain vitality before health
+				// Pyroclastic shield — block one hit, start recharge
+			if (bHasPyroclastic && FinalDamage > 0.f)
+			{
+				FPyroclasticFragment& Pyro = PyroclasticList[EntityIdx];
+				if (Pyro.TimeToShield <= 0.f)
+				{
+					FinalDamage = 0.f;
+					Pyro.TimeToShield = Pyro.ChargeTime;
+				}
+			}
+
+			// Drain vitality before health
 				if (bHasVitality && FinalDamage > 0.f)
 				{
 					FVitalityFragment& Vitality = VitalityList[EntityIdx];
@@ -113,6 +124,12 @@ void UEnemyDamageMassProcessor::Execute(FMassEntityManager& EntityManager, FMass
 				}
 
 				Health.Value -= FinalDamage;
+
+			// Stealthy: reveal on any damage that actually lands
+			if (bHasModifiers && FinalDamage > 0.f)
+			{
+				ModifierList[EntityIdx].bStealthy = false;
+			}
 
 				if (Health.Value <= 0.f)
 				{
@@ -130,26 +147,14 @@ void UEnemyDamageMassProcessor::Execute(FMassEntityManager& EntityManager, FMass
 				{
 					Context.Defer().RemoveFragment<FDamageFragment>(Entity);
 
-					// TEST: slow on hit for 1 second
-					Context.Defer().PushCommand<FMassDeferredSetCommand>(
-						[Entity](FMassEntityManager& Manager)
-						{
-							if (!Manager.IsEntityValid(Entity)) return;
-							FSlowFragment* Slow = Manager.GetFragmentDataPtr<FSlowFragment>(Entity);
-							if (Slow)
-							{
-								Slow->Duration = FMath::Max(Slow->Duration, 1.0f);
-							}
-							else
-							{
-								Manager.AddFragmentToEntity(Entity, FSlowFragment::StaticStruct(),
-									[](void* Fragment, const UScriptStruct&)
-									{
-										static_cast<FSlowFragment*>(Fragment)->Duration = 1.0f;
-									});
-							}
-						}
-					);
+					// Distorted: scale BaseSpeed based on damage taken so far
+					if (bHasModifiers && bHasStats && ModifierList[EntityIdx].bDistorted)
+					{
+						FStatsFragment& Stats = StatsList[EntityIdx];
+						const float DamageTakenRatio = 1.0f - (Health.Value / Health.MaxValue);
+						Stats.BaseSpeed = Stats.InitialBaseSpeed * FMath::Lerp(1.0f, ModifierList[EntityIdx].DistortionSpeedMultiplier, DamageTakenRatio);
+					}
+
 				}
 			}
 		});

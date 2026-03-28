@@ -3,12 +3,12 @@
 #include "StatusEffectProcessor.h"
 #include "StatusEffectFragments.h"
 #include "EnemyDamageMassProcessor.h"
+#include "MassCommandBuffer.h"
 #include "MassExecutionContext.h"
 #include "MassCommandBuffer.h"
 #include "MassRepresentationSubsystem.h"
 #include "MassNavigationFragments.h"
 
-static constexpr float SlowSpeedMultiplier = 0.8f; // 20% slow per GDD
 
 UStatusEffectProcessor::UStatusEffectProcessor()
 {
@@ -24,6 +24,10 @@ UStatusEffectProcessor::UStatusEffectProcessor()
 
 void UStatusEffectProcessor::ConfigureQueries(const TSharedRef<FMassEntityManager>& EntityManager)
 {
+	PyroclasticQuery.Initialize(EntityManager);
+	PyroclasticQuery.AddRequirement<FPyroclasticFragment>(EMassFragmentAccess::ReadWrite);
+	PyroclasticQuery.RegisterWithProcessor(*this);
+
 	// Runs on any entity with base stats and a move target (regardless of active effects)
 	SpeedEffectQuery.Initialize(EntityManager);
 	SpeedEffectQuery.AddRequirement<FStatsFragment>(EMassFragmentAccess::ReadOnly);
@@ -35,6 +39,7 @@ void UStatusEffectProcessor::ConfigureQueries(const TSharedRef<FMassEntityManage
 	// Only runs on entities that are currently burning
 	BurnQuery.Initialize(EntityManager);
 	BurnQuery.AddRequirement<FBurnFragment>(EMassFragmentAccess::ReadWrite);
+	BurnQuery.AddRequirement<FHealthFragment>(EMassFragmentAccess::ReadOnly);
 	BurnQuery.RegisterWithProcessor(*this);
 }
 
@@ -43,7 +48,8 @@ void UStatusEffectProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 	const float DeltaTime = GetWorld()->GetDeltaSeconds();
 
 	// --- Speed effects (stun > slow > base) ---
-	SpeedEffectQuery.ForEachEntityChunk(Context, [DeltaTime](FMassExecutionContext& Context)
+	UWorld* World = GetWorld();
+	SpeedEffectQuery.ForEachEntityChunk(Context, [DeltaTime, World](FMassExecutionContext& Context)
 	{
 		TConstArrayView<FStatsFragment>     StatsList = Context.GetFragmentView<FStatsFragment>();
 		TArrayView<FMassMoveTargetFragment> MoveList  = Context.GetMutableFragmentView<FMassMoveTargetFragment>();
@@ -61,10 +67,12 @@ void UStatusEffectProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 			if (bHasStun)
 			{
 				FStunFragment& Stun = StunList[i];
+				MoveList[i].CreateNewAction(EMassMovementAction::Stand, *World);
 				MoveList[i].DesiredSpeed.Set(0.f);
 				Stun.Duration -= DeltaTime;
 				if (Stun.Duration <= 0.f)
 				{
+					MoveList[i].CreateNewAction(EMassMovementAction::Move, *World);
 					MoveList[i].DesiredSpeed.Set(BaseSpeed);
 					Context.Defer().RemoveFragment<FStunFragment>(Context.GetEntity(i));
 				}
@@ -72,7 +80,7 @@ void UStatusEffectProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 			else if (bHasSlow)
 			{
 				FSlowFragment& Slow = SlowList[i];
-				MoveList[i].DesiredSpeed.Set(BaseSpeed * SlowSpeedMultiplier);
+				MoveList[i].DesiredSpeed.Set(BaseSpeed * Slow.SpeedMultiplier);
 				Slow.Duration -= DeltaTime;
 				if (Slow.Duration <= 0.f)
 				{
@@ -82,10 +90,23 @@ void UStatusEffectProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 			}
 			else
 			{
-				// Log unmodified DesiredSpeed to see what the nav system sets it to
-				const FMassEntityHandle Entity = Context.GetEntity(i);
-				UE_LOG(LogTemp, Warning, TEXT("[StatusEffect] Entity(%d,%d) no effect -> DesiredSpeed=%.2f (BaseSpeed=%.2f)"),
-					Entity.Index, Entity.SerialNumber, MoveList[i].DesiredSpeed.Get(), BaseSpeed);
+				MoveList[i].DesiredSpeed.Set(BaseSpeed);
+			}
+		}
+	});
+
+	// --- Pyroclastic shield recharge ---
+	PyroclasticQuery.ForEachEntityChunk(Context, [DeltaTime](FMassExecutionContext& Context)
+	{
+		TArrayView<FPyroclasticFragment> PyroclasticList = Context.GetMutableFragmentView<FPyroclasticFragment>();
+		const int32 NumEntities = Context.GetNumEntities();
+
+		for (int32 i = 0; i < NumEntities; i++)
+		{
+			FPyroclasticFragment& Pyro = PyroclasticList[i];
+			if (Pyro.TimeToShield > 0.f)
+			{
+				Pyro.TimeToShield = FMath::Max(0.f, Pyro.TimeToShield - DeltaTime);
 			}
 		}
 	});
@@ -93,15 +114,49 @@ void UStatusEffectProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 	// --- Burn (DoT duration tick) ---
 	BurnQuery.ForEachEntityChunk(Context, [DeltaTime](FMassExecutionContext& Context)
 	{
-		TArrayView<FBurnFragment> BurnList = Context.GetMutableFragmentView<FBurnFragment>();
+		TArrayView<FBurnFragment>          BurnList   = Context.GetMutableFragmentView<FBurnFragment>();
+		TConstArrayView<FHealthFragment>   HealthList = Context.GetFragmentView<FHealthFragment>();
 		const int32 NumEntities = Context.GetNumEntities();
 
 		for (int32 i = 0; i < NumEntities; i++)
 		{
-			BurnList[i].Duration -= DeltaTime;
-			if (BurnList[i].Duration <= 0.f)
+			FBurnFragment& Burn = BurnList[i];
+			const FMassEntityHandle Entity = Context.GetEntity(i);
+
+			Burn.Duration      -= DeltaTime;
+			Burn.TimeToNextTick -= DeltaTime;
+
+			if (Burn.TimeToNextTick <= 0.f)
 			{
-				Context.Defer().RemoveFragment<FBurnFragment>(Context.GetEntity(i));
+				const float Overflow = -Burn.TimeToNextTick;
+				Burn.TimeToNextTick = FMath::Max(Burn.TickInterval - Overflow, 0.f);
+
+				// Apply burn damage via FDamageFragment so resistances are respected
+				Context.Defer().PushCommand<FMassDeferredSetCommand>(
+					[Entity, Damage = Burn.DamagePerTick](FMassEntityManager& Manager)
+					{
+						if (!Manager.IsEntityValid(Entity)) return;
+						FDamageFragment* Existing = Manager.GetFragmentDataPtr<FDamageFragment>(Entity);
+						if (Existing)
+						{
+							Existing->DamageAmount += Damage;
+						}
+						else
+						{
+							Manager.AddFragmentToEntity(Entity, FDamageFragment::StaticStruct(),
+								[Damage](void* Fragment, const UScriptStruct&)
+								{
+									auto* Frag = static_cast<FDamageFragment*>(Fragment);
+									Frag->DamageAmount = Damage;
+									Frag->DamageType   = EDamageType::Neutral;
+								});
+						}
+					});
+			}
+
+			if (Burn.Duration <= 0.f)
+			{
+				Context.Defer().RemoveFragment<FBurnFragment>(Entity);
 			}
 		}
 	});

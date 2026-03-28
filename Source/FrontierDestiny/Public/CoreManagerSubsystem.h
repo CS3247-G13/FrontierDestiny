@@ -35,6 +35,12 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	ACoreActor* GetCore(int32 CoreIndex) const;
 
+	/** Returns the world location of the nearest active core to FromLocation. Returns FVector::ZeroVector if no active cores exist. */
+	FVector GetNearestActiveCoreLocation(FVector FromLocation) const;
+
+	/** Returns the nearest active core actor to FromLocation, or nullptr if none exist. */
+	ACoreActor* GetNearestActiveCore(FVector FromLocation) const;
+
 	/** Broadcasts whenever the number of captured cores changes. */
 	UPROPERTY(BlueprintAssignable)
 	FOnCapturedCoreCountChanged OnCapturedCoreCountChanged;

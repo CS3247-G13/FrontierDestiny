@@ -31,16 +31,16 @@ public:
 	TObjectPtr<UNiagaraComponent> NiagaraComponent;
 
 	// Per-slot arrays pushed to Niagara every frame
-	TArray<float> HealthRatios;
+	TArray<float> EnemyHealths;
+	TArray<float> EnemyMaxHealths;
 	TArray<FVector> EnemyPositions;
 	TArray<float> EnemyVisibilities;
-	TArray<float> VitalityRatios;
+	TArray<float> EnemyVitalities;
 	TArray<float> BurnDurations;
 	TArray<float> SlowDurations;
 	TArray<float> StunDurations;
-	TArray<float> ModifierFlags;      // booleans packed as int cast to float
-	TArray<float> SplitRatios;        // where the upper/lower healthbar split is (0 = none)
-	TArray<float> SplitEffects;       // which visual for the upper portion
+	TArray<float> ModifierFlags;           // booleans packed as int cast to float
+	TArray<float> FragmentedChunkSizes;
 	TArray<float> MitigatedDamageAmounts; // fading mitigated damage bar (amorphic + fragmented)
 
 	// Internal fade state — not pushed to Niagara
@@ -50,17 +50,33 @@ public:
 
 	FMassEntityHandle GetEnemyEntityHandle(UInstancedStaticMeshComponent* Component, int32 Item) const;
 
-	void ApplyDamageToEnemy(FMassEntityHandle Handle, int32 DamageThisHit, FVector ImpactLocation, EDamageType DamageType = EDamageType::None);
+	void ApplyDamageToEnemy(FMassEntityHandle Handle, int32 DamageThisHit, FVector ImpactLocation, EDamageType DamageType = EDamageType::Neutral);
 
 	UFUNCTION(BlueprintCallable)
-	void ApplyDamageToTarget(FMassEnemyTarget Target, int32 Damage, FVector ImpactLocation);
+	void ApplyDamageToTarget(FMassEnemyTarget Target, int32 Damage, FVector ImpactLocation, EDamageType DamageType = EDamageType::Neutral);
 
 	/** Convenience: resolves the entity from a hit result and applies damage. Returns false if the hit wasn't on a Mass enemy. */
 	UFUNCTION(BlueprintCallable)
-	bool ApplyDamageByHit(const FHitResult& Hit, int32 Damage);
+	bool ApplyDamageByHit(const FHitResult& Hit, int32 Damage, EDamageType DamageType = EDamageType::Neutral);
 
 	UFUNCTION(BlueprintPure)
 	bool IsTargetValid(FMassEnemyTarget Target) const;
+
+	/** Returns true if the entity currently has active stealth. */
+	UFUNCTION(BlueprintCallable)
+	bool CheckEnemyStealth(FMassEnemyTarget Target) const;
+
+	/** Applies a slow to the target. Amount is 0-1 slow strength (0.5 = 50% slower). Ignored if nimble. */
+	UFUNCTION(BlueprintCallable)
+	void ApplySlow(FMassEnemyTarget Target, float Duration, float Amount);
+
+	/** Applies a stun to the target. Ignored if nimble. */
+	UFUNCTION(BlueprintCallable)
+	void ApplyStun(FMassEnemyTarget Target, float Duration);
+
+	/** Applies a burn (DoT) to the target. TickInterval is seconds between damage ticks. Ignored if nimble. */
+	UFUNCTION(BlueprintCallable)
+	void ApplyBurn(FMassEnemyTarget Target, float Duration, float DamagePerTick, float TickInterval = 1.f);
 
 	/** Returns true if both targets reference the same Mass entity (compares Index + SerialNumber). */
 	UFUNCTION(BlueprintPure)
@@ -74,21 +90,24 @@ public:
 	void DestroyEnemyByISMC(UInstancedStaticMeshComponent* Component, int32 Item);
 
 	UFUNCTION(BlueprintCallable)
+	bool DestroyEnemyByHit(const FHitResult& Hit);
+
+	UFUNCTION(BlueprintCallable)
 	void AssignNiagaraComponent(UNiagaraComponent* Component);
 
 	/** Data bundle built by HealthbarUpdateProcessor each frame and consumed by UpdateHealthbarInformation. */
 	struct FHealthbarFrameData
 	{
-		TArray<float>            HealthRatios;
+		TArray<float>            Healths;
+		TArray<float>            MaxHealths;
 		TArray<FVector>          Positions;
 		TArray<FMassEntityHandle> Handles;
-		TArray<float>            VitalityRatios;
+		TArray<float>            Vitalities;
 		TArray<float>            BurnDurations;
 		TArray<float>            SlowDurations;
 		TArray<float>            StunDurations;
 		TArray<float>            ModifierFlags;
-		TArray<float>            SplitRatios;
-		TArray<float>            SplitEffects;
+		TArray<float>            FragmentedChunkSizes;
 		float                    DeltaTime = 0.f;
 	};
 

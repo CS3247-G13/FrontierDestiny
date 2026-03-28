@@ -226,17 +226,16 @@ void UCombatComponent::ShootDirection(FVector Direction)
 	QueryParams.AddIgnoredActor(Pawn);
 	GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ShootingTargetChannel, QueryParams);
 
-	if (Hit.bBlockingHit && IsValid(Hit.GetActor()))
-	{
-		FTransform SpawnTransform((-Direction).Rotation(), TraceStart + Direction * 100.f);
-		UGameplayStatics::ApplyDamage(Hit.GetActor(), GetPlayerData().WeaponDataMap[CurrentWeapon].GetDamage(), PlayerController, Pawn, UDamageType::StaticClass());
-	}
-
-	UE_LOG(LogTemp, Warning, TEXT("HIT"));
-	// Try to hit MassEntity
 	{
 		UEnemyManagerSubsystem* EnemyManagerSubsystem = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
-		EnemyManagerSubsystem->ApplyDamageByHit(Hit, GetPlayerData().WeaponDataMap[CurrentWeapon].GetDamage());
+		EnemyManagerSubsystem->ApplyDamageByHit(Hit, GetPlayerData().WeaponDataMap[CurrentWeapon].GetDamage(), EDamageType::Kinetic);
+
+		FMassEnemyTarget Target;
+		if (EnemyManagerSubsystem->GetEnemyTargetFromHit(Hit, Target))
+		{
+			EnemyManagerSubsystem->ApplyStun(Target, 1.f);
+			EnemyManagerSubsystem->ApplySlow(Target, 5.f, 0.5f);
+		}
 	}
 }
 

@@ -25,7 +25,7 @@ ATowerActor::ATowerActor()
 
 	RangeComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	RangeComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
-	RangeComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	RangeComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel4, ECR_Overlap);
 	RangeComponent->SetGenerateOverlapEvents(false); // enabled only when tower activates
 }
 
@@ -83,11 +83,18 @@ void ATowerActor::ActivateTower()
 	// Fire BeginOverlap for any enemies already inside the radius
 	RangeComponent->UpdateOverlaps();
 
-	// Clean up OverlappingTargets if an enemy dies while inside range
 	if (UEnemyManagerSubsystem* EnemyManager = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>())
 	{
 		EnemyManager->OnEnemyDeath.AddUObject(this, &ATowerActor::OnTrackedEnemyDied);
 	}
+
+	GetWorldTimerManager().SetTimer(
+		RangeCheckTimerHandle,
+		this,
+		&ATowerActor::CheckEnemiesInRange,
+		1.0f,
+		true
+	);
 
 	OnTowerActive();
 }
@@ -166,6 +173,8 @@ void ATowerActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	if (!bIsGhost)
 	{
 		GetWorldTimerManager().ClearTimer(BuildTimerHandle);
+
+		GetWorldTimerManager().ClearTimer(RangeCheckTimerHandle);
 
 		if (UEnemyManagerSubsystem* EnemyManager = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>())
 		{
@@ -254,14 +263,12 @@ void ATowerActor::OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComponent, 
 	if (!ISMC) return;
 
 	FMassEntityHandle Handle = EnemyManager->GetEnemyEntityHandle(ISMC, OtherBodyIndex);
-	if (!Handle.IsSet() || OverlappingTargets.Contains(Handle)) return;
-
-	OverlappingTargets.Add(Handle);
+	if (!Handle.IsSet()) return;
 
 	FMassEnemyTarget Target;
 	Target.EntityHandle = Handle;
 	Target.Position = EnemyManager->GetEntityPosition(Handle);
-	OnTargetEnterRange(Target);
+	AddTarget(Target);
 }
 
 void ATowerActor::OnRangeEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
@@ -273,16 +280,27 @@ void ATowerActor::OnRangeEndOverlap(UPrimitiveComponent* OverlappedComponent, AA
 	if (!ISMC) return;
 
 	FMassEntityHandle Handle = EnemyManager->GetEnemyEntityHandle(ISMC, OtherBodyIndex);
-	if (!Handle.IsSet() || !OverlappingTargets.Contains(Handle)) return;
-
-	OverlappingTargets.Remove(Handle);
-
-	FMassEnemyTarget Target;
-	Target.EntityHandle = Handle;
-	OnTargetLeaveRange(Target);
+	if (!Handle.IsSet()) return;
+	RemoveTarget(Handle);
 }
 
 void ATowerActor::OnTrackedEnemyDied(FMassEntityHandle Handle)
+{
+	RemoveTarget(Handle);
+}
+
+void ATowerActor::AddTarget(FMassEnemyTarget Target)
+{
+	if (OverlappingTargets.Contains(Target.EntityHandle)) return;
+
+	UEnemyManagerSubsystem* EnemyManager = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
+	if (!EnemyManager || EnemyManager->CheckEnemyStealth(Target)) return;
+
+	OverlappingTargets.Add(Target.EntityHandle);
+	OnTargetEnterRange(Target);
+}
+
+void ATowerActor::RemoveTarget(FMassEntityHandle Handle)
 {
 	if (!OverlappingTargets.Contains(Handle)) return;
 
@@ -291,6 +309,23 @@ void ATowerActor::OnTrackedEnemyDied(FMassEntityHandle Handle)
 	FMassEnemyTarget Target;
 	Target.EntityHandle = Handle;
 	OnTargetLeaveRange(Target);
+}
+
+void ATowerActor::CheckEnemiesInRange()
+{
+	UEnemyManagerSubsystem* EnemyManager = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
+	if (!EnemyManager) return;
+
+	TArray<FMassEntityHandle> NearbyEntities;
+	EnemyManager->GetEntitiesInRange(GetActorLocation(), TowerData.Range, NearbyEntities);
+
+	for (const FMassEntityHandle& Handle : NearbyEntities)
+	{
+		FMassEnemyTarget Target;
+		Target.EntityHandle = Handle;
+		Target.Position = EnemyManager->GetEntityPosition(Handle);
+		AddTarget(Target);
+	}
 }
 
 void ATowerActor::OnTargetEnterRange_Implementation(FMassEnemyTarget Target)

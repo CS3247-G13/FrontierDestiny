@@ -8,7 +8,6 @@
 
 class UMaterialInterface;
 class UNiagaraSystem;
-class ADamageNumber;
 
 /**
  * Global settings for the Tower Defense system.
@@ -54,8 +53,6 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Effects")
 	TSoftObjectPtr<UNiagaraSystem> BloodSplatterEffect;
 
-	UPROPERTY(Config, EditAnywhere, Category = "Effects")
-	TSubclassOf<ADamageNumber> DamageNumberClass;
 
 	/** Helper to get the settings instance easily */
 	static const UGlobalTowerSettings* Get() { return GetDefault<UGlobalTowerSettings>(); }

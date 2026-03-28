@@ -11,6 +11,7 @@
 #include "EnemyDamageMassProcessor.h"
 
 #include "EnemyManagerSubsystem.h"
+#include "StatusEffectFragments.h"
 #include "DamageNumber.h"
 
 #include "QuestSubsystem.h"
@@ -28,17 +29,17 @@ void UEnemyManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 void UEnemyManagerSubsystem::InitializeHealthbars()
 {
-	HealthRatios.SetNum(1000);
+	EnemyHealths.SetNum(1000);
+	EnemyMaxHealths.SetNum(1000);
 	EnemyPositions.SetNum(1000);
 	EnemyVisibilities.SetNum(1000);
 	ActiveEntityHandles.SetNum(1000);
-	VitalityRatios.SetNum(1000);
+	EnemyVitalities.SetNum(1000);
 	BurnDurations.SetNum(1000);
 	SlowDurations.SetNum(1000);
 	StunDurations.SetNum(1000);
 	ModifierFlags.SetNum(1000);
-	SplitRatios.SetNum(1000);
-	SplitEffects.SetNum(1000);
+	FragmentedChunkSizes.SetNum(1000);
 	MitigatedDamageAmounts.SetNum(1000);
 	MitigatedDamageFadeTimers.SetNum(1000);
 }
@@ -78,14 +79,13 @@ void UEnemyManagerSubsystem::SpawnHitEffects(FVector Location, int32 Damage)
 		UNiagaraFunctionLibrary::SpawnSystemAtLocation(World, Splatter, Location);
 	}
 
-	if (Settings->DamageNumberClass)
 	{
 		FActorSpawnParameters Params;
 		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-		ADamageNumber* Num = World->SpawnActor<ADamageNumber>(Settings->DamageNumberClass, Location, FRotator::ZeroRotator, Params);
+		ADamageNumber* Num = World->SpawnActor<ADamageNumber>(ADamageNumber::StaticClass(), Location, FRotator::ZeroRotator, Params);
 		if (Num)
 		{
-			Num->DamageNumber = Damage;
+			Num->SetDamageNumber(Damage);
 		}
 	}
 }
@@ -123,7 +123,7 @@ void UEnemyManagerSubsystem::ApplyDamageToEnemy(FMassEntityHandle Handle, int32 
 				{
 					Damage->DamageAmount += DamageThisHit;
 					// Keep the first damage type set this frame (don't overwrite with None)
-					if (DamageType != EDamageType::None)
+					if (DamageType != EDamageType::Neutral)
 					{
 						Damage->DamageType = DamageType;
 					}
@@ -146,21 +146,25 @@ void UEnemyManagerSubsystem::ApplyDamageToEnemy(FMassEntityHandle Handle, int32 
 void UEnemyManagerSubsystem::DestroyEnemyByISMC(UInstancedStaticMeshComponent* Component, int32 Item)
 {
 	FMassEntityHandle Handle = GetEnemyEntityHandle(Component, Item);
+	if (!Handle.IsSet()) return;
 
-	// Handle exists
 	UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
-
 	if (EntitySubsystem)
 	{
-		// 1. Access the EntityManager from the Subsystem
 		const FMassEntityManager& EntityManager = EntitySubsystem->GetEntityManager();
-
-		// 2. Use Defer() to get the system-managed Command Buffer
-		FMassCommandBuffer& CommandBuffer = EntityManager.Defer();
-
-		// 3. Destroy Enemy
-		CommandBuffer.DestroyEntity(Handle);
+		EntityManager.Defer().DestroyEntity(Handle);
 	}
+
+	NotifyEnemyDeath(Handle);
+}
+
+bool UEnemyManagerSubsystem::DestroyEnemyByHit(const FHitResult& Hit)
+{
+	UInstancedStaticMeshComponent* HitISMC = Cast<UInstancedStaticMeshComponent>(Hit.GetComponent());
+	if (!HitISMC || Hit.Item == INDEX_NONE) return false;
+
+	DestroyEnemyByISMC(HitISMC, Hit.Item);
+	return true;
 }
 
 void UEnemyManagerSubsystem::AssignNiagaraComponent(UNiagaraComponent* Component)
@@ -171,6 +175,10 @@ void UEnemyManagerSubsystem::AssignNiagaraComponent(UNiagaraComponent* Component
 void UEnemyManagerSubsystem::UpdateHealthbarInformation(FHealthbarFrameData& Data)
 {
 	const float DeltaTime = Data.DeltaTime;
+
+	// Zero all visibilities — only live entities get set to 1 below.
+	// This ensures dead entities disappear without relying on async task timing.
+	FMemory::Memzero(EnemyVisibilities.GetData(), EnemyVisibilities.Num() * sizeof(float));
 
 	for (int32 i = 0; i < Data.Handles.Num(); i++)
 	{
@@ -184,17 +192,17 @@ void UEnemyManagerSubsystem::UpdateHealthbarInformation(FHealthbarFrameData& Dat
 
 		int32 Slot = EntitySlotMap[Handle];
 
-		HealthRatios[Slot]        = Data.HealthRatios[i];
+		EnemyHealths[Slot]        = Data.Healths[i];
+		EnemyMaxHealths[Slot]     = Data.MaxHealths[i];
 		EnemyPositions[Slot]      = Data.Positions[i];
 		EnemyVisibilities[Slot]   = 1.0f;
 		ActiveEntityHandles[Slot] = Handle;
-		VitalityRatios[Slot]      = Data.VitalityRatios[i];
+		EnemyVitalities[Slot]     = Data.Vitalities[i];
 		BurnDurations[Slot]       = Data.BurnDurations[i];
 		SlowDurations[Slot]       = Data.SlowDurations[i];
 		StunDurations[Slot]       = Data.StunDurations[i];
-		ModifierFlags[Slot]       = Data.ModifierFlags[i];
-		SplitRatios[Slot]         = Data.SplitRatios[i];
-		SplitEffects[Slot]        = Data.SplitEffects[i];
+		ModifierFlags[Slot]          = Data.ModifierFlags[i];
+		FragmentedChunkSizes[Slot]   = Data.FragmentedChunkSizes[i];
 	}
 
 	// Tick mitigated damage fade
@@ -219,11 +227,13 @@ void UEnemyManagerSubsystem::UpdateHealthbarInformation(FHealthbarFrameData& Dat
 	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayPosition(
 		NiagaraComponent, FName("Enemy Positions"), EnemyPositions);
 	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
-		NiagaraComponent, FName("Enemy Health Ratios"), HealthRatios);
+		NiagaraComponent, FName("Enemy Health"), EnemyHealths);
+	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
+		NiagaraComponent, FName("Enemy Max Health"), EnemyMaxHealths);
 	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
 		NiagaraComponent, FName("Enemy Visibilities"), EnemyVisibilities);
 	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
-		NiagaraComponent, FName("Enemy Vitality Ratios"), VitalityRatios);
+		NiagaraComponent, FName("Enemy Vitality"), EnemyVitalities);
 	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
 		NiagaraComponent, FName("Enemy Burn Durations"), BurnDurations);
 	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
@@ -233,9 +243,7 @@ void UEnemyManagerSubsystem::UpdateHealthbarInformation(FHealthbarFrameData& Dat
 	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
 		NiagaraComponent, FName("Enemy Modifier Flags"), ModifierFlags);
 	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
-		NiagaraComponent, FName("Enemy Split Ratios"), SplitRatios);
-	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
-		NiagaraComponent, FName("Enemy Split Effects"), SplitEffects);
+		NiagaraComponent, FName("Enemy Fragmented Chunk Size"), FragmentedChunkSizes);
 	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
 		NiagaraComponent, FName("Enemy Mitigated Damage"), MitigatedDamageAmounts);
 }
@@ -282,16 +290,9 @@ void UEnemyManagerSubsystem::NotifyEnemyDeath(FMassEntityHandle Handle)
 	{
 		if (int32* Slot = EntitySlotMap.Find(Handle))
 		{
-			EnemyVisibilities[*Slot] = 0.0f;
 			ActiveEntityHandles[*Slot] = FMassEntityHandle();
 			FreeSlots.Add(*Slot);
 			EntitySlotMap.Remove(Handle);
-
-			if (NiagaraComponent)
-			{
-				UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
-					NiagaraComponent, FName("Enemy Visibilities"), EnemyVisibilities);
-			}
 		}
 
 		OnEnemyDeath.Broadcast(Handle);
@@ -303,12 +304,12 @@ void UEnemyManagerSubsystem::NotifyEnemyDeath(FMassEntityHandle Handle)
 	});
 }
 
-void UEnemyManagerSubsystem::ApplyDamageToTarget(FMassEnemyTarget Target, int32 Damage, FVector ImpactLocation)
+void UEnemyManagerSubsystem::ApplyDamageToTarget(FMassEnemyTarget Target, int32 Damage, FVector ImpactLocation, EDamageType DamageType)
 {
-	ApplyDamageToEnemy(Target.EntityHandle, Damage, ImpactLocation);
+	ApplyDamageToEnemy(Target.EntityHandle, Damage, ImpactLocation, DamageType);
 }
 
-bool UEnemyManagerSubsystem::ApplyDamageByHit(const FHitResult& Hit, int32 Damage)
+bool UEnemyManagerSubsystem::ApplyDamageByHit(const FHitResult& Hit, int32 Damage, EDamageType DamageType)
 {
 	UInstancedStaticMeshComponent* HitISMC = Cast<UInstancedStaticMeshComponent>(Hit.GetComponent());
 	if (!HitISMC || Hit.Item == INDEX_NONE) return false;
@@ -316,8 +317,136 @@ bool UEnemyManagerSubsystem::ApplyDamageByHit(const FHitResult& Hit, int32 Damag
 	FMassEntityHandle Handle = GetEnemyEntityHandle(HitISMC, Hit.Item);
 	if (!Handle.IsSet()) return false;
 
-	ApplyDamageToEnemy(Handle, Damage, Hit.ImpactPoint);
+	ApplyDamageToEnemy(Handle, Damage, Hit.ImpactPoint, DamageType);
 	return true;
+}
+
+static bool IsNimble(const FMassEntityManager& EntityManager, FMassEntityHandle Handle)
+{
+	const FModifierFragment* Mod = EntityManager.GetFragmentDataPtr<FModifierFragment>(Handle);
+	return Mod && Mod->bNimble;
+}
+
+void UEnemyManagerSubsystem::ApplySlow(FMassEnemyTarget Target, float Duration, float Amount)
+{
+	UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
+	if (!EntitySubsystem) return;
+
+	const FMassEntityManager& EntityManager = EntitySubsystem->GetEntityManager();
+	if (!EntityManager.IsEntityValid(Target.EntityHandle)) return;
+	if (IsNimble(EntityManager, Target.EntityHandle)) return;
+
+	const FMassEntityHandle Handle = Target.EntityHandle;
+	const float SpeedMultiplier = FMath::Clamp(1.f - Amount, 0.f, 1.f);
+
+	EntityManager.Defer().PushCommand<FMassDeferredSetCommand>(
+		[Handle, Duration, SpeedMultiplier](FMassEntityManager& Manager)
+		{
+			if (!Manager.IsEntityValid(Handle)) return;
+			FSlowFragment* Slow = Manager.GetFragmentDataPtr<FSlowFragment>(Handle);
+			if (Slow)
+			{
+				Slow->Duration        = FMath::Max(Slow->Duration, Duration);
+				Slow->SpeedMultiplier = FMath::Min(Slow->SpeedMultiplier, SpeedMultiplier);
+			}
+			else
+			{
+				Manager.AddFragmentToEntity(Handle, FSlowFragment::StaticStruct(),
+					[Duration, SpeedMultiplier](void* Fragment, const UScriptStruct&)
+					{
+						auto* Frag = static_cast<FSlowFragment*>(Fragment);
+						Frag->Duration        = Duration;
+						Frag->SpeedMultiplier = SpeedMultiplier;
+					});
+			}
+		});
+}
+
+void UEnemyManagerSubsystem::ApplyStun(FMassEnemyTarget Target, float Duration)
+{
+	UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
+	if (!EntitySubsystem) return;
+
+	const FMassEntityManager& EntityManager = EntitySubsystem->GetEntityManager();
+	if (!EntityManager.IsEntityValid(Target.EntityHandle)) return;
+	if (IsNimble(EntityManager, Target.EntityHandle)) return;
+
+	const FModifierFragment* Mod = EntityManager.GetFragmentDataPtr<FModifierFragment>(Target.EntityHandle);
+	if (Mod && Mod->bDistorted) return;
+
+	const FMassEntityHandle Handle = Target.EntityHandle;
+
+	EntityManager.Defer().PushCommand<FMassDeferredSetCommand>(
+		[Handle, Duration](FMassEntityManager& Manager)
+		{
+			if (!Manager.IsEntityValid(Handle)) return;
+			FStunFragment* Stun = Manager.GetFragmentDataPtr<FStunFragment>(Handle);
+			if (Stun)
+			{
+				Stun->Duration = FMath::Max(Stun->Duration, Duration);
+			}
+			else
+			{
+				Manager.AddFragmentToEntity(Handle, FStunFragment::StaticStruct(),
+					[Duration](void* Fragment, const UScriptStruct&)
+					{
+						static_cast<FStunFragment*>(Fragment)->Duration = Duration;
+					});
+			}
+		});
+}
+
+void UEnemyManagerSubsystem::ApplyBurn(FMassEnemyTarget Target, float Duration, float DamagePerTick, float TickInterval)
+{
+	UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
+	if (!EntitySubsystem) return;
+
+	const FMassEntityManager& EntityManager = EntitySubsystem->GetEntityManager();
+	if (!EntityManager.IsEntityValid(Target.EntityHandle)) return;
+	if (IsNimble(EntityManager, Target.EntityHandle)) return;
+
+	const FModifierFragment* Mod = EntityManager.GetFragmentDataPtr<FModifierFragment>(Target.EntityHandle);
+	if (Mod && Mod->bPyroclastic) return;
+
+	const FMassEntityHandle Handle = Target.EntityHandle;
+
+	EntityManager.Defer().PushCommand<FMassDeferredSetCommand>(
+		[Handle, Duration, DamagePerTick, TickInterval](FMassEntityManager& Manager)
+		{
+			if (!Manager.IsEntityValid(Handle)) return;
+			FBurnFragment* Burn = Manager.GetFragmentDataPtr<FBurnFragment>(Handle);
+			if (Burn)
+			{
+				Burn->Duration      = FMath::Max(Burn->Duration, Duration);
+				Burn->DamagePerTick = FMath::Max(Burn->DamagePerTick, DamagePerTick);
+				// Keep the shorter interval (faster ticking burn wins)
+				Burn->TickInterval  = FMath::Min(Burn->TickInterval, TickInterval);
+			}
+			else
+			{
+				Manager.AddFragmentToEntity(Handle, FBurnFragment::StaticStruct(),
+					[Duration, DamagePerTick, TickInterval](void* Fragment, const UScriptStruct&)
+					{
+						auto* Frag = static_cast<FBurnFragment*>(Fragment);
+						Frag->Duration      = Duration;
+						Frag->DamagePerTick = DamagePerTick;
+						Frag->TickInterval  = TickInterval;
+						Frag->TimeToNextTick = TickInterval;
+					});
+			}
+		});
+}
+
+bool UEnemyManagerSubsystem::CheckEnemyStealth(FMassEnemyTarget Target) const
+{
+	UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
+	if (!EntitySubsystem) return false;
+
+	const FMassEntityManager& EntityManager = EntitySubsystem->GetEntityManager();
+	if (!EntityManager.IsEntityValid(Target.EntityHandle)) return false;
+
+	const FModifierFragment* Mod = EntityManager.GetFragmentDataPtr<FModifierFragment>(Target.EntityHandle);
+	return Mod && Mod->bStealthy;
 }
 
 bool UEnemyManagerSubsystem::IsTargetValid(FMassEnemyTarget Target) const
@@ -364,13 +493,15 @@ void UEnemyManagerSubsystem::GetEntitiesInRange(FVector Center, float Radius, TA
 FVector UEnemyManagerSubsystem::GetEntityPosition(FMassEntityHandle Handle) const
 {
 	const int32 Idx = ActiveEntityHandles.IndexOfByKey(Handle);
-	return (Idx != INDEX_NONE && Idx < EnemyPositions.Num()) ? EnemyPositions[Idx] + FVector(0.0f, 0.0f, 100.0f) : FVector::ZeroVector;
+	return (Idx != INDEX_NONE && Idx < EnemyPositions.Num()) ? EnemyPositions[Idx] + FVector(0.0f, 0.0f, 50.0f) : FVector::ZeroVector;
 }
 
 float UEnemyManagerSubsystem::GetEntityHealth(FMassEntityHandle Handle) const
 {
 	const int32 Idx = ActiveEntityHandles.IndexOfByKey(Handle);
-	return (Idx != INDEX_NONE && Idx < HealthRatios.Num()) ? HealthRatios[Idx] : 0.f;
+	if (Idx == INDEX_NONE || Idx >= EnemyHealths.Num()) return 0.f;
+	const float Max = EnemyMaxHealths[Idx];
+	return (Max > 0.f) ? EnemyHealths[Idx] / Max : 0.f;
 }
 
 void UEnemyManagerSubsystem::Deinitialize()

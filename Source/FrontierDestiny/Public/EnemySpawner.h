@@ -4,10 +4,26 @@
 
 #include "WaveData.h"
 #include "GameplayTagContainer.h"
+#include "NativeGameplayTags.h"
 #include "CoreMinimal.h"
 #include "MassSpawner.h"
+#include "StatusEffectFragments.h"
 #include "EnemyWaveManagerSubsystem.h"
 #include "EnemySpawner.generated.h"
+
+// Native gameplay tags for enemy modifiers — use these instead of FName strings
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Modifier_Fast)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Modifier_Strong)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Modifier_Vitality)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Modifier_Armoured)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Modifier_Reflective)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Modifier_Insulated)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Modifier_Stealthy)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Modifier_Nimble)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Modifier_Pyroclastic)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Modifier_Amorphic)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Modifier_Distorted)
+UE_DECLARE_GAMEPLAY_TAG_EXTERN(TAG_Modifier_Fragmented)
 
 /**
  * 
@@ -53,4 +69,13 @@ private:
 
 	FName CurrentHordeID;
 	int32 SpawnStartIndex = 0;
+
+	/** Modifier fragments built in Spawn(), consumed in HandleSpawningFinished(). One entry per EntityTypes entry. */
+	TArray<FModifierFragment> PendingModifierFragments;
+	/** Whether each pending entry actually has any modifiers set. */
+	TArray<bool> PendingHasModifiers;
+	/** Stat multipliers to bake into FStatsFragment at spawn. */
+	TArray<float> PendingSpeedMultipliers;
+	TArray<float> PendingDamageMultipliers;
+	TArray<float> PendingVitalityAmounts;
 };

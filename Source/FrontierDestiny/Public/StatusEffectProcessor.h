@@ -28,4 +28,5 @@ protected:
 private:
 	FMassEntityQuery SpeedEffectQuery;
 	FMassEntityQuery BurnQuery;
+	FMassEntityQuery PyroclasticQuery;
 };

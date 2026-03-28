@@ -11,7 +11,7 @@
 UENUM(BlueprintType)
 enum class EDamageType : uint8
 {
-	None     UMETA(DisplayName = "None"),
+	Neutral  UMETA(DisplayName = "Neutral"),
 	Kinetic  UMETA(DisplayName = "Kinetic"),
 	Laser    UMETA(DisplayName = "Laser"),
 	Electric UMETA(DisplayName = "Electric")
@@ -36,7 +36,7 @@ struct FDamageFragment : public FMassFragment
 	UPROPERTY(EditAnywhere, Category = "Mass")
 	float DamageAmount = 10.f;
 	UPROPERTY(EditAnywhere, Category = "Mass")
-	EDamageType DamageType = EDamageType::None;
+	EDamageType DamageType = EDamageType::Neutral;
 };
 
 /**

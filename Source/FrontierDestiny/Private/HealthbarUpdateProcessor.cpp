@@ -54,10 +54,10 @@ static constexpr int32 MF_Pyroclastic = 1 << 8;
 static constexpr int32 MF_Amorphic    = 1 << 9;
 static constexpr int32 MF_Distorted   = 1 << 10;
 static constexpr int32 MF_Fragmented  = 1 << 11;
+static constexpr int32 MF_SpeedTier1  = 1 << 12;
+static constexpr int32 MF_SpeedTier2  = 1 << 13;
+static constexpr int32 MF_SpeedTier3  = 1 << 14;
 
-// SplitEffect values understood by the Niagara material
-static constexpr float SE_None     = 0.f;
-static constexpr float SE_Vitality = 1.f;
 
 void UHealthbarUpdateProcessor::Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context)
 {
@@ -92,23 +92,15 @@ void UHealthbarUpdateProcessor::Execute(FMassEntityManager& EntityManager, FMass
 
 			Data.Handles.Add(Context.GetEntity(i));
 			Data.Positions.Add(TransformList[i].GetTransform().GetLocation());
-			Data.HealthRatios.Add(Health.Value / Health.MaxValue);
+			Data.Healths.Add(Health.Value);
+			Data.MaxHealths.Add(Health.MaxValue);
 
-			// Vitality ratio
-			float VitalityRatio = 0.f;
-			float SplitRatio    = 0.f;
-			float SplitEffect   = SE_None;
+			float Vitality = 0.f;
 			if (bHasVitality)
 			{
-				const FVitalityFragment& Vit = VitalityList[i];
-				VitalityRatio = (Vit.MaxValue > 0.f) ? (Vit.Value / Vit.MaxValue) : 0.f;
-				SplitRatio    = (Health.MaxValue + Vit.MaxValue > 0.f)
-					? Vit.MaxValue / (Health.MaxValue + Vit.MaxValue) : 0.f;
-				SplitEffect   = (Vit.MaxValue > 0.f) ? SE_Vitality : SE_None;
+				Vitality = VitalityList[i].Value;
 			}
-			Data.VitalityRatios.Add(VitalityRatio);
-			Data.SplitRatios.Add(SplitRatio);
-			Data.SplitEffects.Add(SplitEffect);
+			Data.Vitalities.Add(Vitality);
 
 			// Status effect durations
 			Data.BurnDurations.Add(bHasBurn ? BurnList[i].Duration : 0.f);
@@ -133,7 +125,16 @@ void UHealthbarUpdateProcessor::Execute(FMassEntityManager& EntityManager, FMass
 				if (Mod.bDistorted)   Flags |= MF_Distorted;
 				if (Mod.bFragmented)  Flags |= MF_Fragmented;
 			}
+			if (bHasModifiers && ModifierList[i].bDistorted)
+			{
+				const float HealthRatio = HealthList[i].Value / HealthList[i].MaxValue;
+				if      (HealthRatio < 0.25f) Flags |= MF_SpeedTier3;
+				else if (HealthRatio < 0.50f) Flags |= MF_SpeedTier2;
+				else if (HealthRatio < 0.75f) Flags |= MF_SpeedTier1;
+			}
+
 			Data.ModifierFlags.Add((float)Flags);
+			Data.FragmentedChunkSizes.Add(bHasModifiers ? ModifierList[i].FragmentedChunkSize : 0.f);
 		}
 	});
 
