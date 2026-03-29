@@ -296,6 +296,12 @@ void UEnemyManagerSubsystem::NotifyEnemyDeath(FMassEntityHandle Handle)
 			EntitySlotMap.Remove(Handle);
 		}
 
+		if (ArcChargedEntity == Handle)
+		{
+			ArcChargedEntity = FMassEntityHandle();
+		}
+		ConduitMarkedEntities.Remove(Handle);
+
 		OnEnemyDeath.Broadcast(Handle);
 
 		if (UQuestSubsystem* QuestSubsystem = GetGameInstance()->GetSubsystem<UQuestSubsystem>())
@@ -436,6 +442,350 @@ void UEnemyManagerSubsystem::ApplyBurn(FMassEnemyTarget Target, float Duration, 
 					});
 			}
 		});
+}
+
+void UEnemyManagerSubsystem::ApplyArcShot(FMassEnemyTarget Target, float Range, float Damage)
+{
+	// Find the closest already-charged entity within range
+	// If there's an existing charged entity in range, arc between them
+	if (ArcChargedEntity.IsSet() && ArcChargedEntity != Target.EntityHandle)
+	{
+		const FVector ChargedPosition = GetEntityPosition(ArcChargedEntity);
+		const float DistSq = FVector::DistSquared(Target.Position, ChargedPosition);
+
+		if (DistSq <= Range * Range)
+		{
+			const FMassEntityHandle PreviousHandle = ArcChargedEntity;
+			ArcChargedEntity = FMassEntityHandle();
+
+			if (UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>())
+			{
+				EntitySubsystem->GetEntityManager().Defer().RemoveFragment<FArcLightningFragment>(PreviousHandle);
+			}
+
+			const UGlobalTowerSettings* Settings = UGlobalTowerSettings::Get();
+			if (UNiagaraSystem* ArcSystem = Settings->ArcLightningEffect.LoadSynchronous())
+			{
+				if (UNiagaraComponent* NiagaraComp = UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+					GetWorld(), ArcSystem, ChargedPosition))
+				{
+					NiagaraComp->SetVariablePosition(FName("Origin"), ChargedPosition);
+					NiagaraComp->SetVariablePosition(FName("Target"), Target.Position);
+				}
+			}
+
+			ApplyDamageToEnemy(PreviousHandle,      static_cast<int32>(Damage), ChargedPosition, EDamageType::Electric);
+			ApplyDamageToEnemy(Target.EntityHandle, static_cast<int32>(Damage), Target.Position,  EDamageType::Electric);
+			return;
+		}
+	}
+
+	// No pair in range — clear any previous charged entity and mark this one
+	if (ArcChargedEntity.IsSet())
+	{
+		if (UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>())
+		{
+			EntitySubsystem->GetEntityManager().Defer().RemoveFragment<FArcLightningFragment>(ArcChargedEntity);
+		}
+	}
+
+	ArcChargedEntity = Target.EntityHandle;
+
+	UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
+	if (!EntitySubsystem) return;
+
+	const FMassEntityManager& EntityManager = EntitySubsystem->GetEntityManager();
+	if (!EntityManager.IsEntityValid(Target.EntityHandle)) return;
+
+	const FMassEntityHandle Handle = Target.EntityHandle;
+	EntityManager.Defer().PushCommand<FMassDeferredSetCommand>(
+		[Handle, Range, Damage](FMassEntityManager& Manager)
+		{
+			if (!Manager.IsEntityValid(Handle)) return;
+			if (!Manager.GetFragmentDataPtr<FArcLightningFragment>(Handle))
+			{
+				Manager.AddFragmentToEntity(Handle, FArcLightningFragment::StaticStruct(),
+					[Range, Damage](void* Fragment, const UScriptStruct&)
+					{
+						auto* Frag = static_cast<FArcLightningFragment*>(Fragment);
+						Frag->Range  = Range;
+						Frag->Damage = Damage;
+					});
+			}
+		});
+}
+
+void UEnemyManagerSubsystem::ApplyConduitMarker(FMassEnemyTarget Target, float Duration, float Range, float ArcDamage)
+{
+	const FVector TargetPosition = GetEntityPosition(Target.EntityHandle);
+	const float RangeSq = Range * Range;
+
+	// Arc to all already-marked enemies in range
+	const UGlobalTowerSettings* Settings = UGlobalTowerSettings::Get();
+	UNiagaraSystem* ArcSystem = Settings->ArcLightningEffect.LoadSynchronous();
+
+	for (const FMassEntityHandle& MarkedHandle : ConduitMarkedEntities)
+	{
+		if (MarkedHandle == Target.EntityHandle) continue;
+		const FVector MarkedPosition = GetEntityPosition(MarkedHandle);
+		if (FVector::DistSquared(TargetPosition, MarkedPosition) > RangeSq) continue;
+
+		if (ArcSystem)
+		{
+			if (UNiagaraComponent* NiagaraComp = UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+				GetWorld(), ArcSystem, MarkedPosition))
+			{
+				NiagaraComp->SetVariablePosition(FName("Origin"), MarkedPosition);
+				NiagaraComp->SetVariablePosition(FName("Target"),   TargetPosition);
+			}
+		}
+
+		ApplyDamageToEnemy(MarkedHandle,        static_cast<int32>(ArcDamage), MarkedPosition,  EDamageType::Electric);
+		ApplyDamageToEnemy(Target.EntityHandle, static_cast<int32>(ArcDamage), TargetPosition,  EDamageType::Electric);
+	}
+
+	// Add or refresh the marker fragment on the target
+	ConduitMarkedEntities.Add(Target.EntityHandle);
+
+	UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
+	if (!EntitySubsystem) return;
+
+	const FMassEntityManager& EntityManager = EntitySubsystem->GetEntityManager();
+	if (!EntityManager.IsEntityValid(Target.EntityHandle)) return;
+
+	const FMassEntityHandle Handle = Target.EntityHandle;
+	EntityManager.Defer().PushCommand<FMassDeferredSetCommand>(
+		[Handle, Duration, Range, ArcDamage](FMassEntityManager& Manager)
+		{
+			if (!Manager.IsEntityValid(Handle)) return;
+			FConduitMarkerFragment* Existing = Manager.GetFragmentDataPtr<FConduitMarkerFragment>(Handle);
+			if (Existing)
+			{
+				Existing->Duration = FMath::Max(Existing->Duration, Duration);
+			}
+			else
+			{
+				Manager.AddFragmentToEntity(Handle, FConduitMarkerFragment::StaticStruct(),
+					[Duration, Range, ArcDamage](void* Fragment, const UScriptStruct&)
+					{
+						auto* Frag = static_cast<FConduitMarkerFragment*>(Fragment);
+						Frag->Duration  = Duration;
+						Frag->Range     = Range;
+						Frag->ArcDamage = ArcDamage;
+					});
+			}
+		});
+}
+
+void UEnemyManagerSubsystem::NotifyConduitMarkerExpired(FMassEntityHandle Handle)
+{
+	AsyncTask(ENamedThreads::GameThread, [this, Handle]()
+	{
+		ConduitMarkedEntities.Remove(Handle);
+	});
+}
+
+void UEnemyManagerSubsystem::ApplyCompoundingInjury(FMassEnemyTarget Target, float DamagePerStack, float MaxBonus, float TimeWindow)
+{
+	UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
+	if (!EntitySubsystem) return;
+
+	const FMassEntityManager& EntityManager = EntitySubsystem->GetEntityManager();
+	if (!EntityManager.IsEntityValid(Target.EntityHandle)) return;
+
+	const FMassEntityHandle Handle = Target.EntityHandle;
+	const int32 MaxShots = FMath::FloorToInt(MaxBonus / DamagePerStack);
+
+	EntityManager.Defer().PushCommand<FMassDeferredSetCommand>(
+		[Handle, DamagePerStack, MaxBonus, TimeWindow, MaxShots](FMassEntityManager& Manager)
+		{
+			if (!Manager.IsEntityValid(Handle)) return;
+			FCompoundingInjuryFragment* Existing = Manager.GetFragmentDataPtr<FCompoundingInjuryFragment>(Handle);
+			if (Existing)
+			{
+				Existing->Shots = FMath::Min(Existing->Shots + 1, MaxShots);
+				Existing->RemainingTime = TimeWindow;
+				Existing->bAppliedThisFrame = true;
+			}
+			else
+			{
+				Manager.AddFragmentToEntity(Handle, FCompoundingInjuryFragment::StaticStruct(),
+					[DamagePerStack, MaxBonus, TimeWindow](void* Fragment, const UScriptStruct&)
+					{
+						auto* Frag = static_cast<FCompoundingInjuryFragment*>(Fragment);
+						Frag->Shots             = 1;
+						Frag->RemainingTime     = TimeWindow;
+						Frag->bAppliedThisFrame = true;
+						Frag->DamagePerStack    = DamagePerStack;
+						Frag->MaxBonus          = MaxBonus;
+						Frag->TimeWindow        = TimeWindow;
+					});
+			}
+		});
+}
+
+void UEnemyManagerSubsystem::ApplySuppressed(FMassEnemyTarget Target, int32 ShotThreshold, float TimeWindow, float SlowAmount, float SlowDuration)
+{
+	UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
+	if (!EntitySubsystem) return;
+
+	const FMassEntityManager& EntityManager = EntitySubsystem->GetEntityManager();
+	if (!EntityManager.IsEntityValid(Target.EntityHandle)) return;
+	if (IsNimble(EntityManager, Target.EntityHandle)) return;
+
+	const FMassEntityHandle Handle = Target.EntityHandle;
+
+	EntityManager.Defer().PushCommand<FMassDeferredSetCommand>(
+		[Handle, ShotThreshold, TimeWindow, SlowAmount, SlowDuration](FMassEntityManager& Manager)
+		{
+			if (!Manager.IsEntityValid(Handle)) return;
+
+			int32 CurrentShots = 0;
+			FSuppressedFragment* Existing = Manager.GetFragmentDataPtr<FSuppressedFragment>(Handle);
+			if (Existing)
+			{
+				Existing->RemainingTime = TimeWindow;
+				Existing->Shots++;
+				CurrentShots = Existing->Shots;
+			}
+			else
+			{
+				Manager.AddFragmentToEntity(Handle, FSuppressedFragment::StaticStruct(),
+					[ShotThreshold, TimeWindow, SlowAmount, SlowDuration](void* Fragment, const UScriptStruct&)
+					{
+						auto* Frag = static_cast<FSuppressedFragment*>(Fragment);
+						Frag->RemainingTime = TimeWindow;
+						Frag->Shots         = 1;
+						Frag->ShotThreshold = ShotThreshold;
+						Frag->SlowAmount    = SlowAmount;
+						Frag->SlowDuration  = SlowDuration;
+					});
+				CurrentShots = 1;
+			}
+
+			if (CurrentShots < ShotThreshold) return;
+
+			const float SpeedMultiplier = FMath::Clamp(1.f - SlowAmount, 0.f, 1.f);
+			FSlowFragment* Slow = Manager.GetFragmentDataPtr<FSlowFragment>(Handle);
+			if (Slow)
+			{
+				Slow->Duration        = FMath::Max(Slow->Duration, SlowDuration);
+				Slow->SpeedMultiplier = FMath::Min(Slow->SpeedMultiplier, SpeedMultiplier);
+			}
+			else
+			{
+				Manager.AddFragmentToEntity(Handle, FSlowFragment::StaticStruct(),
+					[SlowDuration, SpeedMultiplier](void* Fragment, const UScriptStruct&)
+					{
+						auto* Frag = static_cast<FSlowFragment*>(Fragment);
+						Frag->Duration        = SlowDuration;
+						Frag->SpeedMultiplier = SpeedMultiplier;
+					});
+			}
+		});
+}
+
+void UEnemyManagerSubsystem::ApplyRuptured(FMassEnemyTarget Target, float Damage, float Radius)
+{
+	UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
+	if (!EntitySubsystem) return;
+
+	const FMassEntityManager& EntityManager = EntitySubsystem->GetEntityManager();
+	if (!EntityManager.IsEntityValid(Target.EntityHandle)) return;
+
+	const FMassEntityHandle Handle = Target.EntityHandle;
+
+	EntityManager.Defer().PushCommand<FMassDeferredSetCommand>(
+		[Handle, Damage, Radius](FMassEntityManager& Manager)
+		{
+			if (!Manager.IsEntityValid(Handle)) return;
+			if (!Manager.GetFragmentDataPtr<FRupturedFragment>(Handle))
+			{
+				Manager.AddFragmentToEntity(Handle, FRupturedFragment::StaticStruct(),
+					[Damage, Radius](void* Fragment, const UScriptStruct&)
+					{
+						auto* Frag = static_cast<FRupturedFragment*>(Fragment);
+						Frag->Damage = Damage;
+						Frag->Radius = Radius;
+					});
+			}
+		});
+}
+
+void UEnemyManagerSubsystem::ApplyDevastatingBlow(FMassEnemyTarget Target, float HPThreshold, float Multiplier)
+{
+	UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
+	if (!EntitySubsystem) return;
+
+	const FMassEntityManager& EntityManager = EntitySubsystem->GetEntityManager();
+	if (!EntityManager.IsEntityValid(Target.EntityHandle)) return;
+
+	const FMassEntityHandle Handle = Target.EntityHandle;
+
+	EntityManager.Defer().PushCommand<FMassDeferredSetCommand>(
+		[Handle, HPThreshold, Multiplier](FMassEntityManager& Manager)
+		{
+			if (!Manager.IsEntityValid(Handle)) return;
+			FDevastatedFragment* Existing = Manager.GetFragmentDataPtr<FDevastatedFragment>(Handle);
+			if (Existing)
+			{
+				Existing->HPThreshold = HPThreshold;
+				Existing->Multiplier  = Multiplier;
+			}
+			else
+			{
+				Manager.AddFragmentToEntity(Handle, FDevastatedFragment::StaticStruct(),
+					[HPThreshold, Multiplier](void* Fragment, const UScriptStruct&)
+					{
+						auto* Frag = static_cast<FDevastatedFragment*>(Fragment);
+						Frag->HPThreshold = HPThreshold;
+						Frag->Multiplier  = Multiplier;
+					});
+			}
+		});
+}
+
+void UEnemyManagerSubsystem::ApplyBallisticRecall(FMassEnemyTarget Target, int32 AmmoRegain)
+{
+	UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
+	if (!EntitySubsystem) return;
+
+	const FMassEntityManager& EntityManager = EntitySubsystem->GetEntityManager();
+	if (!EntityManager.IsEntityValid(Target.EntityHandle)) return;
+
+	const FMassEntityHandle Handle = Target.EntityHandle;
+
+	EntityManager.Defer().PushCommand<FMassDeferredSetCommand>(
+		[Handle, AmmoRegain](FMassEntityManager& Manager)
+		{
+			if (!Manager.IsEntityValid(Handle)) return;
+			FBallisticRecallFragment* Existing = Manager.GetFragmentDataPtr<FBallisticRecallFragment>(Handle);
+			if (Existing)
+			{
+				Existing->AmmoRegain = AmmoRegain;
+			}
+			else
+			{
+				Manager.AddFragmentToEntity(Handle, FBallisticRecallFragment::StaticStruct(),
+					[AmmoRegain](void* Fragment, const UScriptStruct&)
+					{
+						static_cast<FBallisticRecallFragment*>(Fragment)->AmmoRegain = AmmoRegain;
+					});
+			}
+		});
+}
+
+void UEnemyManagerSubsystem::Rupture(FVector Position, float Damage, float Radius)
+{
+	AsyncTask(ENamedThreads::GameThread, [this, Position, Damage, Radius]()
+	{
+		TArray<FMassEntityHandle> NearbyHandles;
+		GetEntitiesInRange(Position, Radius, NearbyHandles);
+		for (const FMassEntityHandle& Handle : NearbyHandles)
+		{
+			ApplyDamageToEnemy(Handle, static_cast<int32>(Damage), Position, EDamageType::Kinetic);
+		}
+	});
 }
 
 bool UEnemyManagerSubsystem::CheckEnemyStealth(FMassEnemyTarget Target) const

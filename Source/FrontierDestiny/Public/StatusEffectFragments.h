@@ -65,6 +65,79 @@ struct FStatsFragment : public FMassFragment
 	UPROPERTY(EditAnywhere) float BaseDamage = 10.f;
 };
 
+/** Triggers an arc lightning chain to the nearest enemy when processed by the damage processor. */
+/** Persistent mark that causes the enemy to arc to other conduit-marked enemies in range when a new mark is applied nearby. Removed when Duration reaches zero. */
+USTRUCT()
+struct FConduitMarkerFragment : public FMassFragment
+{
+	GENERATED_BODY()
+	UPROPERTY(EditAnywhere) float Duration = 4.f;
+	UPROPERTY(EditAnywhere) float ArcDamage = 1.f;
+	UPROPERTY(EditAnywhere) float Range = 10.f;
+};
+
+/** Visual marker on an enemy waiting to arc to another arc-charged enemy. */
+USTRUCT()
+struct FArcLightningFragment : public FMassFragment
+{
+	GENERATED_BODY()
+	UPROPERTY(EditAnywhere) float Range = 10.f;
+	UPROPERTY(EditAnywhere) float Damage = 5.f;
+};
+
+/** Tracks compounding bonus damage per consecutive hit within a time window. Bonus = Shots * DamagePerStack, capped at MaxBonus. */
+USTRUCT()
+struct FCompoundingInjuryFragment : public FMassFragment
+{
+	GENERATED_BODY()
+	UPROPERTY(EditAnywhere) int32 Shots = 0;
+	UPROPERTY(EditAnywhere) float RemainingTime = 0.f;
+	UPROPERTY(EditAnywhere) bool bAppliedThisFrame = false;
+	UPROPERTY(EditAnywhere) float DamagePerStack = 2.f;
+	UPROPERTY(EditAnywhere) float MaxBonus = 16.f;
+	UPROPERTY(EditAnywhere) float TimeWindow = 2.f;
+};
+
+/** Tracks consecutive hits on an enemy within a time window. Applying a slow when ShotThreshold is reached. Cleared when RemainingTime expires. */
+USTRUCT()
+struct FSuppressedFragment : public FMassFragment
+{
+	GENERATED_BODY()
+	UPROPERTY(EditAnywhere) float RemainingTime = 0.f;
+	UPROPERTY(EditAnywhere) int32 Shots = 0;
+	UPROPERTY(EditAnywhere) int32 ShotThreshold = 3;
+	UPROPERTY(EditAnywhere) float SlowAmount = 0.5f;
+	UPROPERTY(EditAnywhere) float SlowDuration = 3.f;
+};
+
+/** Marked for rupture — explodes on death, dealing AoE damage. Cleared by the damage processor if the entity survives the hit that applied it. */
+USTRUCT()
+struct FRupturedFragment : public FMassFragment
+{
+	GENERATED_BODY()
+	UPROPERTY(EditAnywhere) float Damage = 15.f;
+	UPROPERTY(EditAnywhere) float Radius = 100.f;
+};
+
+/** Marks an enemy for Ballistic Recall — if it dies, restores AmmoRegain bullets to the player. */
+USTRUCT()
+struct FBallisticRecallFragment : public FMassFragment
+{
+	GENERATED_BODY()
+	UPROPERTY(EditAnywhere) int32 AmmoRegain = 4;
+};
+
+/** Marks an enemy for Devastating Blow — if their HP ratio exceeds the threshold when the hit is processed, FinalDamage is multiplied. Removed by the damage processor after each hit. */
+USTRUCT()
+struct FDevastatedFragment : public FMassFragment
+{
+	GENERATED_BODY()
+	/** Damage multiplier applied when the HP threshold is met (e.g. 1.5 = 50% bonus). */
+	UPROPERTY(EditAnywhere) float Multiplier = 1.5f;
+	/** Absolute HP threshold. Damage bonus applies when Health.Value is above this. */
+	UPROPERTY(EditAnywhere) float HPThreshold = 50.f;
+};
+
 /** All modifier flags for an entity. Set once at spawn, never changed. */
 USTRUCT()
 struct FModifierFragment : public FMassFragment
