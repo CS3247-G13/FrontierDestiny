@@ -469,8 +469,8 @@ void UEnemyManagerSubsystem::ApplyArcShot(FMassEnemyTarget Target, float Range, 
 				if (UNiagaraComponent* NiagaraComp = UNiagaraFunctionLibrary::SpawnSystemAtLocation(
 					GetWorld(), ArcSystem, ChargedPosition))
 				{
-					NiagaraComp->SetVariableVec3(FName("BeamStart"), ChargedPosition);
-					NiagaraComp->SetVariableVec3(FName("BeamEnd"),   Target.Position);
+					NiagaraComp->SetVariablePosition(FName("Origin"), ChargedPosition);
+					NiagaraComp->SetVariablePosition(FName("Target"), Target.Position);
 				}
 			}
 
@@ -535,8 +535,8 @@ void UEnemyManagerSubsystem::ApplyConduitMarker(FMassEnemyTarget Target, float D
 			if (UNiagaraComponent* NiagaraComp = UNiagaraFunctionLibrary::SpawnSystemAtLocation(
 				GetWorld(), ArcSystem, MarkedPosition))
 			{
-				NiagaraComp->SetVariableVec3(FName("BeamStart"), MarkedPosition);
-				NiagaraComp->SetVariableVec3(FName("BeamEnd"),   TargetPosition);
+				NiagaraComp->SetVariablePosition(FName("Origin"), MarkedPosition);
+				NiagaraComp->SetVariablePosition(FName("Target"),   TargetPosition);
 			}
 		}
 

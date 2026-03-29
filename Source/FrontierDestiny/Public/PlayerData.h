@@ -82,7 +82,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	TMap<EWeaponType, FWeaponData> WeaponDataMap;
 
-	UPROPERTY(EditAnywhere, Category = "Combat")
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Combat")
 	int32 MaxBullets = 32;
 
 	UPROPERTY(EditAnywhere, Category = "Upgrade Values|Bullet Reservoir")

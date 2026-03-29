@@ -48,8 +48,6 @@ void UEnemyDamageMassProcessor::ConfigureQueries(const TSharedRef<FMassEntityMan
 
 void UEnemyDamageMassProcessor::Execute(FMassEntityManager& EntityManager, FMassExecutionContext& Context)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Damage Processor Ticking!"));
-
 	UEnemyManagerSubsystem* EnemyManager = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
 
 	EntityQuery.ForEachEntityChunk(Context, [this, EnemyManager](FMassExecutionContext& Context)
