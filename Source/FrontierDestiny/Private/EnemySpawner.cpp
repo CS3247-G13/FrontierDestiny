@@ -7,6 +7,7 @@
 #include "HordeIDFragment.h"
 #include "MassEntitySubsystem.h"
 #include "MassCommandBuffer.h"
+#include "EnemyDamageMassProcessor.h"
 #include "Kismet/GameplayStatics.h"
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_Modifier_Fast,         "Enemy.Modifier.Fast")
@@ -145,6 +146,9 @@ void AEnemySpawner::Spawn(const FHordeBatchDetails& Details)
 	EntityTypes.Empty();
 	PendingModifierFragments.Empty();
 	PendingHasModifiers.Empty();
+	PendingBaseHP.Empty();
+	PendingBaseSpeed.Empty();
+	PendingBaseDamage.Empty();
 	PendingSpeedMultipliers.Empty();
 	PendingDamageMultipliers.Empty();
 	PendingVitalityAmounts.Empty();
@@ -165,6 +169,10 @@ void AEnemySpawner::Spawn(const FHordeBatchDetails& Details)
 		Type.EntityConfig = EnemyData.EnemyMassEntityAsset;
 		Type.Proportion = (float)EnemyInfo.Count / (float)TotalCount;
 		EntityTypes.Add(Type);
+
+		PendingBaseHP.Add(EnemyData.Attributes.Contains("HP")     ? EnemyData.Attributes["HP"].BaseValue     : 20.f);
+		PendingBaseSpeed.Add(EnemyData.Attributes.Contains("Speed")  ? EnemyData.Attributes["Speed"].BaseValue  : 1.f);
+		PendingBaseDamage.Add(EnemyData.Attributes.Contains("Damage") ? EnemyData.Attributes["Damage"].BaseValue : 10.f);
 
 		const FModifierFragment ModFrag = BuildModifierFragment(EnemyInfo);
 		PendingModifierFragments.Add(ModFrag);
@@ -209,14 +217,17 @@ void AEnemySpawner::HandleSpawningFinished()
 		const int32 ModIdx = i - SpawnStartIndex;
 		const bool bApplyModifiers = PendingHasModifiers.IsValidIndex(ModIdx) && PendingHasModifiers[ModIdx];
 		const FModifierFragment ModFrag        = bApplyModifiers ? PendingModifierFragments[ModIdx] : FModifierFragment{};
-		const float SpeedMultiplier            = PendingSpeedMultipliers.IsValidIndex(ModIdx)   ? PendingSpeedMultipliers[ModIdx]   : 1.f;
-		const float DamageMultiplier           = PendingDamageMultipliers.IsValidIndex(ModIdx)  ? PendingDamageMultipliers[ModIdx]  : 1.f;
-		const float VitalityAmount             = PendingVitalityAmounts.IsValidIndex(ModIdx)    ? PendingVitalityAmounts[ModIdx]    : 0.f;
+		const float BaseHP                     = PendingBaseHP.IsValidIndex(ModIdx)            ? PendingBaseHP[ModIdx]            : 20.f;
+		const float BaseSpeed                  = PendingBaseSpeed.IsValidIndex(ModIdx)         ? PendingBaseSpeed[ModIdx]         : 1.f;
+		const float BaseDamage                 = PendingBaseDamage.IsValidIndex(ModIdx)        ? PendingBaseDamage[ModIdx]        : 10.f;
+		const float SpeedMultiplier            = PendingSpeedMultipliers.IsValidIndex(ModIdx)  ? PendingSpeedMultipliers[ModIdx]  : 1.f;
+		const float DamageMultiplier           = PendingDamageMultipliers.IsValidIndex(ModIdx) ? PendingDamageMultipliers[ModIdx] : 1.f;
+		const float VitalityAmount             = PendingVitalityAmounts.IsValidIndex(ModIdx)   ? PendingVitalityAmounts[ModIdx]   : 0.f;
 
 		for (const FMassEntityHandle& Entity : AllSpawnedEntities[i].Entities)
 		{
 			CommandBuffer.PushCommand<FMassDeferredSetCommand>(
-				[Entity, HordeID, bApplyModifiers, ModFrag, SpeedMultiplier, DamageMultiplier, VitalityAmount](FMassEntityManager& Manager)
+				[Entity, HordeID, bApplyModifiers, ModFrag, BaseHP, BaseSpeed, BaseDamage, SpeedMultiplier, DamageMultiplier, VitalityAmount](FMassEntityManager& Manager)
 				{
 					if (!Manager.IsEntityValid(Entity)) return;
 
@@ -225,6 +236,27 @@ void AEnemySpawner::HandleSpawningFinished()
 						{
 							static_cast<FHordeIDFragment*>(Fragment)->HordeID = HordeID;
 						});
+
+					FHealthFragment* Health = Manager.GetFragmentDataPtr<FHealthFragment>(Entity);
+					if (Health)
+					{
+						Health->Value    = BaseHP;
+						Health->MaxValue = BaseHP;
+					}
+
+					FStatsFragment* Stats = Manager.GetFragmentDataPtr<FStatsFragment>(Entity);
+					if (Stats)
+					{
+						Stats->BaseSpeed        = BaseSpeed * SpeedMultiplier;
+						Stats->InitialBaseSpeed = Stats->BaseSpeed;
+						Stats->BaseDamage       = BaseDamage * DamageMultiplier;
+
+						// Snapshot after multipliers so distortion ramps from the boosted speed
+						if (ModFrag.bDistorted)
+						{
+							Stats->InitialBaseSpeed = Stats->BaseSpeed;
+						}
+					}
 
 					if (bApplyModifiers)
 					{
@@ -249,19 +281,6 @@ void AEnemySpawner::HandleSpawningFinished()
 									Frag->Value    = VitalityAmount;
 									Frag->MaxValue = VitalityAmount;
 								});
-						}
-
-						FStatsFragment* Stats = Manager.GetFragmentDataPtr<FStatsFragment>(Entity);
-						if (Stats)
-						{
-							Stats->BaseSpeed  *= SpeedMultiplier;
-							Stats->BaseDamage *= DamageMultiplier;
-
-							// Snapshot after multipliers so distortion ramps from the boosted speed
-							if (ModFrag.bDistorted)
-							{
-								Stats->InitialBaseSpeed = Stats->BaseSpeed;
-							}
 						}
 					}
 				});

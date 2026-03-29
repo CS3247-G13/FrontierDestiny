@@ -74,6 +74,10 @@ private:
 	TArray<FModifierFragment> PendingModifierFragments;
 	/** Whether each pending entry actually has any modifiers set. */
 	TArray<bool> PendingHasModifiers;
+	/** Base stats from EnemyData.Attributes, set before multipliers are applied. */
+	TArray<float> PendingBaseHP;
+	TArray<float> PendingBaseSpeed;
+	TArray<float> PendingBaseDamage;
 	/** Stat multipliers to bake into FStatsFragment at spawn. */
 	TArray<float> PendingSpeedMultipliers;
 	TArray<float> PendingDamageMultipliers;
