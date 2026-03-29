@@ -155,6 +155,12 @@ void UUpgradeManagerSubsystem::UnlockBlueprint(const FName& UpgradeID)
 		return;
 	}
 	BlueprintMap[UpgradeID] = true;
+	if (!UpgradeMap.Contains(UpgradeID))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Upgrade ID %s not found in UpgradeMap! This should not happen if the data table is set up correctly."), *UpgradeID.ToString());
+		return;
+	}
+	OnBlueprintUnlocked.Broadcast(UpgradeMap[UpgradeID]);
 }
 
 FUpgradeStatus UUpgradeManagerSubsystem::CheckUpgradeSufficientResources(const FName& UpgradeID)

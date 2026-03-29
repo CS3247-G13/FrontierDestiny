@@ -16,6 +16,7 @@
 #include "DamageNumber.h"
 
 #include "QuestSubsystem.h"
+#include "Engine/OverlapResult.h"
 
 static constexpr float MitigatedFadeDuration = 1.5f;
 
@@ -831,12 +832,22 @@ bool UEnemyManagerSubsystem::GetEnemyTargetFromHit(const FHitResult& Hit, FMassE
 
 void UEnemyManagerSubsystem::GetEntitiesInRange(FVector Center, float Radius, TArray<FMassEntityHandle>& OutHandles) const
 {
-	const float RadiusSq = Radius * Radius;
-	for (int32 i = 0; i < ActiveEntityHandles.Num(); i++)
+	UWorld* World = GetWorld();
+	if (!World) return;
+
+	FCollisionShape Sphere = FCollisionShape::MakeSphere(Radius);
+	TArray<FOverlapResult> Overlaps;
+	World->OverlapMultiByChannel(Overlaps, Center, FQuat::Identity, ECC_GameTraceChannel3, Sphere);
+
+	for (const FOverlapResult& Overlap : Overlaps)
 	{
-		if (i < EnemyPositions.Num() && FVector::DistSquared(Center, EnemyPositions[i]) <= RadiusSq)
+		FMassEntityHandle Handle = GetEnemyEntityHandle(
+			Cast<UInstancedStaticMeshComponent>(Overlap.GetComponent()),
+			Overlap.ItemIndex);
+
+		if (Handle.IsSet())
 		{
-			OutHandles.Add(ActiveEntityHandles[i]);
+			OutHandles.Add(Handle);
 		}
 	}
 }
@@ -844,7 +855,7 @@ void UEnemyManagerSubsystem::GetEntitiesInRange(FVector Center, float Radius, TA
 FVector UEnemyManagerSubsystem::GetEntityPosition(FMassEntityHandle Handle) const
 {
 	const int32 Idx = ActiveEntityHandles.IndexOfByKey(Handle);
-	return (Idx != INDEX_NONE && Idx < EnemyPositions.Num()) ? EnemyPositions[Idx] + FVector(0.0f, 0.0f, 50.0f) : FVector::ZeroVector;
+	return (Idx != INDEX_NONE && Idx < EnemyPositions.Num()) ? EnemyPositions[Idx] + FVector(0.0f, 0.0f, 100.0f) : FVector::ZeroVector;
 }
 
 float UEnemyManagerSubsystem::GetEntityHealth(FMassEntityHandle Handle) const

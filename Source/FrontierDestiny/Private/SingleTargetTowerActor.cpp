@@ -82,33 +82,55 @@ void ASingleTargetTowerActor::SelectTarget()
 	float MinValue = TNumericLimits<float>::Max();
 	float MaxValue = -TNumericLimits<float>::Max();
 
+	// Score all candidates — no visibility checks yet (potentially expensive)
+	struct FScoredHandle
+	{
+		FMassEntityHandle Handle;
+		float Score;
+	};
+	TArray<FScoredHandle> Scored;
+	Scored.Reserve(OverlappingTargets.Num());
+
 	for (const FMassEntityHandle& Handle : OverlappingTargets)
 	{
 		if (!Handle.IsSet()) continue;
 
 		const FVector EnemyPos = EnemyManager->GetEntityPosition(Handle);
 		const float Health = EnemyManager->GetEntityHealth(Handle);
-		const float DistanceToTower = FVector::Distance(EnemyPos, GetActorLocation());
+		float Score = 0.f;
 
 		switch (TargetingMode)
 		{
 		case ETowerTargetingMode::Nearest:
-			if (DistanceToTower < MinValue) { MinValue = DistanceToTower; BestHandle = Handle; }
+			Score = -FVector::DistSquared(EnemyPos, GetActorLocation());
 			break;
-
 		case ETowerTargetingMode::Strongest:
-			if (Health > MaxValue) { MaxValue = Health; BestHandle = Handle; }
+			Score = Health;
 			break;
-
 		case ETowerTargetingMode::Weakest:
-			if (Health < MinValue) { MinValue = Health; BestHandle = Handle; }
+			Score = -Health;
 			break;
-
 		case ETowerTargetingMode::ClosestToBase:
 		case ETowerTargetingMode::FurthestFromBase:
-			// Progress tracking not yet implemented
 			break;
 		}
+
+		Scored.Add({ Handle, Score });
+	}
+
+	Scored.Sort([](const FScoredHandle& A, const FScoredHandle& B) { return A.Score > B.Score; });
+
+	// Walk best-to-worst, stop at the first visible candidate
+	for (const FScoredHandle& Entry : Scored)
+	{
+		FMassEnemyTarget Candidate;
+		Candidate.EntityHandle = Entry.Handle;
+		Candidate.Position = EnemyManager->GetEntityPosition(Entry.Handle);
+
+		if (!CheckTargetVisible(Candidate)) continue;
+
+		BestHandle = Entry.Handle;
+		break;
 	}
 
 	if (BestHandle.IsSet())
@@ -117,7 +139,6 @@ void ASingleTargetTowerActor::SelectTarget()
 		NewTarget.EntityHandle = BestHandle;
 		NewTarget.Position = EnemyManager->GetEntityPosition(BestHandle);
 
-		// Only fire OnAcquireNewTarget if it's actually a different target
 		if (CurrentTarget.EntityHandle != BestHandle)
 		{
 			CurrentTarget = NewTarget;
