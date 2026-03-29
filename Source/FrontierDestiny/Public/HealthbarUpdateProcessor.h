@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "MassProcessor.h"
+#include "MassEntityQuery.h"
 #include "EnemyDamageMassProcessor.h"
 
 #include "HealthbarUpdateProcessor.generated.h"
