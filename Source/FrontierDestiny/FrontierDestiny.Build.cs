@@ -27,7 +27,10 @@ public class FrontierDestiny : ModuleRules
 			"GameplayStateTreeModule",
 			"StateTreeModule",
 			"MassMovement",
-			"MassNavigation"
+			"MassNavigation",
+			"MassSpawner",
+			"NavigationSystem",
+			"AIModule"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
