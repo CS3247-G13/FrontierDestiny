@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "CombatComponent.h"
-
+#include "Animation/AnimationAsset.h"
 #include "PlayerManagerSubsystem.h"
 #include "Camera/CameraComponent.h"
 #include "Blueprint/UserWidget.h"
@@ -175,9 +175,21 @@ void UCombatComponent::OnFireAction(EWeaponType WeaponType)
 	const FPlayerData& D = GetPlayerData();
 
 	Shoot();
+	PlayFireAnimation(WeaponType);
 	PlayTriggerSound();
 	Recoil();
 	PutOnCooldown();
+}
+
+void UCombatComponent::PlayFireAnimation(EWeaponType WeaponType)
+{
+	if (GunMesh)
+	{
+		if (UAnimationAsset** Anim = FireAnimations.Find(WeaponType))
+		{
+			GunMesh->PlayAnimation(*Anim, false);
+		}
+	}
 }
 
 void UCombatComponent::Shoot()

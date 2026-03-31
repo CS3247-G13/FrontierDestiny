@@ -65,6 +65,8 @@ protected:
 	UFUNCTION()
 	void OnFireAction(EWeaponType WeaponType);
 	UFUNCTION()
+	void PlayFireAnimation(EWeaponType WeaponType);
+	UFUNCTION()
 	void OnFireActionStart(EWeaponType WeaponType);
 
 	// Code duplication intensifies
@@ -95,4 +97,13 @@ protected:
 	FVector2D CurrentOffset;
 	UPROPERTY(VisibleAnywhere, Category = "Debug")
 	FTimerHandle ReplenishBulletTimerHandle;
+
+	UPROPERTY()
+	USkeletalMeshComponent* GunMesh;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
+	TMap<EWeaponType, UAnimationAsset*> FireAnimations;
+
+	UFUNCTION(BlueprintCallable)
+	void SetGunMesh(USkeletalMeshComponent* Mesh) { GunMesh = Mesh; }
 };
