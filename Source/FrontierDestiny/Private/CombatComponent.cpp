@@ -183,13 +183,11 @@ void UCombatComponent::OnFireAction(EWeaponType WeaponType)
 
 void UCombatComponent::PlayFireAnimation(EWeaponType WeaponType)
 {
-	if (GunMesh)
-	{
-		if (UAnimationAsset** Anim = FireAnimations.Find(WeaponType))
-		{
-			GunMesh->PlayAnimation(*Anim, false);
-		}
-	}
+	if (MuzzleFlashShotgun && CurrentWeapon == EWeaponType::Shotgun)
+		MuzzleFlashShotgun->Activate(true);
+
+	if (MuzzleFlashSniper && CurrentWeapon == EWeaponType::Rifle)
+		MuzzleFlashSniper->Activate(true);
 }
 
 void UCombatComponent::Shoot()

@@ -99,11 +99,15 @@ protected:
 	FTimerHandle ReplenishBulletTimerHandle;
 
 	UPROPERTY()
-	USkeletalMeshComponent* GunMesh;
+	UParticleSystemComponent* MuzzleFlashShotgun;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
-	TMap<EWeaponType, UAnimationAsset*> FireAnimations;
+	UPROPERTY()
+	UParticleSystemComponent* MuzzleFlashSniper;
 
 	UFUNCTION(BlueprintCallable)
-	void SetGunMesh(USkeletalMeshComponent* Mesh) { GunMesh = Mesh; }
+	void SetMuzzleFlashes(UParticleSystemComponent* Shotgun, UParticleSystemComponent* Sniper)
+	{
+		MuzzleFlashShotgun = Shotgun;
+		MuzzleFlashSniper = Sniper;
+	}
 };
