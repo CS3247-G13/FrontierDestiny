@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "TowerActor.h"
+#include "TrackedTargetTowerActor.h"
 #include "SingleTargetTowerActor.generated.h"
 
 /** * Defines the logic used by the tower to prioritize targets within range.
@@ -22,7 +22,7 @@ enum class ETowerTargetingMode : uint8
  * A specialized tower that focuses on and attacks a single enemy target within range.
  */
 UCLASS()
-class FRONTIERDESTINY_API ASingleTargetTowerActor : public ATowerActor
+class FRONTIERDESTINY_API ASingleTargetTowerActor : public ATrackedTargetTowerActor
 {
 	GENERATED_BODY()
 

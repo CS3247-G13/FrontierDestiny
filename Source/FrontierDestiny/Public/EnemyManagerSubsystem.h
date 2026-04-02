@@ -45,6 +45,7 @@ public:
 
 	// Internal fade state — not pushed to Niagara
 	TArray<float> MitigatedDamageFadeTimers;
+	TArray<float> EnemyHeights;
 
 	void InitializeHealthbars();
 
@@ -138,6 +139,7 @@ public:
 		TArray<float>            StunDurations;
 		TArray<float>            ModifierFlags;
 		TArray<float>            FragmentedChunkSizes;
+		TArray<FName>            EnemyIDs;
 		float                    DeltaTime = 0.f;
 	};
 
@@ -148,11 +150,18 @@ public:
 	/** Called by EnemyDamageMassProcessor when amorphic or fragmented mitigates damage. */
 	void NotifyDamageMitigated(FMassEntityHandle Handle, float MitigatedAmount);
 
+	/** Called by EnemyDamageMassProcessor with the final damage after all modifiers are applied. */
+	void NotifyDamageDealt(FMassEntityHandle Handle, float FinalDamage);
+
 	/** Returns all active entity handles whose position is within Radius of Center */
 	void GetEntitiesInRange(FVector Center, float Radius, TArray<FMassEntityHandle>& OutHandles) const;
 
 	/** Returns the last-known world position of the entity, or ZeroVector if not found */
 	FVector GetEntityPosition(FMassEntityHandle Handle) const;
+
+	/** Returns the current world position of the target, or ZeroVector if not found. */
+	UFUNCTION(BlueprintPure, Category = "Enemy")
+	FVector GetTargetPosition(FMassEnemyTarget Target) const;
 
 	/** Returns the health ratio (0–1) of the entity, or 0 if not found */
 	float GetEntityHealth(FMassEntityHandle Handle) const;

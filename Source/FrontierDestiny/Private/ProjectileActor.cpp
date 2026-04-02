@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "ProjectileActor.h"
+#include "CustomChannels.h"
 #include "Components/PrimitiveComponent.h"
 
 AProjectileActor::AProjectileActor()
@@ -18,8 +19,8 @@ void AProjectileActor::BeginPlay()
         if (UPrimitiveComponent* RootPrim = Cast<UPrimitiveComponent>(GetRootComponent()))
         {
             RootPrim->IgnoreActorWhenMoving(MyOwner, true);
-			// Set the bullet to not collide with other projectiles (custom channel 2)
-            RootPrim->SetCollisionResponseToChannel(ECC_GameTraceChannel2, ECR_Ignore);
+			// Set the bullet to not collide with other projectiles (Projectile channel)
+            RootPrim->SetCollisionResponseToChannel(CC_Projectile, ECR_Ignore);
         }
     }
 }

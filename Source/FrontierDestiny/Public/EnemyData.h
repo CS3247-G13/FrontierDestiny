@@ -32,4 +32,8 @@ public:
 	/** If true, this enemy type counts as enhanced — shown as a darker blip on the minimap when priority targeting is active. */
 	UPROPERTY(EditAnywhere)
 	bool bIsEnhanced = false;
+
+	/** Visual height of the enemy mesh. Used to offset targeting and UI positions to the centre of the enemy. */
+	UPROPERTY(EditAnywhere)
+	float Height = 200.f;
 };
