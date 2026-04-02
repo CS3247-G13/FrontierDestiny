@@ -69,14 +69,17 @@ void UBuilderComponent::SetupInput(UInputComponent* InputComponent)
 	// Cast the internal InputComponent to the Enhanced version
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(InputComponent))
 	{
-		if (SelectTowerAction)
+		TObjectPtr<UInputAction>* SelectActions[] = {
+			&SelectTowerAction1, &SelectTowerAction2, &SelectTowerAction3,
+			&SelectTowerAction4, &SelectTowerAction5, &SelectTowerAction6
+		};
+		for (int32 i = 0; i < 6; i++)
 		{
-			EnhancedInputComponent->BindAction(
-				SelectTowerAction,
-				ETriggerEvent::Started,
-				this,
-				&UBuilderComponent::OnSelectTowerAction
-			);
+			if (*SelectActions[i])
+			{
+				EnhancedInputComponent->BindAction(*SelectActions[i], ETriggerEvent::Started,
+					this, &UBuilderComponent::OnSelectTowerAction, i + 1);
+			}
 		}
 		
 		if (DeselectTowerAction)
@@ -358,24 +361,17 @@ void UBuilderComponent::OnBuildTowerActionEnd(const FInputActionValue& Value)
 	bIsLocked = false;
 }
 
-void UBuilderComponent::OnSelectTowerAction(const FInputActionValue& Value)
+
+void UBuilderComponent::OnSelectTowerAction(int32 KeyNumber)
 {
 	UTowerManagerSubsystem* TowerManager;
-	
-	UGameInstance* GI = GetWorld()->GetGameInstance();
-	if (!GI)
-	{
-		return;
-	}
-	TowerManager = GI->GetSubsystem<UTowerManagerSubsystem>();
-	if (!TowerManager)
-	{
-		return;
-	}
-	
 
-	int32 KeyNumber = FMath::RoundToInt(Value.Get<float>());
-	if (KeyNumber <= 3 && KeyNumber > 0)
+	UGameInstance* GI = GetWorld()->GetGameInstance();
+	if (!GI) return;
+
+	TowerManager = GI->GetSubsystem<UTowerManagerSubsystem>();
+	if (!TowerManager) return;
+
 	{
 		SelectedPath.Add(KeyNumber);
 		
@@ -383,71 +379,21 @@ void UBuilderComponent::OnSelectTowerAction(const FInputActionValue& Value)
 		if (!TowerManager->CheckPathUnlocked(SelectedPath))
 		{
 			SelectedPath.RemoveAt(SelectedPath.Num() - 1);
+			OnUnassignedNumberPressed.Broadcast(KeyNumber);
 			return;
 		}
 		
-		// Else, select the tower, then display the next 3 available towers
-		const TMap<int32, FTowerData>& NextTowers = TowerManager->GetPathNextTowers(SelectedPath);
-
-		FTowerDisplay MainTower = {
-			.Present = true,
-			.Data = TowerManager->GetPathTower(SelectedPath)
-		};
-		FTowerDisplay NextTower1 = {
-			.Present = NextTowers.Contains(1),
-			.Data = NextTowers.FindRef(1)
-		};
-		FTowerDisplay NextTower2 = {
-			.Present = NextTowers.Contains(2),
-			.Data = NextTowers.FindRef(2)
-		};
-		FTowerDisplay NextTower3 = {
-			.Present = NextTowers.Contains(3),
-			.Data = NextTowers.FindRef(3)
-		};
-		OnTowerSelectionChange.Broadcast(MainTower, NextTower1, NextTower2, NextTower3);
-		ChangeTowerSelection(TOptional<FName>(MainTower.Data.ID));
+		OnTowerSelectionChange.Broadcast();
+		ChangeTowerSelection(TOptional<FName>(TowerManager->GetPathTower(SelectedPath).ID));
 	}
 }
 
 void UBuilderComponent::OnDeselectTowerAction(const FInputActionValue& Value)
 {
-
 	OnTowerBuildingNotification.Broadcast("");
-
-	UTowerManagerSubsystem* TowerManager;
-
-	UGameInstance* GI = GetWorld()->GetGameInstance();
-	if (!GI)
-	{
-		return;
-	}
-	TowerManager = GI->GetSubsystem<UTowerManagerSubsystem>();
-	if (!TowerManager)
-	{
-		return;
-	}
-
 	SelectedPath.Empty();
-	ChangeTowerSelection(TOptional<FName>()); 
-
-	const TMap<int32, FTowerData>& NextTowers = TowerManager->GetPathNextTowers(SelectedPath);
-	FTowerDisplay MainTower = {
-		.Present = false
-	};
-	FTowerDisplay NextTower1 = {
-		.Present = NextTowers.Contains(1),
-		.Data = NextTowers.FindRef(1)
-	};
-	FTowerDisplay NextTower2 = {
-		.Present = NextTowers.Contains(2),
-		.Data = NextTowers.FindRef(2)
-	};
-	FTowerDisplay NextTower3 = {
-		.Present = NextTowers.Contains(3),
-		.Data = NextTowers.FindRef(3)
-	};
-	OnTowerSelectionChange.Broadcast(MainTower, NextTower1, NextTower2, NextTower3);
+	ChangeTowerSelection(TOptional<FName>());
+	OnTowerSelectionChange.Broadcast();
 }
 
 void UBuilderComponent::OnRotateTowerAction(const FInputActionValue& Value)
