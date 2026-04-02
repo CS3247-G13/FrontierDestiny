@@ -17,37 +17,26 @@ TArray<FMassEnemyTarget> UTowerBlueprintFunctionLibrary::GetUniqueEnemyTargetsFr
 	UEnemyManagerSubsystem* EnemyManager = World->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
 	if (!EnemyManager) return Result;
 
+	TSet<FMassEntityHandle> IgnoreSet;
+	IgnoreSet.Reserve(IgnoreTargets.Num());
+	for (const FMassEnemyTarget& Ignored : IgnoreTargets)
+	{
+		IgnoreSet.Add(Ignored.EntityHandle);
+	}
+
+	TSet<FMassEntityHandle> SeenHandles;
+	SeenHandles.Reserve(HitResults.Num());
+
 	for (const FHitResult& Hit : HitResults)
 	{
 		FMassEnemyTarget Candidate;
 		if (!EnemyManager->GetEnemyTargetFromHit(Hit, Candidate)) continue;
 
-		bool bAlreadyPresent = false;
-		for (const FMassEnemyTarget& Existing : Result)
-		{
-			if (EnemyManager->IsSameTarget(Existing, Candidate))
-			{
-				bAlreadyPresent = true;
-				break;
-			}
-		}
+		if (IgnoreSet.Contains(Candidate.EntityHandle)) continue;
+		if (SeenHandles.Contains(Candidate.EntityHandle)) continue;
 
-		if (!bAlreadyPresent)
-		{
-			for (const FMassEnemyTarget& Ignored : IgnoreTargets)
-			{
-				if (EnemyManager->IsSameTarget(Ignored, Candidate))
-				{
-					bAlreadyPresent = true;
-					break;
-				}
-			}
-		}
-
-		if (!bAlreadyPresent)
-		{
-			Result.Add(Candidate);
-		}
+		SeenHandles.Add(Candidate.EntityHandle);
+		Result.Add(Candidate);
 	}
 
 	return Result;

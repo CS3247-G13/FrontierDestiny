@@ -828,7 +828,20 @@ bool UEnemyManagerSubsystem::GetEnemyTargetFromHit(const FHitResult& Hit, FMassE
 
 	OutTarget.EntityHandle = Handle;
 	OutTarget.Position = GetEntityPosition(Handle);
+	OutTarget.EnemyID = GetEntityEnemyID(Handle);
 	return true;
+}
+
+FName UEnemyManagerSubsystem::GetEntityEnemyID(FMassEntityHandle Handle) const
+{
+	UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
+	if (!EntitySubsystem) return NAME_None;
+
+	const FMassEntityManager& EntityManager = EntitySubsystem->GetEntityManager();
+	if (!EntityManager.IsEntityValid(Handle)) return NAME_None;
+
+	const FStatsFragment* Stats = EntityManager.GetFragmentDataPtr<FStatsFragment>(Handle);
+	return Stats ? Stats->EnemyID : NAME_None;
 }
 
 void UEnemyManagerSubsystem::GetEntitiesInRange(FVector Center, float Radius, TArray<FMassEntityHandle>& OutHandles) const
@@ -875,4 +888,13 @@ void UEnemyManagerSubsystem::Deinitialize()
 FEnemyData UEnemyManagerSubsystem::GetEnemyData(const FName& EnemyID)
 {
 	return EnemyDataMap[EnemyID];
+}
+
+bool UEnemyManagerSubsystem::IsEnhancedEnemy(FMassEntityHandle Handle) const
+{
+	const FName EnemyID = GetEntityEnemyID(Handle);
+	if (EnemyID == NAME_None) return false;
+
+	const FEnemyData* Data = EnemyDataMap.Find(EnemyID);
+	return Data && Data->bIsEnhanced;
 }

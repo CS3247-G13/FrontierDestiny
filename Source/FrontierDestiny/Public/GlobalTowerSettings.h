@@ -56,6 +56,9 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Effects")
 	TSoftObjectPtr<UNiagaraSystem> ArcLightningEffect;
 
+	UPROPERTY(Config, EditAnywhere, Category = "Minimap")
+	TSoftObjectPtr<UDataTable> BlipDataTable;
+
 
 	/** Helper to get the settings instance easily */
 	static const UGlobalTowerSettings* Get() { return GetDefault<UGlobalTowerSettings>(); }

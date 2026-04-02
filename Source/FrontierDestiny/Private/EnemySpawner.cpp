@@ -152,6 +152,7 @@ void AEnemySpawner::Spawn(const FHordeBatchDetails& Details)
 	PendingSpeedMultipliers.Empty();
 	PendingDamageMultipliers.Empty();
 	PendingVitalityAmounts.Empty();
+	PendingEnemyIDs.Empty();
 	for (const auto& EnemyInfo : Details.Enemies)
 	{
 		FEnemyData EnemyData = Subsystem->GetEnemyData(EnemyInfo.EnemyID);
@@ -180,6 +181,7 @@ void AEnemySpawner::Spawn(const FHordeBatchDetails& Details)
 		PendingSpeedMultipliers.Add(ModFrag.bFast     ? EnemyInfo.FastSpeedMultiplier    : 1.f);
 		PendingDamageMultipliers.Add(ModFrag.bStrong  ? EnemyInfo.StrongDamageMultiplier : 1.f);
 		PendingVitalityAmounts.Add(ModFrag.bVitality  ? EnemyInfo.VitalityAmount         : 0.f);
+		PendingEnemyIDs.Add(EnemyInfo.EnemyID);
 	}
 
 	Count = TotalCount;
@@ -223,11 +225,12 @@ void AEnemySpawner::HandleSpawningFinished()
 		const float SpeedMultiplier            = PendingSpeedMultipliers.IsValidIndex(ModIdx)  ? PendingSpeedMultipliers[ModIdx]  : 1.f;
 		const float DamageMultiplier           = PendingDamageMultipliers.IsValidIndex(ModIdx) ? PendingDamageMultipliers[ModIdx] : 1.f;
 		const float VitalityAmount             = PendingVitalityAmounts.IsValidIndex(ModIdx)   ? PendingVitalityAmounts[ModIdx]   : 0.f;
+		const FName EnemyID                    = PendingEnemyIDs.IsValidIndex(ModIdx)          ? PendingEnemyIDs[ModIdx]           : NAME_None;
 
 		for (const FMassEntityHandle& Entity : AllSpawnedEntities[i].Entities)
 		{
 			CommandBuffer.PushCommand<FMassDeferredSetCommand>(
-				[Entity, HordeID, bApplyModifiers, ModFrag, BaseHP, BaseSpeed, BaseDamage, SpeedMultiplier, DamageMultiplier, VitalityAmount](FMassEntityManager& Manager)
+				[Entity, HordeID, bApplyModifiers, ModFrag, BaseHP, BaseSpeed, BaseDamage, SpeedMultiplier, DamageMultiplier, VitalityAmount, EnemyID](FMassEntityManager& Manager)
 				{
 					if (!Manager.IsEntityValid(Entity)) return;
 
@@ -250,6 +253,7 @@ void AEnemySpawner::HandleSpawningFinished()
 						Stats->BaseSpeed        = BaseSpeed * SpeedMultiplier;
 						Stats->InitialBaseSpeed = Stats->BaseSpeed;
 						Stats->BaseDamage       = BaseDamage * DamageMultiplier;
+						Stats->EnemyID          = EnemyID;
 
 						// Snapshot after multipliers so distortion ramps from the boosted speed
 						if (ModFrag.bDistorted)
