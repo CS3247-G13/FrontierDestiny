@@ -65,6 +65,8 @@ protected:
 	UFUNCTION()
 	void OnFireAction(EWeaponType WeaponType);
 	UFUNCTION()
+	void PlayFireAnimation(EWeaponType WeaponType);
+	UFUNCTION()
 	void OnFireActionStart(EWeaponType WeaponType);
 
 	// Code duplication intensifies
@@ -95,4 +97,17 @@ protected:
 	FVector2D CurrentOffset;
 	UPROPERTY(VisibleAnywhere, Category = "Debug")
 	FTimerHandle ReplenishBulletTimerHandle;
+
+	UPROPERTY()
+	UParticleSystemComponent* MuzzleFlashShotgun;
+
+	UPROPERTY()
+	UParticleSystemComponent* MuzzleFlashSniper;
+
+	UFUNCTION(BlueprintCallable)
+	void SetMuzzleFlashes(UParticleSystemComponent* Shotgun, UParticleSystemComponent* Sniper)
+	{
+		MuzzleFlashShotgun = Shotgun;
+		MuzzleFlashSniper = Sniper;
+	}
 };
