@@ -28,4 +28,7 @@ public:
 	{
 		return MaximumHP > 0.f ? CurrentHP / MaximumHP : 0.f;
 	}
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Core")
+	UTexture2D* CoreIcon = nullptr;
 };
