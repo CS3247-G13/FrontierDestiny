@@ -156,6 +156,11 @@ void UTowerManagerSubsystem::Deinitialize()
 
 }
 
+bool UTowerManagerSubsystem::IsTowerUnlocked(FName TowerID) const
+{
+	return UnlockedTowers.Contains(TowerID);
+}
+
 bool UTowerManagerSubsystem::GetTowerData(const FName& TowerID, FTowerData& TowerData)
 {
 	if (!TowerDataMap.Contains(TowerID))
