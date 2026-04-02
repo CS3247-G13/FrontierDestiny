@@ -28,4 +28,8 @@ public:
 
 	UPROPERTY(EditAnywhere)
 	TSoftObjectPtr<UMassEntityConfigAsset> EnemyMassEntityAsset;
+
+	/** If true, this enemy type counts as enhanced — shown as a darker blip on the minimap when priority targeting is active. */
+	UPROPERTY(EditAnywhere)
+	bool bIsEnhanced = false;
 };

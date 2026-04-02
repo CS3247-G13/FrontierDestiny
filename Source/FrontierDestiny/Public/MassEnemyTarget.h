@@ -19,5 +19,7 @@ struct FMassEnemyTarget
 	UPROPERTY(BlueprintReadOnly, Category = "Target")
 	FVector Position = FVector::ZeroVector;
 
+	FName EnemyID;
+
 	bool IsSet() const { return EntityHandle.IsSet(); }
 };

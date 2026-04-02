@@ -63,6 +63,8 @@ struct FStatsFragment : public FMassFragment
 	/** Original speed set at spawn. Used by distortion to compute the boost. Never modified after spawn. */
 	UPROPERTY(EditAnywhere) float InitialBaseSpeed = 1.f;
 	UPROPERTY(EditAnywhere) float BaseDamage = 10.f;
+	/** Enemy type ID from the DataTable row. Set once at spawn. */
+	FName EnemyID;
 };
 
 /** Triggers an arc lightning chain to the nearest enemy when processed by the damage processor. */

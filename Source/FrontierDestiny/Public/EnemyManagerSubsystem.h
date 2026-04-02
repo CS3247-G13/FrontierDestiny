@@ -157,6 +157,12 @@ public:
 	/** Returns the health ratio (0–1) of the entity, or 0 if not found */
 	float GetEntityHealth(FMassEntityHandle Handle) const;
 
+	/** Returns the EnemyID stamped on the entity at spawn, or NAME_None if not found */
+	FName GetEntityEnemyID(FMassEntityHandle Handle) const;
+
+	/** Returns true if the entity's enemy type has bIsEnhanced set in the data table. */
+	bool IsEnhancedEnemy(FMassEntityHandle Handle) const;
+
 	TArray<FMassEntityHandle> ActiveEntityHandles;
 
 	TMap<FMassEntityHandle, int32> EntitySlotMap;
