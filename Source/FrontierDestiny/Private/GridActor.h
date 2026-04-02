@@ -52,6 +52,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Settings")
 	TEnumAsByte<ECollisionChannel> GridFloorChannel;
 
+	// Only actors with this tag are considered valid placement terrain
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Settings")
+	FName AllowedTerrainTag = FName("Buildable");
+
 	// This just needs to be above the ground
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Grid Settings")
 	float RaycastOriginHeight;
