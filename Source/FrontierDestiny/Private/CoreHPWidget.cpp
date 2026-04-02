@@ -10,17 +10,23 @@ void UCoreHPWidget::NativeConstruct()
 
 void UCoreHPWidget::InitializeCoreBar(const FCoreData& CoreData)
 {
-    if (HPBar)
+    if (HP_Bar)
     {
-        HPBar->SetFillColorAndOpacity(CoreData.CoreColor);
-        HPBar->SetPercent(CoreData.GetHPPercent());
+        HealthBarMat = HP_Bar->GetDynamicMaterial();
+        HealthBarMat->SetScalarParameterValue(TEXT("HPPercent"), CoreData.GetHPPercent());
+        HealthBarMat->SetVectorParameterValue(TEXT("Color"), CoreData.CoreColor);
+    }
+
+    if (Icon && CoreData.CoreIcon)
+    {
+        Icon->SetBrushFromTexture(CoreData.CoreIcon);
     }
 }
 
 void UCoreHPWidget::UpdateHP(const FCoreData& CoreData)
 {
-    if (HPBar)
+    if (HP_Bar)
     {
-        HPBar->SetPercent(CoreData.GetHPPercent());
+        HealthBarMat->SetScalarParameterValue(TEXT("HPPercent"), CoreData.GetHPPercent());
     }
 }
