@@ -2,6 +2,7 @@
 
 
 #include "EnemyManagerSubsystem.h"
+#include "CustomChannels.h"
 
 #include "GlobalTowerSettings.h"
 #include "Async/TaskGraphInterfaces.h"
@@ -837,7 +838,7 @@ void UEnemyManagerSubsystem::GetEntitiesInRange(FVector Center, float Radius, TA
 
 	FCollisionShape Sphere = FCollisionShape::MakeSphere(Radius);
 	TArray<FOverlapResult> Overlaps;
-	World->OverlapMultiByChannel(Overlaps, Center, FQuat::Identity, ECC_GameTraceChannel3, Sphere);
+	World->OverlapMultiByChannel(Overlaps, Center, FQuat::Identity, CC_Laser, Sphere);
 
 	for (const FOverlapResult& Overlap : Overlaps)
 	{

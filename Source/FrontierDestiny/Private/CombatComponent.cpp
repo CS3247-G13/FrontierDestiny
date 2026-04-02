@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "CombatComponent.h"
+#include "CustomChannels.h"
 #include "Animation/AnimationAsset.h"
 #include "PlayerManagerSubsystem.h"
 #include "Camera/CameraComponent.h"
@@ -248,7 +249,7 @@ void UCombatComponent::ShootDirection(FVector Direction)
 	if (CurrentWeapon == EWeaponType::Rifle && GetPlayerData().bPiercingShots)
 	{
 		TArray<FHitResult> Hits;
-		GetWorld()->LineTraceMultiByChannel(Hits, TraceStart, TraceEnd, ECC_GameTraceChannel3, QueryParams);
+		GetWorld()->LineTraceMultiByChannel(Hits, TraceStart, TraceEnd, CC_Laser, QueryParams);
 		UEnemyManagerSubsystem* EnemyManager = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
 		TSet<FMassEntityHandle> HitHandles;
 		for (const FHitResult& Hit : Hits)

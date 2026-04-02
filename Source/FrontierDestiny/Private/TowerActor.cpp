@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "TowerActor.h"
+#include "CustomChannels.h"
 
 #include "GlobalTowerSettings.h"
 #include "TowerManagerSubsystem.h"
@@ -25,7 +26,7 @@ ATowerActor::ATowerActor()
 
 	RangeComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	RangeComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
-	RangeComponent->SetCollisionResponseToChannel(ECC_GameTraceChannel4, ECR_Overlap);
+	RangeComponent->SetCollisionResponseToChannel(CC_Enemy, ECR_Overlap);
 	RangeComponent->SetGenerateOverlapEvents(false); // enabled only when tower activates
 }
 

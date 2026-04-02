@@ -2,12 +2,13 @@
 
 
 #include "CollisionEnabledISMComponent.h"
+#include "CustomChannels.h"
 
 void UCollisionEnabledISMComponent::OnRegister()
 {
 	Super::OnRegister();
 	SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
-	SetCollisionObjectType(ECC_GameTraceChannel4);
-	SetCollisionResponseToChannel(ECC_GameTraceChannel4, ECR_Overlap);
+	SetCollisionObjectType(CC_Enemy);
+	SetCollisionResponseToChannel(CC_Enemy, ECR_Overlap);
 }
