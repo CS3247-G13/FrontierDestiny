@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "BuilderComponent.h"
+#include "CustomChannels.h"
 
 #include "Kismet/GameplayStatics.h"
 #include "TowerManagerSubsystem.h"
@@ -635,7 +636,7 @@ bool UBuilderComponent::TryRaycastToGrid(FHitResult& Hit)
 		Hit,
 		Start,
 		End,
-		ECC_GameTraceChannel1,
+		CC_Grid,
 		TraceParams
 	);
 

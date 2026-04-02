@@ -46,7 +46,7 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void UpdateStats();
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintPure)
 	float GetStats(FGameplayTag Tag);
 
 protected:
@@ -60,12 +60,14 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Tower")
 	void OnTowerTick(float DeltaTime);
 
+	virtual void ActivateTower();
+
 	/** The detection radius for finding enemies */
 	UPROPERTY(VisibleAnywhere, BlueprintReadonly, Category = "Debug")
 	TObjectPtr<USphereComponent> RangeComponent;
 
-	/** Mass entity handles currently inside the tower's range */
-	TSet<FMassEntityHandle> OverlappingTargets;
+	bool bTowerIsInactive = true;
+
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = "true"), Category = "Setup")
 	bool bIsGhost = true;
@@ -76,14 +78,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Tower Functions|Ghost")
 	void SetGhostValidity(bool bNewIsValid);
 
-	/** Called when a Mass entity enters the range of the tower */
-	UFUNCTION(BlueprintNativeEvent, Category = "Tower Functions")
-	void OnTargetEnterRange(FMassEnemyTarget Target);
-
-	/** Called when a Mass entity leaves the range of the tower */
-	UFUNCTION(BlueprintNativeEvent, Category = "Tower Functions")
-	void OnTargetLeaveRange(FMassEnemyTarget Target);
-
 	UPROPERTY()
 	TObjectPtr<AGridActor> GridActor;
 	UPROPERTY()
@@ -91,28 +85,10 @@ public:
 	UPROPERTY()
 	FRotator GridRelativeRotation;
 
-	virtual void ActivateTower();
-
 private:
-	UFUNCTION()
-	void OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-
-	UFUNCTION()
-	void OnRangeEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
-
-	void OnTrackedEnemyDied(FMassEntityHandle Handle);
-	void CheckEnemiesInRange();
-	void AddTarget(FMassEnemyTarget Target);
-	void RemoveTarget(FMassEntityHandle Handle);
-
-	void UpdateGhostMaterials();
-
 	FTimerHandle BuildTimerHandle;
-	FTimerHandle RangeCheckTimerHandle;
 
 	void InitializeGhostTower();
-
 	void InitializeTower();
-
-	bool bTowerIsInactive = true;
+	void UpdateGhostMaterials();
 };
