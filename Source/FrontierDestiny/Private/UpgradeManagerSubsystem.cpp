@@ -87,7 +87,8 @@ bool UUpgradeManagerSubsystem::PurchaseUpgrade(const FName& UpgradeID)
 {
 	if (!UpgradeMap.Contains(UpgradeID))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Upgrade ID %s not found! Make sure to add it to the data table."), *UpgradeID.ToString());
+		if (UpgradeID != NAME_None)
+			UE_LOG(LogTemp, Warning, TEXT("Upgrade ID %s not found! Make sure to add it to the data table."), *UpgradeID.ToString());
 		return false;
 	}
 
@@ -211,7 +212,8 @@ bool UUpgradeManagerSubsystem::GetUpgradeData(const FName& UpgradeID, FUpgradeDa
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Upgrade ID %s not found! Make sure to add it to the data table."), *UpgradeID.ToString());
+		if (UpgradeID != NAME_None)
+			UE_LOG(LogTemp, Warning, TEXT("Upgrade ID %s not found! Make sure to add it to the data table."), *UpgradeID.ToString());
 		return false;
 	}
 }
