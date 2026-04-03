@@ -30,7 +30,8 @@ public class FrontierDestiny : ModuleRules
 			"MassNavigation",
 			"MassSpawner",
 			"NavigationSystem",
-			"AIModule"
+			"AIModule",
+			"Water"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
