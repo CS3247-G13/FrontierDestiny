@@ -8,6 +8,7 @@
 
 class UTowerData;
 class UEconomySubsystem;
+class UQuestSubsystem;
 class ATowerActor;
 class AGridActor;
 
@@ -44,19 +45,13 @@ struct FRONTIERDESTINY_API FGhostTowerPool
 	TArray<ATowerActor*> Actors;
 };
 
-USTRUCT(BlueprintType)
-struct FRONTIERDESTINY_API FTowerDisplay
-{
-	GENERATED_BODY()
-	
-	UPROPERTY(VisibleAnywhere, BlueprintReadonly)
-	bool Present = false;
-	UPROPERTY(VisibleAnywhere, BlueprintReadonly)
-	FTowerData Data;
-};
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FOnTowerSelectionChange, FTowerDisplay, SelectedTower, FTowerDisplay, NextTower1, FTowerDisplay, NextTower2, FTowerDisplay, NextTower3);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTowerBuildingNotification, FString, Notificatoin);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnTowerSelectionChange);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTowerBuildingNotification, FString, Notification);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnHoverTowerStart);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnHoverTowerStop);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnTowerSelected);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnTowerDeselected);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUnassignedNumberPressed, int32, Number);
 
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class FRONTIERDESTINY_API UBuilderComponent : public UModeComponent
@@ -127,7 +122,17 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	TObjectPtr<UInputAction> BuildTowerAction;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
-	TObjectPtr<UInputAction> SelectTowerAction;
+	TObjectPtr<UInputAction> SelectTowerAction1;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
+	TObjectPtr<UInputAction> SelectTowerAction2;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
+	TObjectPtr<UInputAction> SelectTowerAction3;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
+	TObjectPtr<UInputAction> SelectTowerAction4;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
+	TObjectPtr<UInputAction> SelectTowerAction5;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
+	TObjectPtr<UInputAction> SelectTowerAction6;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
 	TObjectPtr<UInputAction> DeselectTowerAction;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
@@ -148,7 +153,7 @@ private:
 	UFUNCTION()
 	void OnBuildTowerActionEnd(const FInputActionValue& Value);
 	UFUNCTION()
-	void OnSelectTowerAction(const FInputActionValue& Value);
+	void OnSelectTowerAction(int32 KeyNumber);
 	UFUNCTION()
 	void OnDeselectTowerAction(const FInputActionValue& Value);
 	UFUNCTION()
@@ -197,13 +202,34 @@ private:
 	TOptional<FName> SelectedTower;
 	UPROPERTY(VisibleAnywhere, Category = "Debug")
 	TArray<int32> SelectedPath;
-
 	UPROPERTY(BlueprintAssignable)
 	FOnTowerSelectionChange OnTowerSelectionChange;
 	UPROPERTY(BlueprintAssignable)
 	FOnTowerBuildingNotification OnTowerBuildingNotification;
 
+public:
+	UFUNCTION(BlueprintPure)
+	TArray<int32> GetSelectedPath()
+	{
+		return SelectedPath;
+	}
 	// ====== DELETE TOWER ====== //
+public:
+	UPROPERTY(BlueprintAssignable)
+	FOnHoverTowerStart OnHoverTowerStart;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnHoverTowerStop OnHoverTowerStop;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnTowerSelected OnTowerSelected;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnTowerDeselected OnTowerDeselected;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnUnassignedNumberPressed OnUnassignedNumberPressed;
+
 private:
 	UPROPERTY()
 	TObjectPtr<ATowerActor> HoveredTower;
@@ -240,4 +266,5 @@ public:
 	
 	UPROPERTY(VisibleInstanceOnly, Category = "References")
 	TObjectPtr<UEconomySubsystem> EconomyComponent;
+	TObjectPtr<UQuestSubsystem> QuestComponent;
 };

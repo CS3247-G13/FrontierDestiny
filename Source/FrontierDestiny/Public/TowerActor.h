@@ -4,6 +4,7 @@
 
 #include "TowerData.h"
 #include "CoreMinimal.h"
+#include "MassEnemyTarget.h"
 #include "GameFramework/Actor.h"
 #include "TowerActor.generated.h"
 
@@ -45,7 +46,7 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void UpdateStats();
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintPure)
 	float GetStats(FGameplayTag Tag);
 
 protected:
@@ -59,13 +60,14 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Tower")
 	void OnTowerTick(float DeltaTime);
 
+	virtual void ActivateTower();
+
 	/** The detection radius for finding enemies */
 	UPROPERTY(VisibleAnywhere, BlueprintReadonly, Category = "Debug")
 	TObjectPtr<USphereComponent> RangeComponent;
 
-	/** List of actors currently inside the range */
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Combat")
-	TSet<AActor*> OverlappingTargets;
+	bool bTowerIsInactive = true;
+
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = "true"), Category = "Setup")
 	bool bIsGhost = true;
@@ -73,25 +75,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = "true"), Category = "Setup")
 	bool bIsValidGhost = true;
 
-	/** The specific class of actor this tower is allowed to target */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
-	TSubclassOf<AActor> TargetClassFilter;
-
-
 	UFUNCTION(BlueprintCallable, Category = "Tower Functions|Ghost")
 	void SetGhostValidity(bool bNewIsValid);
-
-	/** Called when an actor enters or leaves the range of the tower */
-	UFUNCTION(BlueprintNativeEvent, Category = "Tower Functions")
-	void OnTargetEnterRange(AActor* Target);
-
-	/** The corresponding blueprint event for blueprints to implement */
-	UFUNCTION(BlueprintNativeEvent, Category = "Tower Functions")
-	void OnTargetLeaveRange(AActor* Target);
-
-	/** Time interval between overlap checks (Optimization) */
-	UPROPERTY(EditAnywhere, Category = "Setup")
-	float OverlapCheckInterval;
 
 	UPROPERTY()
 	TObjectPtr<AGridActor> GridActor;
@@ -100,27 +85,10 @@ public:
 	UPROPERTY()
 	FRotator GridRelativeRotation;
 
-	virtual void ActivateTower();
-
 private:
-	UFUNCTION()
-	void OnRangeBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-
-	UFUNCTION()
-	void OnRangeEndOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
-
-	UFUNCTION()
-	void CheckAllOverlaps();
-
-	void UpdateGhostMaterials();
-
-	FTimerHandle OverlapCheckTimerHandle;
-
 	FTimerHandle BuildTimerHandle;
 
 	void InitializeGhostTower();
-
 	void InitializeTower();
-
-	bool bTowerIsInactive = true;
+	void UpdateGhostMaterials();
 };

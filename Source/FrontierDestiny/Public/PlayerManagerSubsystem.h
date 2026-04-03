@@ -9,6 +9,8 @@
 #include "PlayerManagerSubsystem.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPlayerStatsChanged);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRestoreBullets, int32, Amount);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMaxBulletsChanged, int32, MaxBullets);
 
 UCLASS()
 class FRONTIERDESTINY_API UPlayerManagerSubsystem : public UGameInstanceSubsystem
@@ -33,6 +35,14 @@ public:
 
 	UPROPERTY(BlueprintAssignable)
 	FOnPlayerStatsChanged OnPlayerStatsChanged;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnRestoreBullets OnRestoreBullets;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnMaxBulletsChanged OnMaxBulletsChanged;
+
+	void RestoreBullets(int32 Amount);
 
 protected:
 	void LoadPlayerDataFromDataTable();

@@ -1,8 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+#include "StatusEffectComponent.h"
 #include "EnemyActor.h"
 #include "Kismet/GameplayStatics.h"
-#include "StatusEffectComponent.h"
 
 // Sets default values for this component's properties
 UStatusEffectComponent::UStatusEffectComponent()

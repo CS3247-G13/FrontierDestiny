@@ -1,19 +1,13 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "SingleTargetTowerActor.h"
-#include "BaseEnemyCharacter.h"
-#include "StatComponent.h"
-#include "Kismet/GameplayStatics.h"
-#include "Components/SphereComponent.h"
+#include "EnemyManagerSubsystem.h"
+#include "MassEntitySubsystem.h"
 
 ASingleTargetTowerActor::ASingleTargetTowerActor()
 {
-	// No longer creating RangeSphere here; it's inherited from ATowerActor
-
-	// Defaults
 	PrimaryActorTick.bCanEverTick = true;
 	TargetingMode = ETowerTargetingMode::Nearest;
-	TargetClassFilter = ABaseEnemyCharacter::StaticClass();
 }
 
 void ASingleTargetTowerActor::ActivateTower()
@@ -25,134 +19,163 @@ void ASingleTargetTowerActor::ActivateTower()
 		this,
 		&ASingleTargetTowerActor::PerformCurrentTargetVisibilityCheck,
 		0.2f,
-		false
+		true
 	);
+
+	UEnemyManagerSubsystem* EnemyManager = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
+	if (EnemyManager)
+	{
+		EnemyDeathDelegateHandle = EnemyManager->OnEnemyDeath.AddUObject(this, &ASingleTargetTowerActor::HandleEnemyDeath);
+	}
 }
 
 void ASingleTargetTowerActor::EndPlay(const EEndPlayReason::Type Reason)
 {
+	Super::EndPlay(Reason);
 	GetWorldTimerManager().ClearTimer(TargetCheckTimer);
-	if (IsValid(CurrentTarget))
+
+	UEnemyManagerSubsystem* EnemyManager = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
+	if (EnemyManager)
 	{
-		CurrentTarget->OnDeath.RemoveDynamic(this, &ASingleTargetTowerActor::OnTargetDeath);
+		EnemyManager->OnEnemyDeath.Remove(EnemyDeathDelegateHandle);
+	}
+}
+
+void ASingleTargetTowerActor::HandleEnemyDeath(FMassEntityHandle Handle)
+{
+	// Always remove the dead entity from range tracking so it can't be retargeted
+	OverlappingTargets.Remove(Handle);
+
+	if (CurrentTarget.EntityHandle == Handle)
+	{
+		CurrentTarget = FMassEnemyTarget();
+		OnTargetDeath();
 	}
 }
 
 void ASingleTargetTowerActor::PerformCurrentTargetVisibilityCheck()
 {
-	if (!IsValid(CurrentTarget))
+	if (!CurrentTarget.IsSet())
 	{
 		return;
 	}
 
-	if (CheckTargetVisible(CurrentTarget))
+	// Keep position up-to-date
+	UEnemyManagerSubsystem* EnemyManager = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
+	if (EnemyManager)
 	{
-		return;
+		CurrentTarget.Position = EnemyManager->GetEntityPosition(CurrentTarget.EntityHandle);
 	}
 
-	LoseSightOfTarget();
+	if (!CheckTargetVisible(CurrentTarget))
+	{
+		LoseSightOfTarget();
+	}
 }
 
 void ASingleTargetTowerActor::SelectTarget()
 {
-	ABaseEnemyCharacter* BestEnemy = nullptr;
+	UEnemyManagerSubsystem* EnemyManager = GetWorld()->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
+	if (!EnemyManager) return;
+
+	FMassEntityHandle BestHandle;
 	float MinValue = TNumericLimits<float>::Max();
 	float MaxValue = -TNumericLimits<float>::Max();
 
-	// 1. Cleanup and Evaluate inherited list
-	for (AActor*& Target : OverlappingTargets)
+	// Score all candidates — no visibility checks yet (potentially expensive)
+	struct FScoredHandle
 	{
-		ABaseEnemyCharacter* Enemy = Cast<ABaseEnemyCharacter>(Target);
+		FMassEntityHandle Handle;
+		float Score;
+	};
+	TArray<FScoredHandle> Scored;
+	Scored.Reserve(OverlappingTargets.Num());
 
-		// Enemy is already dead
-		if (!IsValid(Enemy) || Enemy->StatComponent->GetStat(TEXT("HP")) <= 0 || !CheckTargetVisible(Enemy))
-		{
-			continue;
-		}
+	for (const FMassEntityHandle& Handle : OverlappingTargets)
+	{
+		if (!Handle.IsSet()) continue;
 
-		float DistanceToTower = FVector::Distance(Enemy->GetActorLocation(), GetActorLocation());
-		float Health = Enemy->StatComponent->GetStat(TEXT("HP"));
-		float Progress = 0.0f; // To be implemented in Enemy representing distance to base
+		const FVector EnemyPos = EnemyManager->GetEntityPosition(Handle);
+		const float Health = EnemyManager->GetEntityHealth(Handle);
+		float Score = 0.f;
 
 		switch (TargetingMode)
 		{
 		case ETowerTargetingMode::Nearest:
-			if (DistanceToTower < MinValue)
-			{
-				MinValue = DistanceToTower;
-				BestEnemy = Enemy;
-			}
+			Score = -FVector::DistSquared(EnemyPos, GetActorLocation());
 			break;
-
 		case ETowerTargetingMode::Strongest:
-			if (Health > MaxValue)
-			{
-				MaxValue = Health;
-				BestEnemy = Enemy;
-			}
+			Score = Health;
 			break;
-
 		case ETowerTargetingMode::Weakest:
-			if (Health < MinValue)
-			{
-				MinValue = Health;
-				BestEnemy = Enemy;
-			}
+			Score = -Health;
 			break;
-
 		case ETowerTargetingMode::ClosestToBase:
-			if (Progress > MaxValue)
-			{
-				MaxValue = Progress;
-				BestEnemy = Enemy;
-			}
-			break;
-
 		case ETowerTargetingMode::FurthestFromBase:
-			if (Progress < MinValue)
-			{
-				MinValue = Progress;
-				BestEnemy = Enemy;
-			}
 			break;
 		}
+
+		Scored.Add({ Handle, Score });
 	}
 
-	// 2. Finalize selection (CurrentTarget is inherited)
-	if (BestEnemy != nullptr)
+	Scored.Sort([](const FScoredHandle& A, const FScoredHandle& B) { return A.Score > B.Score; });
+
+	// Walk best-to-worst, stop at the first visible candidate
+	for (const FScoredHandle& Entry : Scored)
 	{
-		if (CurrentTarget == BestEnemy) return;
+		FMassEnemyTarget Candidate;
+		Candidate.EntityHandle = Entry.Handle;
+		Candidate.Position = EnemyManager->GetEntityPosition(Entry.Handle);
 
-		// Cast current target to handle enemy-specific delegate cleanup
-		if (ABaseEnemyCharacter* OldEnemy = Cast<ABaseEnemyCharacter>(CurrentTarget))
-		{
-			OldEnemy->OnDeath.RemoveDynamic(this, &ASingleTargetTowerActor::OnTargetDeath);
-		}
+		if (!CheckTargetVisible(Candidate)) continue;
 
-		CurrentTarget = BestEnemy;
-		BestEnemy->OnDeath.AddDynamic(this, &ASingleTargetTowerActor::OnTargetDeath);
-		return;
+		BestHandle = Entry.Handle;
+		break;
 	}
 
-	CurrentTarget = nullptr;
+	if (BestHandle.IsSet())
+	{
+		FMassEnemyTarget NewTarget;
+		NewTarget.EntityHandle = BestHandle;
+		NewTarget.Position = EnemyManager->GetEntityPosition(BestHandle);
+
+		if (CurrentTarget.EntityHandle != BestHandle)
+		{
+			CurrentTarget = NewTarget;
+			OnAcquireNewTarget(CurrentTarget);
+		}
+	}
+	else
+	{
+		CurrentTarget = FMassEnemyTarget();
+	}
 }
 
-bool ASingleTargetTowerActor::CheckTargetVisible_Implementation(ABaseEnemyCharacter* Target)
+void ASingleTargetTowerActor::OnTargetLeaveRange_Implementation(FMassEnemyTarget Target)
 {
-	// Don't care if it is visible
+	if (CurrentTarget.EntityHandle == Target.EntityHandle)
+	{
+		CurrentTarget = FMassEnemyTarget();
+		SelectTarget();
+	}
+}
+
+bool ASingleTargetTowerActor::CheckTargetVisible_Implementation(FMassEnemyTarget Target)
+{
 	return true;
 }
 
 void ASingleTargetTowerActor::LoseSightOfTarget_Implementation()
 {
-	// Find a new target
-	CurrentTarget = nullptr;
+	CurrentTarget = FMassEnemyTarget();
 	SelectTarget();
 }
 
 void ASingleTargetTowerActor::OnTargetDeath_Implementation()
 {
-	// Find a new target
-	CurrentTarget = nullptr;
 	SelectTarget();
+}
+
+void ASingleTargetTowerActor::OnAcquireNewTarget_Implementation(FMassEnemyTarget Target)
+{
 }

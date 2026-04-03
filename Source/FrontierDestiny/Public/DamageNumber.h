@@ -13,28 +13,30 @@ UCLASS()
 class FRONTIERDESTINY_API ADamageNumber : public AActor
 {
 	GENERATED_BODY()
-	
-public:	
-	// Sets default values for this actor's properties
+
+public:
 	ADamageNumber();
 
 	UPROPERTY(EditAnywhere, Category = "Setup")
 	int32 DamageNumber = 50;
+
+	void SetDamageNumber(int32 Value);
+
 protected:
-	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
 	UPROPERTY(VisibleAnywhere, Category = "Debug")
 	TObjectPtr<UTextRenderComponent> TextRender;
 
 	UPROPERTY(EditAnywhere, Category = "Setup")
-	float Lifetime = 1.f;
+	float Lifetime = 2.f;
 
+	UPROPERTY(EditAnywhere, Category = "Setup")
+	float RiseSpeed = 60.f;
 
 	UPROPERTY(VisibleAnywhere, Category = "Debug")
 	float Progress = 0.f;
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
 
+public:
+	virtual void Tick(float DeltaTime) override;
 };

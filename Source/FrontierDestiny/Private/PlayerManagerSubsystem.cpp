@@ -1,8 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+#include "PlayerManagerSubsystem.h"
 #include "GlobalTowerSettings.h"
 #include "UpgradeManagerSubsystem.h"
-#include "PlayerManagerSubsystem.h"
 
 void UPlayerManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -72,9 +72,18 @@ void UPlayerManagerSubsystem::SetUpgradeBoolean(const FName& TargetID, bool bVal
 	else if (TargetID == "SlugConversion")   { PlayerData.bSlugConversion     = bValue; }
 	else if (TargetID == "DevastatingBlow")  { PlayerData.bDevastatingBlow    = bValue; }
 	// Ammo
-	else if (TargetID == "BulletReservoir1") { PlayerData.bBulletReservoir1   = bValue; }
-	else if (TargetID == "BulletReservoir2") { PlayerData.bBulletReservoir2   = bValue; }
-	else if (TargetID == "BulletReservoir3") { PlayerData.bBulletReservoir3   = bValue; }
+	else if (TargetID == "BulletReservoir1") { 
+		PlayerData.bBulletReservoir1 = bValue; 
+		OnMaxBulletsChanged.Broadcast(PlayerData.GetMaxBullets()); 
+	}
+	else if (TargetID == "BulletReservoir2") { 
+		PlayerData.bBulletReservoir2   = bValue; 
+		OnMaxBulletsChanged.Broadcast(PlayerData.GetMaxBullets()); 
+	}
+	else if (TargetID == "BulletReservoir3") { 
+		PlayerData.bBulletReservoir3   = bValue; 
+		OnMaxBulletsChanged.Broadcast(PlayerData.GetMaxBullets()); 
+	}
 	else
 	{
 		UE_LOG(LogTemp, Warning, TEXT("PlayerManagerSubsystem: Unhandled upgrade TargetID '%s'. Make sure the DataTable row has a matching TargetID."), *TargetID.ToString());
@@ -98,4 +107,9 @@ void UPlayerManagerSubsystem::HandleUpgradeActivated(const FUpgradeData& Upgrade
 void UPlayerManagerSubsystem::HandleUpgradeDeactivated(const FUpgradeData& Upgrade)
 {
 	SetUpgradeBoolean(Upgrade.TargetID, false);
+}
+
+void UPlayerManagerSubsystem::RestoreBullets(int32 Amount)
+{
+	OnRestoreBullets.Broadcast(Amount);
 }

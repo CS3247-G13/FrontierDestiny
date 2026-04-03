@@ -7,6 +7,7 @@
 #include "GlobalTowerSettings.generated.h"
 
 class UMaterialInterface;
+class UNiagaraSystem;
 
 /**
  * Global settings for the Tower Defense system.
@@ -39,6 +40,24 @@ public:
 
 	UPROPERTY(Config, EditAnywhere, Category = "Upgrades")
 	TSoftObjectPtr<UDataTable> EnemyDataTable;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Quest")
+	TSoftObjectPtr<UDataTable> QuestDataTable;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Waves")
+	TSoftObjectPtr<UDataTable> WaveDataTable;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Waves")
+	TSoftObjectPtr<UDataTable> HordeDataTable;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Effects")
+	TSoftObjectPtr<UNiagaraSystem> BloodSplatterEffect;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Effects")
+	TSoftObjectPtr<UNiagaraSystem> ArcLightningEffect;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Minimap")
+	TSoftObjectPtr<UDataTable> BlipDataTable;
 
 
 	/** Helper to get the settings instance easily */

@@ -31,5 +31,5 @@ protected:
     virtual void GetNextVelocityAndRotation_Implementation(float DeltaTime, FVector& OutVelocity, FRotator& OutRotation) override;
 
     /** Handles logic when the projectile hits an object */
-    virtual void HitTarget_Implementation(AActor* TargetActor, FVector HitLocation) override;
+    virtual void HitTarget_Implementation(const FHitResult& Hit) override;
 };

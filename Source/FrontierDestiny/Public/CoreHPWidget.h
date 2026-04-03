@@ -6,6 +6,7 @@
 #include "Blueprint/UserWidget.h"
 #include "CoreData.h"
 #include "Components/ProgressBar.h"
+#include "Components/Image.h"
 #include "CoreHPWidget.generated.h"
 
 UCLASS()
@@ -27,5 +28,11 @@ protected:
 	virtual void NativeConstruct() override;
 
 	UPROPERTY(meta = (BindWidget))
-	UProgressBar* HPBar;
+	UImage* HP_Bar;
+
+	UPROPERTY(meta = (BindWidget))
+	UImage* Icon;
+
+	UPROPERTY()
+	UMaterialInstanceDynamic* HealthBarMat;
 };

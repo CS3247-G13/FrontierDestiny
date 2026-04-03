@@ -2,133 +2,158 @@
 
 
 #include "QuestSubsystem.h"
+#include "GlobalTowerSettings.h"
+#include <Kismet/GameplayStatics.h>
+
+
+TStatId UQuestSubsystem::GetStatId() const
+{
+	RETURN_QUICK_DECLARE_CYCLE_STAT(UQuestSubsystem, STATGROUP_Tickables);
+}
 
 void UQuestSubsystem::StartQuest(FName QuestID)
 {
-	if (AllQuests.Contains(QuestID))
+	UE_LOG(LogTemp, Warning, TEXT("[Quest] Trying to start next quest: %s"), *QuestID.ToString());
+
+	if (UnlockedQuests.Contains(QuestID) && !AllQuests[QuestID].bIsStarted)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("[Quest] Starting next quest: %s"), *QuestID.ToString());
 		CurrentQuest = AllQuests[QuestID];
-		UE_LOG(LogTemp, Warning, TEXT("Started Quest: %s"), *CurrentQuest.Title.ToString());
-		OnQuestUpdated.Broadcast();
+
+		CurrentQuest.CurrentMessageIndex = 0;
+		CurrentQuest.CurrentKillCount = 0;
+		AllQuests[QuestID].bIsCompleted = false;
+		AllQuests[QuestID].bIsStarted = true;
+
+		CurrentPrompt = CurrentQuest.Prompt;
+
+		CachedTargetActor = nullptr;
+
+		if (!CurrentQuest.TargetTag.IsNone())
+		{
+			CachedTargetActor = FindTargetActorByTag(CurrentQuest.TargetTag);
+		}
+
+		for (const FName& NextID : CurrentQuest.NextQuestIDs)
+		{
+			if (!NextID.IsNone())
+			{
+				UnlockedQuests.Add(NextID);
+			}
+		}
+
+		StartMessages();
 	}
 }
 
 void UQuestSubsystem::CompleteObjective()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Objective Index: %d"), CurrentQuest.CurrentObjectiveIndex);
-	CurrentQuest.CurrentObjectiveIndex++;
-
-	if (CurrentQuest.CurrentObjectiveIndex >= CurrentQuest.Objectives.Num())
-	{
-		CompleteQuest();
-	}
-	else
-	{
-		OnQuestUpdated.Broadcast();
-	}
+	CompleteQuest();
 }
 
 void UQuestSubsystem::CompleteQuest()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Completed Quest: %s"), *CurrentQuest.Title.ToString());
 	CurrentQuest.bIsCompleted = true;
-	if (!CurrentQuest.NextQuestID.IsNone())
+	CompletedQuests.Add(CurrentQuest.QuestID);
+
+	GetWorld()->GetTimerManager().ClearTimer(MessageTimerHandle);
+
+	CurrentPrompt = FText::GetEmpty();
+
+	TArray<FName> ValidNextQuests;
+
+	if (CurrentQuest.bAutoStartNext)
 	{
-		StartQuest(CurrentQuest.NextQuestID);
+		for (const FName& NextID : CurrentQuest.NextQuestIDs)
+		{
+			if (!NextID.IsNone())
+			{
+				ValidNextQuests.Add(NextID);
+			}
+		}
+
+		// autostart if only one valid
+		if (ValidNextQuests.Num() == 1)
+		{
+			FName NextQuestID = ValidNextQuests[0];
+
+			UE_LOG(LogTemp, Warning, TEXT("[Quest] Auto-starting next quest: %s"), *NextQuestID.ToString());
+
+			StartQuest(NextQuestID);
+			return;
+		}
 	}
+
+	OnQuestUpdated.Broadcast();
 }
 
 void UQuestSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
-	UE_LOG(LogTemp, Warning, TEXT("Quest_One Initialized"));
-	FQuestData QuestOne;
-	QuestOne.QuestID = "Quest_One";
-	QuestOne.RequiredDistance = 900.f;
-	QuestOne.Title = FText::FromString("Find the core");
-	QuestOne.Description = FText::FromString("Use WASD to move and your mouse to look around and reach the core.");
-	QuestOne.Objectives = {
-		FText::FromString("Move towards the waypoint"),
-	};
-	QuestOne.NextQuestID = "Quest_Two";
-	QuestOne.ObjectiveType = EObjectiveType::ReachDestination;
-	AllQuests.Add(QuestOne.QuestID, QuestOne);
 
-	UE_LOG(LogTemp, Warning, TEXT("Quest_Two Initialized"));
+	const UGlobalTowerSettings* Settings = UGlobalTowerSettings::Get();
 
-	FQuestData QuestTwo;
-	QuestTwo.QuestID = "Quest_Two";
-	QuestTwo.Title = FText::FromString("Activate the core");
-	QuestTwo.Description = FText::FromString("Locate and activate the core");
-	QuestTwo.Objectives = {
-		FText::FromString("Press E to Interact with the core")
-	};
-	QuestTwo.NextQuestID = "Quest_Three";
-	QuestTwo.ObjectiveType = EObjectiveType::Interact;
-	AllQuests.Add(QuestTwo.QuestID, QuestTwo);
+	if (!Settings)
+	{
+		return;
+	}
 
-	FQuestData QuestThree;
-	QuestThree.QuestID = "Quest_Three";
-	QuestThree.Title = FText::FromString("Enemies are coming!");
-	QuestThree.Description = FText::FromString("Build towers, Defend core.");
-	QuestThree.TimeLeft = 60;
-	QuestThree.Objectives = {
-		FText::Format(
-			FText::FromString("Enemies coming in {0} seconds"),
-			FText::AsNumber(QuestThree.TimeLeft)
-		)
+	UDataTable* DataTable = Settings->QuestDataTable.LoadSynchronous();
+	if (!DataTable) return;
+
+	AllQuests.Empty();
+	TArray<FQuestData*> Rows;
+	DataTable->GetAllRows<FQuestData>(TEXT("LoadQuestData"), Rows);
+
+	for (FQuestData* Row : Rows)
+	{
+		if (Row)
+		{
+			AllQuests.Add(Row->QuestID, *Row);
+		}
+	}
+
+	UnlockedQuests = {
+		"Onboard_1",
+		"Onboard_2",
+		"Onboard_3",
+		"Onboard_4",
+		"Onboard_5"
 	};
 
-	QuestThree.NextQuestID = "Quest_Four";
-	QuestThree.ObjectiveType = EObjectiveType::Timer;
-	AllQuests.Add(QuestThree.QuestID, QuestThree);
-
-	UE_LOG(LogTemp, Warning, TEXT("Quest_Four Initialized"));
-	FQuestData QuestFour;
-	QuestFour.QuestID = "Quest_Four";
-	QuestFour.Title = FText::FromString("Kill them all!");
-	QuestFour.Description = FText::FromString("Fight!");
-	QuestFour.RequiredKillCount = 40;
-	QuestFour.Objectives = {
-		FText::Format(
-			FText::FromString("Enemies defeated: {0} / {1}"),
-			FText::AsNumber(QuestFour.CurrentKillCount),
-			FText::AsNumber(QuestFour.RequiredKillCount)
-		)
-	};
-
-	QuestFour.NextQuestID = "Quest_Four";
-	QuestFour.ObjectiveType = EObjectiveType::KillEnemies;
-	AllQuests.Add(QuestFour.QuestID, QuestFour);
+	StartQuest("Onboard_1");
 }
 
 void UQuestSubsystem::RegisterEnemyKilled()
 {
-	if(CurrentQuest.ObjectiveType == EObjectiveType::KillEnemies)
-	{
-		CurrentQuest.CurrentKillCount++;
-		CurrentQuest.Objectives[CurrentQuest.CurrentObjectiveIndex] = FText::Format(
-			FText::FromString("Enemies defeated: {0} / {1}"),
-			FText::AsNumber(CurrentQuest.CurrentKillCount),
-			FText::AsNumber(CurrentQuest.RequiredKillCount)
-		);
+	if (CurrentQuest.ObjectiveType != EObjectiveType::KillEnemies) return;
+	
+	// Add checking if enemy has a certain tag if you want quests to track certain tags
 
-		OnQuestUpdated.Broadcast();
-		if (CurrentQuest.CurrentKillCount >= CurrentQuest.RequiredKillCount)
-		{
-			CompleteObjective();
-		}
+	CurrentQuest.CurrentKillCount++;
+	CurrentQuest.Prompt = FText::Format(
+		FText::FromString("Enemies defeated: {0} / {1}"),
+		FText::AsNumber(CurrentQuest.CurrentKillCount),
+		FText::AsNumber(CurrentQuest.RequiredKillCount)
+	);
+
+	OnQuestUpdated.Broadcast();
+	if (CurrentQuest.CurrentKillCount >= CurrentQuest.RequiredKillCount)
+	{
+		CompleteObjective();
 	}
+	
 }
 
-void UQuestSubsystem::UpdateTimeLeft(float seconds)
+void UQuestSubsystem::UpdateTimeLeft(float DeltaTime)
 {
 	if (CurrentQuest.ObjectiveType == EObjectiveType::Timer)
 	{
-		CurrentQuest.TimeLeft -= seconds;
+		CurrentQuest.TimeLeft -= DeltaTime;
 		UE_LOG(LogTemp, Warning, TEXT("Time Left: %.2f"), CurrentQuest.TimeLeft);
-		CurrentQuest.Objectives[CurrentQuest.CurrentObjectiveIndex] = FText::Format(
-			FText::FromString("Enemies coming in {0} seconds"),
+		CurrentQuest.
+			Prompt = FText::Format(
+			FText::FromString("{0} seconds left!"),
 			FText::AsNumber(FMath::CeilToInt(CurrentQuest.TimeLeft))
 		);
 		OnQuestUpdated.Broadcast();
@@ -137,4 +162,129 @@ void UQuestSubsystem::UpdateTimeLeft(float seconds)
 			CompleteObjective();
 		}
 	}
+}
+
+AActor* UQuestSubsystem::FindTargetActorByTag(FName Tag)
+{
+	// Returns first actor found with matching tag
+	if (!GetWorld()) return nullptr;
+
+	TArray<AActor*> FoundActors;
+	UGameplayStatics::GetAllActorsWithTag(GetWorld(), Tag, FoundActors);
+
+	return FoundActors.Num() > 0 ? FoundActors[0] : nullptr;
+}
+
+void UQuestSubsystem::CheckReachDestination()
+{
+	if (CurrentQuest.ObjectiveType != EObjectiveType::ReachDestination) return;
+	
+	if (!CachedTargetActor)
+	{
+		CachedTargetActor = FindTargetActorByTag(CurrentQuest.TargetTag);
+		return;
+	}
+
+	APawn* PlayerPawn = GetWorld()->GetFirstPlayerController()->GetPawn();
+	if (!PlayerPawn) return;
+
+	float Dist = FVector::Dist(
+		PlayerPawn->GetActorLocation(),
+		CachedTargetActor->GetActorLocation()
+	);
+
+	if (Dist <= CurrentQuest.RequiredDistance)
+	{
+		CompleteObjective();
+	}
+}
+
+void UQuestSubsystem::StartMessages()
+{
+	GetWorld()->GetTimerManager().ClearTimer(MessageTimerHandle);
+
+	CurrentMessage = FText::GetEmpty();
+	CurrentFaction = FText::GetEmpty();
+
+	PlayMessage();
+}
+
+void UQuestSubsystem::PlayMessage()
+{
+	if (!CurrentQuest.Messages.IsValidIndex(CurrentQuest.CurrentMessageIndex)) return;
+
+	const FQuestMessage& Msg = CurrentQuest.Messages[CurrentQuest.CurrentMessageIndex];
+
+	CurrentMessage = Msg.Text;
+	CurrentFaction = Msg.Faction;
+
+	OnQuestUpdated.Broadcast();
+
+	GetWorld()->GetTimerManager().SetTimer(
+		MessageTimerHandle,
+		this,
+		&UQuestSubsystem::NextMessage,
+		GetMessageDisplayTime(),
+		false
+	);
+}
+
+void UQuestSubsystem::NextMessage()
+{
+	if (CurrentQuest.bIsCompleted)
+	{
+		CurrentMessage = FText::GetEmpty();
+		CurrentFaction = FText::GetEmpty();
+
+		OnQuestUpdated.Broadcast();
+
+		GetWorld()->GetTimerManager().ClearTimer(MessageTimerHandle);
+		return;
+	}
+
+	CurrentQuest.CurrentMessageIndex++;
+
+	if (CurrentQuest.Messages.IsValidIndex(CurrentQuest.CurrentMessageIndex))
+	{
+		PlayMessage();
+	}
+	else
+	{
+		CurrentMessage = FText::GetEmpty();
+		CurrentFaction = FText::GetEmpty();
+			
+		OnQuestUpdated.Broadcast();
+
+		GetWorld()->GetTimerManager().ClearTimer(MessageTimerHandle);
+		if (CurrentQuest.ObjectiveType == EObjectiveType::JustMessage) CompleteObjective();
+	}
+}
+
+float UQuestSubsystem::GetMessageDisplayTime()
+{
+	const FQuestMessage& Msg = CurrentQuest.Messages[CurrentQuest.CurrentMessageIndex];
+
+	if (Msg.Delay > 0.f)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[MessageTiming] Using explicit delay: %.2f seconds | Message: %s"),
+			Msg.Delay,
+			*Msg.Text.ToString()
+		);
+
+		return Msg.Delay;
+	}
+
+	const FString MsgString = Msg.Text.ToString();
+	const int32 CharCount = MsgString.Len();
+
+	// reading speed of 15 char per second?
+	float Time = CharCount / 15.0f + 5.0f;
+
+	UE_LOG(LogTemp, Warning, TEXT("[MessageTiming] Calculated delay: %.2f seconds (Chars: %d) | Message: %s"),
+		Time,
+		CharCount,
+		*MsgString
+	);
+
+	return FMath::Max(Time, 3.0f);
 }

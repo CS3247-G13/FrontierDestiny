@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "MassEntityConfigAsset.h"
 #include "CoreMinimal.h"
 #include "EnemyData.generated.h"
 
@@ -24,4 +25,15 @@ struct FRONTIERDESTINY_API FEnemyData : public FTableRowBase
 public:
 	UPROPERTY(EditAnywhere)
 	TMap<FName, FEntityAttribute> Attributes;
+
+	UPROPERTY(EditAnywhere)
+	TSoftObjectPtr<UMassEntityConfigAsset> EnemyMassEntityAsset;
+
+	/** If true, this enemy type counts as enhanced — shown as a darker blip on the minimap when priority targeting is active. */
+	UPROPERTY(EditAnywhere)
+	bool bIsEnhanced = false;
+
+	/** Visual height of the enemy mesh. Used to offset targeting and UI positions to the centre of the enemy. */
+	UPROPERTY(EditAnywhere)
+	float Height = 200.f;
 };

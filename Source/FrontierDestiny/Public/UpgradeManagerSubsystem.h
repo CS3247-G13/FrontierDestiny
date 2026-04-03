@@ -12,6 +12,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUpgradePerformed, const FUpgradeD
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnUpgradeDisabled, FName, PerformedUpgradeID, FName, DisabledUpgradeID);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUpgradeActivated, const FUpgradeData&, Upgrade);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUpgradeDeactivated, const FUpgradeData&, Upgrade);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnBlueprintUnlocked, const FUpgradeData&, Upgrade);
 
 USTRUCT(BlueprintType)
 struct FRONTIERDESTINY_API FUpgradeStatus
@@ -54,6 +55,9 @@ public:
 	bool PurchaseUpgrade(const FName& UpgradeID);
 
 	UFUNCTION(BlueprintCallable, Category = "Upgrade")
+	void UnlockBlueprint(const FName& UpgradeID);
+
+	UFUNCTION(BlueprintCallable, Category = "Upgrade")
 	FUpgradeStatus CheckUpgradeSufficientResources(const FName& UpgradeID);
 
 	UFUNCTION(BlueprintCallable, Category = "Upgrade")
@@ -86,7 +90,8 @@ public:
 	FOnUpgradeActivated OnUpgradeActivated;
 	UPROPERTY(BlueprintAssignable, Category = "Upgrade")
 	FOnUpgradeDeactivated OnUpgradeDeactivated;
-
+	UPROPERTY(BlueprintAssignable, Category = "Upgrade")
+	FOnBlueprintUnlocked OnBlueprintUnlocked;
 private:
 	// Returns true if the upgrade itself or any ancestor has mutual exclusions.
 	bool IsInMutexChain(const FName& UpgradeID) const;

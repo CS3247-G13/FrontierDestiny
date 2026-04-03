@@ -42,7 +42,7 @@ protected:
     virtual void GetNextVelocityAndRotation_Implementation(float DeltaTime, FVector& OutVelocity, FRotator& OutRotation) override;
 
     /** Handles impact logic */
-    virtual void HitTarget_Implementation(AActor* TargetActor, FVector HitLocation) override;
+    virtual void HitTarget_Implementation(const FHitResult& Hit) override;
 
 private:
     /** The current velocity of the projectile, updated frame by frame */

@@ -18,7 +18,19 @@ public class FrontierDestiny : ModuleRules
 			"UMG", 
 			"Slate", 
 			"SlateCore", 
-			"GameplayTags" 
+			"GameplayTags",
+			"Niagara",
+			"MassEntity",
+			"MassCommon",
+			"MassRepresentation",
+			"MassAIBehavior",
+			"GameplayStateTreeModule",
+			"StateTreeModule",
+			"MassMovement",
+			"MassNavigation",
+			"MassSpawner",
+			"NavigationSystem",
+			"AIModule"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });

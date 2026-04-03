@@ -10,6 +10,7 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCoreHPChanged, ACoreActor*, UpdatedCoreData);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCoreActivated, ACoreActor*, CoreActor);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCoreDestroyed, ACoreActor*, CoreActor);
 
 UCLASS()
 class FRONTIERDESTINY_API ACoreActor : public AActor
@@ -30,6 +31,9 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category="Core")
 	FOnCoreActivated OnCoreActivated;
+
+	UPROPERTY(BlueprintAssignable, Category="Core")
+	FOnCoreDestroyed OnCoreDestroyed;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Core")
 	int32 CoreIndex = 0;

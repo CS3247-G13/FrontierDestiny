@@ -76,7 +76,7 @@ void UUpgradeManagerSubsystem::LoadUpgradesFromDataTable()
 	{
 		if (Pair.Value.bRequiresBlueprint)
 		{
-			BlueprintMap.Add(Pair.Key, false);
+			BlueprintMap.Add(Pair.Value.ID, false);
 		}
 	}
 
@@ -87,7 +87,8 @@ bool UUpgradeManagerSubsystem::PurchaseUpgrade(const FName& UpgradeID)
 {
 	if (!UpgradeMap.Contains(UpgradeID))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Upgrade ID %s not found! Make sure to add it to the data table."), *UpgradeID.ToString());
+		if (UpgradeID != NAME_None)
+			UE_LOG(LogTemp, Warning, TEXT("Upgrade ID %s not found! Make sure to add it to the data table."), *UpgradeID.ToString());
 		return false;
 	}
 
@@ -147,6 +148,22 @@ bool UUpgradeManagerSubsystem::PurchaseUpgrade(const FName& UpgradeID)
 	return true;
 }
 
+void UUpgradeManagerSubsystem::UnlockBlueprint(const FName& UpgradeID)
+{
+	if (!BlueprintMap.Contains(UpgradeID))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No upgrade with ID %s was found that requires a blueprint!"), *UpgradeID.ToString());
+		return;
+	}
+	BlueprintMap[UpgradeID] = true;
+	if (!UpgradeMap.Contains(UpgradeID))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Upgrade ID %s not found in UpgradeMap! This should not happen if the data table is set up correctly."), *UpgradeID.ToString());
+		return;
+	}
+	OnBlueprintUnlocked.Broadcast(UpgradeMap[UpgradeID]);
+}
+
 FUpgradeStatus UUpgradeManagerSubsystem::CheckUpgradeSufficientResources(const FName& UpgradeID)
 {
 	FUpgradeStatus Status;
@@ -195,7 +212,8 @@ bool UUpgradeManagerSubsystem::GetUpgradeData(const FName& UpgradeID, FUpgradeDa
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Upgrade ID %s not found! Make sure to add it to the data table."), *UpgradeID.ToString());
+		if (UpgradeID != NAME_None)
+			UE_LOG(LogTemp, Warning, TEXT("Upgrade ID %s not found! Make sure to add it to the data table."), *UpgradeID.ToString());
 		return false;
 	}
 }

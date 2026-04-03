@@ -3,11 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "TowerActor.h"
+#include "TrackedTargetTowerActor.h"
 #include "SingleTargetTowerActor.generated.h"
-
-class ABaseEnemyCharacter;
-class USphereComponent;
 
 /** * Defines the logic used by the tower to prioritize targets within range.
  */
@@ -25,7 +22,7 @@ enum class ETowerTargetingMode : uint8
  * A specialized tower that focuses on and attacks a single enemy target within range.
  */
 UCLASS()
-class FRONTIERDESTINY_API ASingleTargetTowerActor : public ATowerActor
+class FRONTIERDESTINY_API ASingleTargetTowerActor : public ATrackedTargetTowerActor
 {
 	GENERATED_BODY()
 
@@ -38,6 +35,7 @@ public:
 
 	virtual void ActivateTower() override;
 	virtual void EndPlay(const EEndPlayReason::Type Reason) override;
+	virtual void OnTargetLeaveRange_Implementation(FMassEnemyTarget Target) override;
 
 protected:
 
@@ -45,20 +43,30 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Single Target Tower Properties")
 	ETowerTargetingMode TargetingMode;
 
-	// This tower targets enemies
-	UPROPERTY(VisibleAnywhere, BlueprintReadonly, Category = "Single Target Tower Properties")
-	TObjectPtr<ABaseEnemyCharacter> CurrentTarget;
+	/** The currently tracked Mass entity target */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Single Target Tower Properties")
+	FMassEnemyTarget CurrentTarget;
 
+	/** Called when the current target entity is no longer valid (destroyed) */
 	UFUNCTION(BlueprintNativeEvent)
 	void OnTargetDeath();
 
+	/** Return false to trigger LoseSightOfTarget; override in BP for line-trace etc. */
 	UFUNCTION(BlueprintNativeEvent)
-	bool CheckTargetVisible(ABaseEnemyCharacter* Target);
+	bool CheckTargetVisible(FMassEnemyTarget Target);
 
 	UFUNCTION(BlueprintNativeEvent)
 	void LoseSightOfTarget();
+
+	UFUNCTION(BlueprintNativeEvent)
+	void OnAcquireNewTarget(FMassEnemyTarget Target);
+
 	FTimerHandle TargetCheckTimer;
 
 	UFUNCTION()
 	void PerformCurrentTargetVisibilityCheck();
+
+private:
+	void HandleEnemyDeath(FMassEntityHandle Handle);
+	FDelegateHandle EnemyDeathDelegateHandle;
 };

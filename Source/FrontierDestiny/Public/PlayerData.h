@@ -82,8 +82,25 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	TMap<EWeaponType, FWeaponData> WeaponDataMap;
 
-	UPROPERTY(EditAnywhere, Category = "Combat")
+	UPROPERTY(EditAnywhere, BlueprintReadonly, Category = "Combat")
 	int32 MaxBullets = 32;
+
+	UPROPERTY(EditAnywhere, Category = "Upgrade Values|Bullet Reservoir")
+	int32 BulletReservoir1Amount = 8;
+	UPROPERTY(EditAnywhere, Category = "Upgrade Values|Bullet Reservoir")
+	int32 BulletReservoir2Amount = 8;
+	UPROPERTY(EditAnywhere, Category = "Upgrade Values|Bullet Reservoir")
+	int32 BulletReservoir3Amount = 8;
+
+	int32 GetMaxBullets() const
+	{
+		int32 Bonus = 0;
+		if (bBulletReservoir1) Bonus += BulletReservoir1Amount;
+		if (bBulletReservoir2) Bonus += BulletReservoir2Amount;
+		if (bBulletReservoir3) Bonus += BulletReservoir3Amount;
+		return MaxBullets + Bonus;
+	}
+
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	float AmmoReplenishRate = 3.3333f;
 	UPROPERTY()
@@ -105,6 +122,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float MovementSpeed = 600.f;
 
+	// Inferno Cartridge
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Inferno Cartridge")
+	float InfernoCartridgeDamagePerTick = 4.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Inferno Cartridge")
+	float InfernoCartridgeDuration = 3.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Inferno Cartridge")
+	float InfernoCartridgeTickInterval = 1.f;
+
 	// Rupture Rounds
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Rupture Rounds")
 	float RuptureRoundsDamage = 15.f;
@@ -116,6 +141,10 @@ public:
 	int32 SuppressingFireShotCount = 3;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Suppressing Fire")
 	float SuppressingFireTimeWindow = 2.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Suppressing Fire")
+	float SuppressingFireSlowAmount = 0.5f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Suppressing Fire")
+	float SuppressingFireSlowDuration = 3.f;
 
 	// Compounding Injury
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Compounding Injury")
@@ -141,7 +170,9 @@ public:
 
 	// Stagger Shells
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Stagger Shells")
-	float StaggerShellsRange = 6.f;
+	float StaggerShellsRange = 300.f;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Stagger Shells")
+	float StaggerShellsStunDuration = 2.f;
 
 	// Ballistic Recall
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Upgrade Values|Ballistic Recall")

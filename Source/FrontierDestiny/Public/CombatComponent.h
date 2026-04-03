@@ -4,6 +4,7 @@
 
 #include "ModeComponent.h"
 #include "PlayerData.h"
+#include "MassEnemyTarget.h"
 
 #include "Upgrade.h"
 #include "CoreMinimal.h"
@@ -11,6 +12,7 @@
 #include "CombatComponent.generated.h"
 
 class UInputAction;
+class UEnemyManagerSubsystem;
 
 // This is for changing the cross hair when the weapon changes
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnWeaponChange, EWeaponType, Weapon);
@@ -37,7 +39,10 @@ public:
 protected:
 	UFUNCTION()
 	void OnPlayerStatsUpdated();
-	
+
+	UFUNCTION()
+	void OnRestoreBullets(int32 Amount);
+
 	void UpdateBulletReplenishTimer();
 
 	UPROPERTY(BlueprintAssignable, Category = "Combat|Events")
@@ -60,6 +65,8 @@ protected:
 	UFUNCTION()
 	void OnFireAction(EWeaponType WeaponType);
 	UFUNCTION()
+	void PlayFireAnimation(EWeaponType WeaponType);
+	UFUNCTION()
 	void OnFireActionStart(EWeaponType WeaponType);
 
 	// Code duplication intensifies
@@ -67,6 +74,9 @@ protected:
 	void RecoverRecoil(float DeltaTime);
 	void Shoot();
 	void ShootDirection(FVector Direction);
+	void ApplyHit(const FHitResult& Hit);
+	void ApplyRifleUpgrades(UEnemyManagerSubsystem* EnemyManager, FMassEnemyTarget Target);
+	void ApplyShotgunUpgrades(UEnemyManagerSubsystem* EnemyManager, FMassEnemyTarget Target, const FHitResult& Hit);
 	bool TryConsumeBullets();
 	void PlayTriggerSound();
 	void PutOnCooldown();
@@ -87,4 +97,17 @@ protected:
 	FVector2D CurrentOffset;
 	UPROPERTY(VisibleAnywhere, Category = "Debug")
 	FTimerHandle ReplenishBulletTimerHandle;
+
+	UPROPERTY()
+	UParticleSystemComponent* MuzzleFlashShotgun;
+
+	UPROPERTY()
+	UParticleSystemComponent* MuzzleFlashSniper;
+
+	UFUNCTION(BlueprintCallable)
+	void SetMuzzleFlashes(UParticleSystemComponent* Shotgun, UParticleSystemComponent* Sniper)
+	{
+		MuzzleFlashShotgun = Shotgun;
+		MuzzleFlashSniper = Sniper;
+	}
 };

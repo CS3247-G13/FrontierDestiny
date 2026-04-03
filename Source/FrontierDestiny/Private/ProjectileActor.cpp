@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "ProjectileActor.h"
+#include "CustomChannels.h"
 #include "Components/PrimitiveComponent.h"
 
 AProjectileActor::AProjectileActor()
@@ -18,8 +19,8 @@ void AProjectileActor::BeginPlay()
         if (UPrimitiveComponent* RootPrim = Cast<UPrimitiveComponent>(GetRootComponent()))
         {
             RootPrim->IgnoreActorWhenMoving(MyOwner, true);
-			// Set the bullet to not collide with other projectiles (custom channel 2)
-            RootPrim->SetCollisionResponseToChannel(ECC_GameTraceChannel2, ECR_Ignore);
+			// Set the bullet to not collide with other projectiles (Projectile channel)
+            RootPrim->SetCollisionResponseToChannel(CC_Projectile, ECR_Ignore);
         }
     }
 }
@@ -51,7 +52,7 @@ void AProjectileActor::Move(float DeltaTime)
     // 4. Check for collision
     if (HitResult.bBlockingHit)
     {
-        HitTarget(HitResult.GetActor(), HitResult.ImpactPoint);
+        HitTarget(HitResult);
     }
 }
 
@@ -62,10 +63,9 @@ void AProjectileActor::GetNextVelocityAndRotation_Implementation(float DeltaTime
     OutRotation = GetActorRotation();
 }
 
-void AProjectileActor::HitTarget_Implementation(AActor* TargetActor, FVector HitLocation)
+void AProjectileActor::HitTarget_Implementation(const FHitResult& Hit)
 {
-    if (TargetActor)
-    {
-        UE_LOG(LogTemp, Log, TEXT("Projectile hit %s at location: %s"), *TargetActor->GetName(), *HitLocation.ToString());
-    }
+    UE_LOG(LogTemp, Log, TEXT("Projectile hit %s at location: %s"),
+        Hit.GetActor() ? *Hit.GetActor()->GetName() : TEXT("None"),
+        *Hit.ImpactPoint.ToString());
 }
