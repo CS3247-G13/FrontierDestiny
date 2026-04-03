@@ -9,6 +9,7 @@
 #include "EnemyWaveManagerSubsystem.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnSpawnOrderIssued, FGameplayTag, SpawnTag, const FHordeBatchDetails&, Details);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnHordeBegin, FName, HordeID);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnHordeBatchBegin, FName, HordeID);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnHordeFinished, FName, HordeID);
 
@@ -54,6 +55,10 @@ public:
 
 	UPROPERTY(BlueprintAssignable)
 	FOnSpawnOrderIssued OnSpawnOrderIssued;
+
+	/** Fired just before a horde's first spawn order is issued, so BGM can change to horde music. */
+	UPROPERTY(BlueprintAssignable)
+	FOnHordeBegin OnHordeBegin;
 
 	/** Fired just before a batch's spawn orders are issued, so spawners can cache the current HordeID. */
 	UPROPERTY(BlueprintAssignable)
