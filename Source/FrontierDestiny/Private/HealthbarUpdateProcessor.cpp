@@ -38,6 +38,7 @@ void UHealthbarUpdateProcessor::ConfigureQueries(const TSharedRef<FMassEntityMan
 	EntityQuery.AddRequirement<FBurnFragment>(EMassFragmentAccess::ReadOnly,      EMassFragmentPresence::Optional);
 	EntityQuery.AddRequirement<FSlowFragment>(EMassFragmentAccess::ReadOnly,      EMassFragmentPresence::Optional);
 	EntityQuery.AddRequirement<FStunFragment>(EMassFragmentAccess::ReadOnly,      EMassFragmentPresence::Optional);
+	EntityQuery.AddRequirement<FStatsFragment>(EMassFragmentAccess::ReadOnly,    EMassFragmentPresence::Optional);
 
 	EntityQuery.RegisterWithProcessor(*this);
 }
@@ -79,9 +80,11 @@ void UHealthbarUpdateProcessor::Execute(FMassEntityManager& EntityManager, FMass
 		TConstArrayView<FBurnFragment>     BurnList       = Context.GetFragmentView<FBurnFragment>();
 		TConstArrayView<FSlowFragment>     SlowList       = Context.GetFragmentView<FSlowFragment>();
 		TConstArrayView<FStunFragment>     StunList       = Context.GetFragmentView<FStunFragment>();
+		TConstArrayView<FStatsFragment>    StatsList      = Context.GetFragmentView<FStatsFragment>();
 
 		const bool bHasModifiers = !ModifierList.IsEmpty();
 		const bool bHasVitality  = !VitalityList.IsEmpty();
+		const bool bHasStats     = !StatsList.IsEmpty();
 		const bool bHasBurn      = !BurnList.IsEmpty();
 		const bool bHasSlow      = !SlowList.IsEmpty();
 		const bool bHasStun      = !StunList.IsEmpty();
@@ -136,6 +139,7 @@ void UHealthbarUpdateProcessor::Execute(FMassEntityManager& EntityManager, FMass
 
 			Data.ModifierFlags.Add((float)Flags);
 			Data.FragmentedChunkSizes.Add(bHasModifiers ? ModifierList[i].FragmentedChunkSize : 0.f);
+			Data.EnemyIDs.Add(bHasStats ? StatsList[i].EnemyID : FName());
 		}
 	});
 

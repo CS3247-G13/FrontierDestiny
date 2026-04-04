@@ -158,6 +158,11 @@ void UEnemyDamageMassProcessor::Execute(FMassEntityManager& EntityManager, FMass
 
 				Health.Value -= FinalDamage;
 
+				if (EnemyManager)
+				{
+					EnemyManager->NotifyDamageDealt(Entity, FinalDamage);
+				}
+
 			// Stealthy: reveal on any damage that actually lands
 			if (bHasModifiers && FinalDamage > 0.f)
 			{

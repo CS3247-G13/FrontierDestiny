@@ -2,6 +2,7 @@
 
 
 #include "EnemyManagerSubsystem.h"
+#include "CustomChannels.h"
 
 #include "GlobalTowerSettings.h"
 #include "Async/TaskGraphInterfaces.h"
@@ -44,6 +45,7 @@ void UEnemyManagerSubsystem::InitializeHealthbars()
 	FragmentedChunkSizes.SetNum(1000);
 	MitigatedDamageAmounts.SetNum(1000);
 	MitigatedDamageFadeTimers.SetNum(1000);
+	EnemyHeights.SetNum(1000);
 }
 
 FMassEntityHandle UEnemyManagerSubsystem::GetEnemyEntityHandle(UInstancedStaticMeshComponent* Component, int32 Item) const
@@ -104,9 +106,17 @@ void UEnemyManagerSubsystem::NotifyDamageMitigated(FMassEntityHandle Handle, flo
 	});
 }
 
+void UEnemyManagerSubsystem::NotifyDamageDealt(FMassEntityHandle Handle, float FinalDamage)
+{
+	AsyncTask(ENamedThreads::GameThread, [this, Handle, FinalDamage]()
+	{
+		const FVector Location = GetEntityPosition(Handle);
+		OnEnemyDamageTaken.Broadcast(Location, static_cast<int32>(FinalDamage));
+	});
+}
+
 void UEnemyManagerSubsystem::ApplyDamageToEnemy(FMassEntityHandle Handle, int32 DamageThisHit, FVector ImpactLocation, EDamageType DamageType)
 {
-	OnEnemyDamageTaken.Broadcast(ImpactLocation, DamageThisHit);
 
 	UMassEntitySubsystem* EntitySubsystem = GetWorld()->GetSubsystem<UMassEntitySubsystem>();
 
@@ -205,6 +215,11 @@ void UEnemyManagerSubsystem::UpdateHealthbarInformation(FHealthbarFrameData& Dat
 		StunDurations[Slot]       = Data.StunDurations[i];
 		ModifierFlags[Slot]          = Data.ModifierFlags[i];
 		FragmentedChunkSizes[Slot]   = Data.FragmentedChunkSizes[i];
+
+		if (const FEnemyData* EnemyData = EnemyDataMap.Find(Data.EnemyIDs[i]))
+		{
+			EnemyHeights[Slot] = EnemyData->Height;
+		}
 	}
 
 	// Tick mitigated damage fade
@@ -826,7 +841,7 @@ bool UEnemyManagerSubsystem::GetEnemyTargetFromHit(const FHitResult& Hit, FMassE
 	}
 
 	OutTarget.EntityHandle = Handle;
-	OutTarget.Position = GetEntityPosition(Handle);
+	OutTarget.Position = Hit.ImpactPoint;
 	OutTarget.EnemyID = GetEntityEnemyID(Handle);
 	return true;
 }
@@ -850,7 +865,7 @@ void UEnemyManagerSubsystem::GetEntitiesInRange(FVector Center, float Radius, TA
 
 	FCollisionShape Sphere = FCollisionShape::MakeSphere(Radius);
 	TArray<FOverlapResult> Overlaps;
-	World->OverlapMultiByChannel(Overlaps, Center, FQuat::Identity, ECC_GameTraceChannel3, Sphere);
+	World->OverlapMultiByChannel(Overlaps, Center, FQuat::Identity, CC_Laser, Sphere);
 
 	for (const FOverlapResult& Overlap : Overlaps)
 	{
@@ -868,7 +883,12 @@ void UEnemyManagerSubsystem::GetEntitiesInRange(FVector Center, float Radius, TA
 FVector UEnemyManagerSubsystem::GetEntityPosition(FMassEntityHandle Handle) const
 {
 	const int32 Idx = ActiveEntityHandles.IndexOfByKey(Handle);
-	return (Idx != INDEX_NONE && Idx < EnemyPositions.Num()) ? EnemyPositions[Idx] + FVector(0.0f, 0.0f, 100.0f) : FVector::ZeroVector;
+	return (Idx != INDEX_NONE && Idx < EnemyPositions.Num()) ? EnemyPositions[Idx] + FVector(0.f, 0.f, EnemyHeights[Idx] * 0.5f) : FVector::ZeroVector;
+}
+
+FVector UEnemyManagerSubsystem::GetTargetPosition(FMassEnemyTarget Target) const
+{
+	return GetEntityPosition(Target.EntityHandle);
 }
 
 float UEnemyManagerSubsystem::GetEntityHealth(FMassEntityHandle Handle) const

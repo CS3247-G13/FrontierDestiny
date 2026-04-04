@@ -29,6 +29,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	bool GetTowerData(const FName& TowerID, FTowerData& TowerData);
 
+	UFUNCTION(BlueprintPure)
+	bool IsTowerUnlocked(FName TowerID) const;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadonly)
 	TMap<FName, FTowerData> TowerDataMap;
 	UPROPERTY(VisibleAnywhere, BlueprintReadonly)
@@ -39,6 +42,7 @@ public:
 
 	FTowerPathNode FullTowerPath;
 	bool CheckPathUnlocked(TArray<int32> Path);
+	UFUNCTION(BlueprintCallable, Category = "Tower")
 	TMap<int32, FTowerData> GetPathNextTowers(TArray<int32> Path);
 	FTowerData GetPathTower(TArray<int32> Path);
 protected:
