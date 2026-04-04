@@ -6,17 +6,17 @@
 #include "MassProcessor.h"
 
 // Temporary water stuff
-#include "../../../../../../../../Program Files/Epic Games/UE_5.7/Engine/Plugins/Experimental/Water/Source/Runtime/Public/WaterSubsystem.h"
+//#include "../../../../../../../../Program Files/Epic Games/UE_5.7/Engine/Plugins/Experimental/Water/Source/Runtime/Public/WaterSubsystem.h"
 #include "WaterBodyActor.h"      // For AWaterBody
 #include "WaterBodyComponent.h"  // For UWaterBodyComponent
 #include "WaterSubsystem.h"      // If you use the subsystem
 #include "Kismet/GameplayStatics.h"
+#include "LakeData.h"
 
 #include "WaterBodyProximtyProcessor.generated.h"
 
-/**
- * 
- */
+
+
 UCLASS()
 class FRONTIERDESTINY_API UWaterBodyProximtyProcessor : public UMassProcessor
 {
@@ -39,4 +39,6 @@ private:
 	TArray<TObjectPtr<UWaterBodyComponent>> CachedWaterBodies;
 	// Track if we have already scanned to avoid redundant searches
 	bool bWaterCacheInitialized = false;
+
+	TArray<FLakeData> CachedLakes; // runtime-only
 };

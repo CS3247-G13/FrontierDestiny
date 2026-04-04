@@ -15,6 +15,121 @@
 
 void ApplyBurn(FMassExecutionContext& Context, const FMassEntityHandle& Handle, float Duration, float DamagePerTick, float TickInterval);
 
+/*
+FORCEINLINE bool PointInPolygon(const FVector2D& Point, const TArray<FVector2D>& Poly)
+{
+    bool bInside = false;
+
+    for (int32 i = 0, j = Poly.Num() - 1; i < Poly.Num(); j = i++)
+    {
+        const FVector2D& A = Poly[i];
+        const FVector2D& B = Poly[j];
+
+        const bool bIntersect =
+            ((A.Y > Point.Y) != (B.Y > Point.Y)) &&
+            (Point.X < (B.X - A.X) * (Point.Y - A.Y) / (B.Y - A.Y + KINDA_SMALL_NUMBER) + A.X);
+
+        if (bIntersect)
+            bInside = !bInside;
+    }
+
+    return bInside;
+}*/
+
+FORCEINLINE int32 GetWindingNumber(const FVector2D& Point, const TArray<FVector2D>& Poly)
+{
+    int32 WindingNumber = 0;
+    const int32 NumPoints = Poly.Num();
+
+    for (int32 i = 0; i < NumPoints; i++)
+    {
+        const FVector2D& V1 = Poly[i];
+        const FVector2D& V2 = Poly[(i + 1) % NumPoints];
+
+        // Cross product logic: Is Point to the left of the line V1 -> V2?
+        // (V2.x - V1.x) * (Point.y - V1.y) - (V2.y - V1.y) * (Point.x - V1.x)
+        const float IsLeft = FVector2D::CrossProduct(V2 - V1, Point - V1);
+
+        if (V1.Y <= Point.Y)
+        {
+            // Upward crossing: edge must cross above Point.Y AND Point must be to the left
+            if (V2.Y > Point.Y && IsLeft > 0.0f)
+            {
+                WindingNumber++;
+            }
+        }
+        else
+        {
+            // Downward crossing: edge must cross below Point.Y AND Point must be to the right
+            // Note: In Winding Number, "is right" is IsLeft < 0
+            if (V2.Y <= Point.Y && IsLeft < 0.0f)
+            {
+                WindingNumber--;
+            }
+        }
+    }
+    return WindingNumber;
+}
+
+
+FORCEINLINE bool PointInPolygon(const FVector2D& Point, const TArray<FVector2D>& Poly)
+{
+    return GetWindingNumber(Point, Poly) != 0;
+}
+
+
+
+
+static void BuildLakePolygon(UWaterSplineComponent* Spline, TArray<FVector2D>& OutPolygon)
+{
+    if (!Spline) return;
+
+    const int32 NumPoints = Spline->GetNumberOfSplinePoints();
+    if (NumPoints < 2) return;
+
+    const int32 SamplesPerSegment = 8; // fixed sampling
+
+    // Step 1: Use a temporary array for all points
+    TArray<FVector2D> TempPolygon;
+    TempPolygon.Reserve(NumPoints * SamplesPerSegment + 1);
+
+    for (int32 i = 0; i < NumPoints; i++)
+    {
+        const float StartKey = static_cast<float>(i);
+        const float EndKey = (i + 1 == NumPoints) ? 0.f : static_cast<float>(i + 1);
+
+        for (int32 s = 0; s < SamplesPerSegment; s++)
+        {
+            const float Alpha = static_cast<float>(s) / SamplesPerSegment;
+            const float Key = FMath::Lerp(StartKey, EndKey, Alpha);
+
+            const FVector Pos = Spline->GetLocationAtSplineInputKey(Key, ESplineCoordinateSpace::World);
+            const FVector2D Point(Pos.X, Pos.Y);
+
+            // Avoid consecutive duplicates
+            if (TempPolygon.Num() == 0 || !TempPolygon.Last().Equals(Point, 1.0f))
+            {
+                TempPolygon.Add(Point);
+            }
+        }
+    }
+
+    /*
+    // Ensure closed polygon safely
+    if (TempPolygon.Num() > 1)
+    {
+        FVector2D FirstPoint = TempPolygon[0]; // make a copy
+        if (!TempPolygon.Last().Equals(FirstPoint, 1.0f))
+        {
+            TempPolygon.Add(FirstPoint);
+        }
+    }
+    */
+
+    // Step 2: Move the fully built array into OutPolygon
+    OutPolygon = MoveTemp(TempPolygon);
+}
+
 UWaterBodyProximtyProcessor::UWaterBodyProximtyProcessor()
 {
 
@@ -58,98 +173,67 @@ void UWaterBodyProximtyProcessor::Execute(FMassEntityManager& EntityManager, FMa
             for (int32 i = 0; i < ChunkContext.GetNumEntities(); i++)
             {
                 const FVector EntityLocation = Transforms[i].GetTransform().GetLocation();
+                const FVector2D Point(EntityLocation.X, EntityLocation.Y);
 
                 FWaterBodyQueryResult BestResult;
                 float BestDepth = -FLT_MAX;
                 UWaterBodyComponent* BestBody = nullptr;
 
-                for (UWaterBodyComponent* Body : CachedWaterBodies)
+                for (const FLakeData& Lake : CachedLakes)
                 {
-                    if (!Body) continue;
+                    // 1. Early reject using bounds
+                    if (Point.X < Lake.BoundsMin.X || Point.X > Lake.BoundsMax.X ||
+                        Point.Y < Lake.BoundsMin.Y || Point.Y > Lake.BoundsMax.Y)
+                    {
+                        continue;
+                    }
 
-                    // Only process lakes
-                    if (Body->GetWaterBodyType() != EWaterBodyType::Lake)
+                    // 2. Check polygon
+                    if (!PointInPolygon(Point, Lake.Polygon))
                         continue;
 
-                    const FBox LakeBounds = Body->GetCollisionComponentBounds();
-                    if (!LakeBounds.IsInsideXY(EntityLocation))
-                        continue; // Skip if entity is outside the XY bounds
-
-                    // Optional: further restrict by distance to lake center
-                    const FVector LakeCenter = LakeBounds.GetCenter();
-                    const float DistSqr = FVector::DistSquared2D(EntityLocation, LakeCenter);
-                    constexpr float MaxLakeDistance = 5000.0f; // adjust per lake size
-                    if (DistSqr > FMath::Square(MaxLakeDistance))
+                    // 3. Safe water query
+                    UWaterBodyComponent* Body = Lake.Body.Get();
+                    if (!Body)
                         continue;
 
                     auto Query = Body->TryQueryWaterInfoClosestToWorldLocation(
                         EntityLocation,
                         QueryFlags,
-                        {} // No spline needed for lakes
+                        {}
                     );
 
-                    if (!Query.HasValue())
-                    {
-#if WITH_EDITOR
-                        UE_LOG(LogTemp, Warning,
-                            TEXT("Water query failed at (%f, %f, %f) for lake %s, error: %d"),
-                            EntityLocation.X, EntityLocation.Y, EntityLocation.Z,
-                            *Body->GetOwner()->GetActorLabel(),
-                            (int32)Query.GetError());
-#endif
-                        continue; // skip failed queries
-                    }
-
-                    const FWaterBodyQueryResult& Result = Query.GetValue();
-
-#if WITH_EDITOR
-                    // Log water query location
-                    const FVector QueryLoc = Result.GetWaterSurfaceLocation();
-                    UE_LOG(LogTemp, Warning,
-                        TEXT("Water query location: (%f, %f, %f) for lake %s"),
-                        QueryLoc.X, QueryLoc.Y, QueryLoc.Z,
-                        *Body->GetOwner()->GetActorLabel());
-#endif
-
-                    if (!Result.IsInWater())
+                    if (!Query.HasValue() || !Query.GetValue().IsInWater())
                         continue;
 
-                    const float Depth = Result.GetImmersionDepth();
+                    const float Depth = Query.GetValue().GetImmersionDepth();
                     if (Depth > BestDepth)
                     {
                         BestDepth = Depth;
-                        BestResult = Result;
+                        BestResult = Query.GetValue();
                         BestBody = Body;
                     }
                 }
 
-                if (!BestBody)
-                    continue;
-
-#if WITH_EDITOR
-                UE_LOG(LogTemp, Warning,
-                    TEXT("Entity: (%f, %f, %f) | WaterZ: %f | Depth: %f | WaterBody: %s"),
-                    EntityLocation.X,
-                    EntityLocation.Y,
-                    EntityLocation.Z,
-                    BestResult.GetWaterSurfaceLocation().Z,
-                    BestResult.GetImmersionDepth(),
-                    *BestBody->GetOwner()->GetActorLabel());
-#endif
-
-                constexpr float MinDepthToDestroy = 10.0f;
-                if (BestDepth > MinDepthToDestroy)
+                // Apply burn if valid lake found
+                if (BestBody && BestDepth > 10.0f)
                 {
-                    //ChunkContext.Defer().DestroyEntity(ChunkContext.GetEntity(i));
                     ApplyBurn(ChunkContext, ChunkContext.GetEntity(i), 5.0f, 1.0f, 1.0f);
 
 #if WITH_EDITOR
-                    UE_LOG(LogTemp, Warning, TEXT("Destroyed entity in lake %s"), *BestBody->GetOwner()->GetActorLabel());
+                    UE_LOG(LogTemp, Warning,
+                        TEXT("Lake hit: Entity (%f, %f, %f) | WaterZ: %f | Depth: %f | Lake: %s"),
+                        EntityLocation.X,
+                        EntityLocation.Y,
+                        EntityLocation.Z,
+                        BestResult.GetWaterSurfaceLocation().Z,
+                        BestDepth,
+                        *BestBody->GetOwner()->GetActorLabel());
 #endif
                 }
             }
         });
-
+ 
     // Rivers
     EntityQuery.ForEachEntityChunk(Context, [&](FMassExecutionContext& ChunkContext)
         {
@@ -276,23 +360,58 @@ void ApplyBurn(FMassExecutionContext& Context, const FMassEntityHandle& Handle, 
         });
 }
 
+
+
 void UWaterBodyProximtyProcessor::InitializeInternal(UObject& Owner, const TSharedRef<FMassEntityManager>& EntityManager)
 {
     Super::InitializeInternal(Owner, EntityManager);
 
-    // This runs on the Game Thread - safe for GetAllActorsOfClass
     if (UWorld* World = Owner.GetWorld())
     {
         TArray<AActor*> FoundActors;
         UGameplayStatics::GetAllActorsOfClass(World, AWaterBody::StaticClass(), FoundActors);
 
+        CachedLakes.Empty();
+        CachedWaterBodies.Empty();
+
         for (AActor* Actor : FoundActors)
         {
-            if (AWaterBody* WaterBody = Cast<AWaterBody>(Actor))
+            if (AWaterBody* WaterBodyActor = Cast<AWaterBody>(Actor))
             {
-                CachedWaterBodies.Add(WaterBody->GetWaterBodyComponent());
+                UWaterBodyComponent* Body = WaterBodyActor->GetWaterBodyComponent();
+                if (!Body) continue;
+
+                // Cache all bodies for rivers
+                CachedWaterBodies.Add(Body);
+
+                if (Body->GetWaterBodyType() != EWaterBodyType::Lake)
+                    continue;
+
+                UWaterSplineComponent* Spline = Body->GetWaterSpline();
+                if (!Spline) continue;
+
+                FLakeData LakeData;
+                LakeData.Body = Body;
+
+                // Build lake polygon safely
+                BuildLakePolygon(Spline, LakeData.Polygon);
+
+                // Compute bounds for fast rejection
+                LakeData.InitializeBounds();
+
+                CachedLakes.Add(MoveTemp(LakeData));
+
+#if WITH_EDITOR
+                UE_LOG(LogTemp, Warning,
+                    TEXT("Cached lake: %s | Points: %d | BoundsMin=(%f,%f) | BoundsMax=(%f,%f)"),
+                    *Body->GetOwner()->GetActorLabel(),
+                    LakeData.Polygon.Num(),
+                    LakeData.BoundsMin.X, LakeData.BoundsMin.Y,
+                    LakeData.BoundsMax.X, LakeData.BoundsMax.Y);
+#endif
             }
         }
+
         bWaterCacheInitialized = true;
     }
 }
