@@ -12,6 +12,8 @@
 class UInputMappingContext;
 class UInputAction;
 class UInputComponent;
+class ACoreActor;
+class USoundBase;
 
 UCLASS()
 class FRONTIERDESTINY_API AEthanCharacter : public ACharacter
@@ -19,11 +21,9 @@ class FRONTIERDESTINY_API AEthanCharacter : public ACharacter
 	GENERATED_BODY()
 
 public:
-	// Sets default values for this character's properties
 	AEthanCharacter();
 
 protected:
-	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
@@ -38,13 +38,45 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	TObjectPtr<UInputAction> CameraAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	TObjectPtr<UInputAction> ZipAction;
+
 	UPROPERTY(EditAnywhere, Category = "Setup")
 	FVector2D CameraSensitivity = FVector2D(1.f, 1.f);
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
 
-	// Called to bind functionality to input
+	// How fast ZipProgress moves per second (0→1)
+	UPROPERTY(EditAnywhere, Category = "Zip")
+	float ZipProgressSpeed = 1.f;
+
+	// FOV when fully zoomed in
+	UPROPERTY(EditAnywhere, Category = "Zip")
+	float ZoomedFOV = 50.f;
+
+	// Normal FOV to restore on zip end
+	UPROPERTY(EditAnywhere, Category = "Zip")
+	float DefaultFOV = 90.f;
+
+	// Sound played when the player teleports to a core
+	UPROPERTY(EditAnywhere, Category = "Zip")
+	TObjectPtr<USoundBase> ZipTeleportSound;
+
+	UPROPERTY(VisibleAnywhere, Category = "Zip|Debug")
+	float ZipProgress = 0.f;
+
+	UPROPERTY(VisibleAnywhere, Category = "Zip|Debug")
+	bool bIsZipping = false;
+
+	UPROPERTY(VisibleAnywhere, Category = "Zip|Debug")
+	TObjectPtr<ACoreActor> HoveredCore;
+
+	UFUNCTION()
+	void OnZipStarted();
+
+	UFUNCTION()
+	void OnZipEnded();
+
+public:
+	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	UFUNCTION()
