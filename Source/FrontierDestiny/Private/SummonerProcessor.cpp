@@ -13,6 +13,7 @@
 #include "MassSpawnerSubsystem.h"   // For UMassSpawnerSubsystem
 #include "EnemyManagerSubsystem.h"  // For FEnemyData, GetEnemyData
 #include "MassEntityConfigAsset.h"  // For UMassEntityConfigAsset
+#include <NavigationSystem.h>
 
 USummonerProcessor::USummonerProcessor()
 {
@@ -137,42 +138,48 @@ void USummonerProcessor::Execute(FMassEntityManager& EntityManager, FMassExecuti
 
                 // Defer the actual spawn to AFTER this processing phase
                 Context.Defer().PushCommand<FMassDeferredSetCommand>(
-                    [Request, BaseTransform, SpawnerSystem, EnemyManager, Entity](FMassEntityManager& Manager)
+                    [Request, BaseTransform, SpawnerSystem, EnemyManager, World](FMassEntityManager& Manager)
                     {
-                        // Get enemy data
                         FEnemyData EnemyData = EnemyManager->GetEnemyData(Request.EnemyID);
-                        if (EnemyData.EnemyMassEntityAsset.IsNull())
-                            return;
-
                         const UMassEntityConfigAsset* EntityConfig = EnemyData.EnemyMassEntityAsset.LoadSynchronous();
-                        if (!EntityConfig) return;
+                        if (!EntityConfig || !SpawnerSystem) return;
 
                         const FMassEntityTemplate& Template = EntityConfig->GetOrCreateEntityTemplate(*SpawnerSystem->GetWorld());
-                        if (!Template.IsValid()) return;
 
-                        // Spawn entities asynchronously (safe)
                         TArray<FMassEntityHandle> SpawnedEntities;
                         SpawnerSystem->SpawnEntities(Template, Request.Count, SpawnedEntities);
 
-                        // Assign transforms
+                        UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
+
                         for (FMassEntityHandle Spawned : SpawnedEntities)
                         {
-                            FVector Offset = FMath::VRand() * FMath::Sqrt(FMath::FRand()) * Request.Radius; // uniform in sphere
-                            FTransform SpawnTransform = BaseTransform;
-                            SpawnTransform.AddToTranslation(Offset);
-
                             if (!Manager.IsEntityValid(Spawned)) continue;
 
-                            FTransformFragment* TransformFrag = Manager.GetFragmentDataPtr<FTransformFragment>(Spawned);
-                            if (TransformFrag)
+                            // Uniform Disk Logic: r = Radius * sqrt(Rand) for even spread
+                            float r = Request.Radius * FMath::Sqrt(FMath::FRand());
+                            float theta = FMath::FRand() * 2.0f * PI;
+                            FVector SpawnLocation = BaseTransform.GetLocation() + FVector(r * FMath::Cos(theta), r * FMath::Sin(theta), 0.0f);
+
+                            // NavMesh Snapping
+                            if (NavSys)
                             {
+                                FNavLocation ProjectedLocation;
+                                if (NavSys->ProjectPointToNavigation(SpawnLocation, ProjectedLocation, FVector(100.f, 100.f, 500.f)))
+                                {
+                                    SpawnLocation = ProjectedLocation.Location;
+                                }
+                            }
+
+                            if (FTransformFragment* TransformFrag = Manager.GetFragmentDataPtr<FTransformFragment>(Spawned))
+                            {
+                                FTransform SpawnTransform = BaseTransform;
+                                SpawnTransform.SetLocation(SpawnLocation);
                                 TransformFrag->SetTransform(SpawnTransform);
                             }
                         }
-
                     }
                 );
-                Context.Defer().RemoveFragment<FSummonRequestFragment>(Entity);
+                 Context.Defer().RemoveFragment<FSummonRequestFragment>(Entity);
             }
         });
 }

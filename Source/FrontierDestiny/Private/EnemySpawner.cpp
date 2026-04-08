@@ -299,7 +299,7 @@ void AEnemySpawner::HandleSpawningFinished()
 								Summoner->TimeRemaining = 5.0f;
 								Summoner->UnitsPerSummon = 3;
 								Summoner->SpawnRadius = 300.f;
-								Summoner->EnemyID = "Drone"; // what it summons
+								Summoner->EnemyID = "Broodling"; // what it summons
 							});
 					}
 				});
