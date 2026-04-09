@@ -7,6 +7,8 @@
 #include "CoreActor.h"
 #include "CoreManagerSubsystem.generated.h"
 
+#define TOTALCORECOUNT 3
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCapturedCoreCountChanged, int32, NewCount);
 
 /**
@@ -35,6 +37,9 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	ACoreActor* GetCore(int32 CoreIndex) const;
 
+	/** Returns true if the core actor for the given index is capture, else false. */
+	bool IsCoreCaptured(int32 CoreIndex) const;
+
 	/** Returns the world location of the nearest active core to FromLocation. Returns FVector::ZeroVector if no active cores exist. */
 	FVector GetNearestActiveCoreLocation(FVector FromLocation) const;
 
@@ -51,6 +56,8 @@ private:
 	TMap<int32, ACoreActor*> CoreMap;
 
 	int32 CapturedCoreCount = 0;
+
+	bool isCoreCaptured[TOTALCORECOUNT] = {false, false, false};
 
 	UFUNCTION()
 	void HandleCoreActivated(ACoreActor* Core);
