@@ -9,6 +9,7 @@
 #include "MassCommandBuffer.h"
 #include "EnemyDamageMassProcessor.h"
 #include "Kismet/GameplayStatics.h"
+#include <SummonerProcessor.h>
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_Modifier_Fast,         "Enemy.Modifier.Fast")
 UE_DEFINE_GAMEPLAY_TAG(TAG_Modifier_Strong,       "Enemy.Modifier.Strong")
@@ -286,6 +287,20 @@ void AEnemySpawner::HandleSpawningFinished()
 									Frag->MaxValue = VitalityAmount;
 								});
 						}
+					}
+					if (EnemyID == "Broodmother") // or whatever your ID is
+					{
+						Manager.AddFragmentToEntity(Entity, FSummonerFragment::StaticStruct(),
+							[](void* Fragment, const UScriptStruct&)
+							{
+								FSummonerFragment* Summoner = static_cast<FSummonerFragment*>(Fragment);
+
+								Summoner->Cooldown = 5.0f;
+								Summoner->TimeRemaining = 5.0f;
+								Summoner->UnitsPerSummon = 3;
+								Summoner->SpawnRadius = 300.f;
+								Summoner->EnemyID = "Broodling"; // what it summons
+							});
 					}
 				});
 		}
