@@ -11,6 +11,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
+#include "Kismet/GameplayStatics.h"
 
 void ATowerDemoPlayerController::BeginPlay()
 {
@@ -92,6 +93,16 @@ void ATowerDemoPlayerController::SetupInputComponent()
                 &ATowerDemoPlayerController::OnOpenUpgradeMenuAction
             );
         }
+
+        if (EscapeAction)
+        {
+            EnhancedInputComponent->BindAction(
+                EscapeAction,
+                ETriggerEvent::Started,
+                this,
+                &ATowerDemoPlayerController::OnEscapeAction
+            );
+		}
     }
 }
 
@@ -124,6 +135,38 @@ void ATowerDemoPlayerController::OnOpenUpgradeMenuAction(const FInputActionValue
     else
     {
         OpenUpgradeMenu();
+    }
+}
+
+void ATowerDemoPlayerController::OnEscapeAction(const FInputActionValue& Value)
+{
+	if (bIsPauseMenuOpen)
+    {
+        if (bIsControlMenuOpen)
+        {
+            CloseControlMenu();
+            UnhidePauseMenu();
+        }
+        else
+        {
+            ClosePauseMenu();
+        }
+    }
+    else
+    {
+        // IF MENU IS OPEN, EXIT IT
+	    if (bIsUpgradeMenuOpen)
+        {
+            CloseUpgradeMenu();
+            return;
+        }
+        // IF BUILD MENU IS OPEN, EXIT IT
+	    if (Mode == EMode::Builder)
+        {
+		    UpdateMode(EMode::Combat);
+            return;
+        }
+        OpenPauseMenu();
     }
 }
 
@@ -174,4 +217,61 @@ void ATowerDemoPlayerController::LockMouse()
     SetInputMode(InputMode);
     bShowMouseCursor = false;
     GEngine->GameViewport->SetMouseCaptureMode(EMouseCaptureMode::CapturePermanently);
+}
+
+void ATowerDemoPlayerController::OpenPauseMenu()
+{
+    ModeMap[Mode]->DeactivateMode();
+	bIsPauseMenuOpen = true;
+    UGameplayStatics::SetGamePaused(GetWorld(), true);
+    PauseMenuWidget = CreateWidget<UUserWidget>(this, PauseMenuWidgetClass);
+    PauseMenuWidget->AddToViewport();
+    FreeMouse(PauseMenuWidget);
+}
+
+void ATowerDemoPlayerController::ClosePauseMenu()
+{
+    UGameplayStatics::SetGamePaused(GetWorld(), false);
+    bIsPauseMenuOpen = false;
+    ModeMap[Mode]->ActivateMode();
+    if (IsValid(PauseMenuWidget))
+    {
+        PauseMenuWidget->RemoveFromViewport();
+        LockMouse();
+    }
+}
+
+void ATowerDemoPlayerController::HidePauseMenu()
+{
+    if (IsValid(PauseMenuWidget))
+    {
+        PauseMenuWidget->SetVisibility(ESlateVisibility::Hidden);
+    }
+}
+
+void ATowerDemoPlayerController::UnhidePauseMenu()
+{
+    if (IsValid(PauseMenuWidget))
+    {
+        PauseMenuWidget->SetVisibility(ESlateVisibility::Visible);
+	}
+}
+
+void ATowerDemoPlayerController::OpenControlMenu(UUserWidget* Widget)
+{
+    ControlMenuWidget = Widget;
+    if (IsValid(ControlMenuWidget))
+    {
+        ControlMenuWidget->AddToViewport();
+        bIsControlMenuOpen = true;
+	}
+}
+
+void ATowerDemoPlayerController::CloseControlMenu()
+{
+    if (IsValid(ControlMenuWidget))
+    {
+        ControlMenuWidget->RemoveFromViewport();
+		bIsControlMenuOpen = false;
+    }
 }
