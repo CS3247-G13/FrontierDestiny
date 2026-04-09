@@ -115,6 +115,10 @@ protected:
 protected:
 	UPROPERTY(EditAnywhere, Category = "Setup")
 	TObjectPtr<USoundBase> BuildSound;
+	UPROPERTY(EditAnywhere, Category = "Setup")
+	TObjectPtr<USoundBase> FailBuildSound;
+	UPROPERTY(EditAnywhere, Category = "Setup")
+	TObjectPtr<USoundBase> DestroyTowerSound;
 	/*
 	Array of Tower Data that the player can use*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setup")
