@@ -325,7 +325,7 @@ void UBuilderComponent::ActivateMode()
 	CheckForClosestGridActor();
 	EnterGridVisual();
 
-	QuestComponent->StartQuest("Onboard_6");
+	QuestComponent->StartQuest("Onboard_5");
 
 	OnDeselectTowerAction(FInputActionValue());
 }
@@ -358,6 +358,7 @@ void UBuilderComponent::OnBuildTowerActionStart(const FInputActionValue& Value)
 void UBuilderComponent::OnBuildTowerActionEnd(const FInputActionValue& Value)
 {
 	TryBuildTowers();
+	QuestComponent->StartQuest("Onboard_7");
 	bIsLocked = false;
 }
 
@@ -384,6 +385,7 @@ void UBuilderComponent::OnSelectTowerAction(int32 KeyNumber)
 		}
 		
 		OnTowerSelectionChange.Broadcast();
+		QuestComponent->StartQuest("Onboard_6");
 		ChangeTowerSelection(TOptional<FName>(TowerManager->GetPathTower(SelectedPath).ID));
 	}
 }
