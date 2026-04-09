@@ -443,6 +443,7 @@ void UBuilderComponent::TryBuildTowers()
 	TArray<FTowerPlacementIntent> Placements;
 	ClosestGridActor->GetTowerPlacementsInLine(StartPlacement, EndPlacement, MaxTowers, Placements);
 
+	bool bAnyBuilt = false;
 	for (const FTowerPlacementIntent& Placement : Placements)
 	{
 		if (!ClosestGridActor->CanPlaceTower(Placement))
@@ -474,7 +475,7 @@ void UBuilderComponent::TryBuildTowers()
 			NewTower->GridActor = ClosestGridActor;
 			NewTower->CornerGridIndex = Placement.PivotPoint;
 			NewTower->GridRelativeRotation = Placement.Rotation;
-			UGameplayStatics::PlaySound2D(GetWorld(), BuildSound);
+			bAnyBuilt = true;
 		}
 		else
 		{
@@ -491,7 +492,16 @@ void UBuilderComponent::TryBuildTowers()
 			UE_LOG(LogTemp, Error, TEXT("Failed to get GridActor to spawn NewTower on %s"), *GetName());
 		}
 	}
-	
+
+	if (bAnyBuilt)
+	{
+		UGameplayStatics::PlaySound2D(GetWorld(), BuildSound);
+	}
+	else
+	{
+		UGameplayStatics::PlaySound2D(GetWorld(), FailBuildSound);
+	}
+
 }
 
 void UBuilderComponent::UpdateGhostStructure()
@@ -699,6 +709,7 @@ void UBuilderComponent::DeleteHoveredTower()
 	ATowerActor* Temp = HoveredTower;
 	UpdateHoveredTower(nullptr);
 	Temp->DestroyTower();
+	UGameplayStatics::PlaySound2D(GetWorld(), DestroyTowerSound);
 	if (IsValid(ClosestGridActor))
 	{
 		ClosestGridActor->UpdateOccupancyTexture(TArray<FTowerPlacementIntent>());
