@@ -39,10 +39,22 @@ public:
 	TSubclassOf<UUserWidget> MainHUDWidget;
 
 	UPROPERTY(EditAnywhere, Category = "Setup")
+	TSubclassOf<UUserWidget> PauseMenuWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UUserWidget> PauseMenuWidget;
+
+	UPROPERTY()
+	TObjectPtr<UUserWidget> ControlMenuWidget;
+
+	UPROPERTY(EditAnywhere, Category = "Setup")
 	TMap<EMode, UInputAction*> ToggleModeInputActions;
 
 	UPROPERTY(EditAnywhere, Category = "Setup")
 	TObjectPtr<UInputAction> OpenUpgradeMenuAction;
+
+	UPROPERTY(EditAnywhere, Category = "Setup")
+	TObjectPtr<UInputAction> EscapeAction;
 
 	UPROPERTY(BlueprintAssignable, Category = "UI")
 	FOnModeUpdate OnModeUpdate;
@@ -62,6 +74,26 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void LockMouse();
 
+	UFUNCTION(BlueprintCallable)
+	void OpenPauseMenu();
+	
+	UFUNCTION(BlueprintCallable)
+	void ClosePauseMenu();
+
+	UFUNCTION(BlueprintCallable)
+	void HidePauseMenu();
+
+	UFUNCTION(BlueprintCallable)
+	void UnhidePauseMenu();
+
+	UFUNCTION(BlueprintCallable)
+	void OpenControlMenu(UUserWidget* Widget);
+
+	UFUNCTION(BlueprintCallable)
+	void CloseControlMenu();
+
+	UFUNCTION(BlueprintCallable)
+	void OpenUpgradeMenu();
 protected:
 	virtual void BeginPlay() override;
 	void InitializeComponentReferences();
@@ -77,8 +109,11 @@ protected:
 	void UpdateMode(EMode UpdatedMode);
 	UFUNCTION()
 	void OnOpenUpgradeMenuAction(const FInputActionValue& Value);
-	
-	void OpenUpgradeMenu();
+	UFUNCTION()
+	void OnEscapeAction(const FInputActionValue& Value);
+
+	bool bIsPauseMenuOpen = false;
+	bool bIsControlMenuOpen = false;
 public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TMap<EMode, UModeComponent*> ModeMap;
