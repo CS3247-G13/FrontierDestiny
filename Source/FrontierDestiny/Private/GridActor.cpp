@@ -363,6 +363,28 @@ bool AGridActor::CanPlaceTower(const FTowerPlacementIntent& Placement)
         }
     }
 
+    // Check that every footprint cell sits on allowed terrain
+    FCollisionQueryParams Params;
+    Params.AddIgnoredActor(this);
+    for (const int32& Index : FootprintIndices)
+    {
+        if (Index < 0) return false;
+
+        FIntPoint GridIndex(Index % GridSize.X, Index / GridSize.X);
+        FVector CellCenter;
+        GetCellCenterWorldLocationFromGridIndex(GridIndex, CellCenter);
+
+        FHitResult Hit;
+        FVector Start = CellCenter;
+        FVector End = CellCenter - FVector(0.f, 0.f, 10000.f);
+        bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_WorldStatic, Params);
+
+        if (!bHit || !Hit.GetActor() || !Hit.GetActor()->ActorHasTag(AllowedTerrainTag))
+        {
+            return false;
+        }
+    }
+
     return true;
 }
 

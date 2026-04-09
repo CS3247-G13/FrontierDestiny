@@ -69,6 +69,10 @@ void UEnemyWaveManagerSubsystem::TriggerBatch(const FWaveBatchRow& Batch)
 	UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: TriggerBatch — BatchID '%s' (HordeID '%s'), SpawnMap entries: %d"),
 		*Batch.BatchID.ToString(), *Batch.HordeID.ToString(), Batch.SpawnMap.Num());
 
+	if (Batch.BatchID == FName("0")) {
+		OnHordeBegin.Broadcast(Batch.HordeID);
+	}
+	
 	OnHordeBatchBegin.Broadcast(Batch.HordeID);
 
 	UCoreManagerSubsystem* CoreManager = GetGameInstance()->GetWorld()->GetSubsystem<UCoreManagerSubsystem>();

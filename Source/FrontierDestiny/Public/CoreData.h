@@ -13,11 +13,11 @@ struct FCoreData
 public: 
 	// Current HP
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Core")
-	float CurrentHP = 100.0f;
+	float CurrentHP = 10000.0f;
 
 	// Maximum HP
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Core")
-	float MaximumHP = 100.0f;
+	float MaximumHP = 10000.0f;
 
 	// Color of Core HP Bar
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Core")
