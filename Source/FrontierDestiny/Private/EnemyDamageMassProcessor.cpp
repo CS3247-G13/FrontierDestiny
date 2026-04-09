@@ -147,11 +147,12 @@ void UEnemyDamageMassProcessor::Execute(FMassEntityManager& EntityManager, FMass
 				}
 			}
 
-			// Drain vitality before health
+			float VitalityDrain = 0.f;
+				// Drain vitality before health
 				if (bHasVitality && FinalDamage > 0.f)
 				{
 					FVitalityFragment& Vitality = VitalityList[EntityIdx];
-					const float VitalityDrain = FMath::Min(Vitality.Value, FinalDamage);
+					VitalityDrain = FMath::Min(Vitality.Value, FinalDamage);
 					Vitality.Value -= VitalityDrain;
 					FinalDamage    -= VitalityDrain;
 				}
@@ -160,11 +161,11 @@ void UEnemyDamageMassProcessor::Execute(FMassEntityManager& EntityManager, FMass
 
 				if (EnemyManager)
 				{
-					EnemyManager->NotifyDamageDealt(Entity, FinalDamage);
+					EnemyManager->NotifyDamageDealt(Entity, FinalDamage + VitalityDrain);
 				}
 
-			// Stealthy: reveal on any damage that actually lands
-			if (bHasModifiers && FinalDamage > 0.f)
+			// Stealthy: reveal on any damage that actually lands (health or vitality)
+			if (bHasModifiers && (FinalDamage > 0.f || VitalityDrain > 0.f))
 			{
 				ModifierList[EntityIdx].bStealthy = false;
 			}
