@@ -216,6 +216,7 @@ void UEnemyManagerSubsystem::UpdateHealthbarInformation(FHealthbarFrameData& Dat
 		ModifierFlags[Slot]          = Data.ModifierFlags[i];
 		FragmentedChunkSizes[Slot]   = Data.FragmentedChunkSizes[i];
 
+		UE_LOG(LogTemp, Display, TEXT("Checking enemy ID: %s"), *Data.EnemyIDs[i].ToString());
 		if (const FEnemyData* EnemyData = EnemyDataMap.Find(Data.EnemyIDs[i]))
 		{
 			EnemyHeights[Slot] = EnemyData->Height;
@@ -263,6 +264,8 @@ void UEnemyManagerSubsystem::UpdateHealthbarInformation(FHealthbarFrameData& Dat
 		NiagaraComponent, FName("Enemy Fragmented Chunk Size"), FragmentedChunkSizes);
 	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
 		NiagaraComponent, FName("Enemy Mitigated Damage"), MitigatedDamageAmounts);
+	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
+		NiagaraComponent, FName("Enemy Heights"), EnemyHeights);
 }
 
 void UEnemyManagerSubsystem::LoadEnemyDataFromDataTable()
@@ -860,23 +863,13 @@ FName UEnemyManagerSubsystem::GetEntityEnemyID(FMassEntityHandle Handle) const
 
 void UEnemyManagerSubsystem::GetEntitiesInRange(FVector Center, float Radius, TArray<FMassEntityHandle>& OutHandles) const
 {
-	UWorld* World = GetWorld();
-	if (!World) return;
-
-	FCollisionShape Sphere = FCollisionShape::MakeSphere(Radius);
-	TArray<FOverlapResult> Overlaps;
-	World->OverlapMultiByChannel(Overlaps, Center, FQuat::Identity, CC_Laser, Sphere);
-
-	for (const FOverlapResult& Overlap : Overlaps)
+	const float RadiusSq = Radius * Radius;
+	for (int32 i = 0; i < ActiveEntityHandles.Num(); i++)
 	{
-		FMassEntityHandle Handle = GetEnemyEntityHandle(
-			Cast<UInstancedStaticMeshComponent>(Overlap.GetComponent()),
-			Overlap.ItemIndex);
-
-		if (Handle.IsSet())
-		{
+		const FMassEntityHandle& Handle = ActiveEntityHandles[i];
+		if (!Handle.IsSet()) continue;
+		if (FVector::DistSquared(EnemyPositions[i], Center) <= RadiusSq)
 			OutHandles.Add(Handle);
-		}
 	}
 }
 
