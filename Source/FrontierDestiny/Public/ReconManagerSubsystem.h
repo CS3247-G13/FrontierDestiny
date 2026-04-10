@@ -30,10 +30,12 @@ public:
 	bool bHordeSurveillance = false;
 
 	/**
-	 * Returns one render entry per visible entity within ViewRadius of PlayerPos.
+	 * Returns one render entry per visible entity.
+	 * Enemies within ViewRadius are placed normally; enemies within EnemyBlipRadius (but outside ViewRadius)
+	 * are included with bClamped=true — the widget clamps them to the minimap edge.
 	 * MapUV on each entry is in minimap-relative UV space: (0.5, 0.5) = player, (0,0)/(1,1) = view radius edges.
 	 */
-	void GetVisibleBlips(FVector PlayerPos, float ViewRadius, TArray<FBlipRenderEntry>& OutBlips) const;
+	void GetVisibleBlips(FVector PlayerPos, float ViewRadius, float EnemyBlipRadius, TArray<FBlipRenderEntry>& OutBlips) const;
 
 	UFUNCTION(BlueprintCallable, Category = "Recon")
 	UMaterialInterface* GetSpriteForID(FName ID) const;
@@ -57,7 +59,10 @@ private:
 	void LoadBlipDataFromDataTable();
 	void SetReconBoolean(const FName& TargetID, bool bValue);
 
+	UPROPERTY()
 	TMap<FName, TObjectPtr<UMaterialInterface>> ResolvedSprites;
+	UPROPERTY()
 	TMap<FName, float> ResolvedBlipSizes;
+	UPROPERTY()
 	TMap<FName, int32> ResolvedZOrders;
 };

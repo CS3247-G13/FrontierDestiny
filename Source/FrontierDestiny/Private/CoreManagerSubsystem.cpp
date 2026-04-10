@@ -20,7 +20,13 @@ void UCoreManagerSubsystem::ActivateCore(int32 CoreIndex)
 	if (ACoreActor** Found = CoreMap.Find(CoreIndex))
 	{
 		(*Found)->ActivateCore();
+		isCoreCaptured[CoreIndex] = true;
 	}
+}
+
+bool UCoreManagerSubsystem::IsCoreCaptured(int32 CoreIndex) const
+{
+	return isCoreCaptured[CoreIndex];
 }
 
 int32 UCoreManagerSubsystem::GetCapturedCoreCount() const

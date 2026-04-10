@@ -210,10 +210,26 @@ void UEnemyWaveManagerSubsystem::HandleHordeEnemyDeath(FName HordeID)
 
 		if (const FHordeDataRow* HordeData = HordeDataMap.Find(HordeID))
 		{
-			if (UEconomySubsystem* Economy = GetGameInstance()->GetSubsystem<UEconomySubsystem>())
-			{
-				Economy->AddFunds(HordeData->Reward);
-			}
+			// if (UCoreManagerSubsystem* CoreManager = GetGameInstance()->GetWorld()->GetSubsystem<UCoreManagerSubsystem>()) 
+			// {
+				if (UEconomySubsystem* Economy = GetGameInstance()->GetSubsystem<UEconomySubsystem>())
+				{
+					// if (!CoreManager->isCoreCaptured(0))
+					// {
+					// 	HordeData->Reward.Cryxite = 0;
+					// }
+					// if (!CoreManager->isCoreCaptured(1))
+					// {
+					// 	HordeData->Reward.Nullsteel = 0;
+					// }
+					// if (!CoreManager->isCoreCaptured(2))
+					// {
+					// 	HordeData->Reward.Gravstone = 0;
+					// }
+
+					Economy->AddFunds(HordeData->Reward);
+				}
+			// }
 		}
 
 		OnHordeFinished.Broadcast(HordeID);

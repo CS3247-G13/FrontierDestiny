@@ -7,6 +7,10 @@
 #include "NavigationSystem.h"
 #include "MassExecutionContext.h"
 
+
+
+#include "WaterSplineComponent.h"
+
 UEnemyNavMeshGroundingProcessor::UEnemyNavMeshGroundingProcessor()
 {
 
@@ -66,4 +70,5 @@ void UEnemyNavMeshGroundingProcessor::Execute(FMassEntityManager& EntityManager,
 				Transform.SetLocation(NewLocation);
 			}
 		});
-}
+
+ }

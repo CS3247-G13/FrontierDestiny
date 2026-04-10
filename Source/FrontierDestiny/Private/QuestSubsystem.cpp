@@ -114,11 +114,7 @@ void UQuestSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	}
 
 	UnlockedQuests = {
-		"Onboard_1",
-		"Onboard_2",
-		"Onboard_3",
-		"Onboard_4",
-		"Onboard_5"
+		"Onboard_1"
 	};
 
 	StartQuest("Onboard_1");
