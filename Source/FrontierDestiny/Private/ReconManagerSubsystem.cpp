@@ -114,7 +114,6 @@ void UReconManagerSubsystem::GetVisibleBlips(FVector PlayerPos, float ViewRadius
 			Entry.BlipSize = *Size;
 		if (const int32* Order = ResolvedZOrders.Find(BlipID))
 			Entry.ZOrder = *Order;
-		UE_LOG(LogTemp, Display, TEXT("ReconManager: Adding blip for enemy at %s (UV: %s)"), *EnemyPos.ToString(), *UV.ToString());
 		OutBlips.Add(Entry);
 	}
 

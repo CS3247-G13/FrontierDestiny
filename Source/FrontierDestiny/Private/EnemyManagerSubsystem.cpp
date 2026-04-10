@@ -216,7 +216,6 @@ void UEnemyManagerSubsystem::UpdateHealthbarInformation(FHealthbarFrameData& Dat
 		ModifierFlags[Slot]          = Data.ModifierFlags[i];
 		FragmentedChunkSizes[Slot]   = Data.FragmentedChunkSizes[i];
 
-		UE_LOG(LogTemp, Display, TEXT("Checking enemy ID: %s"), *Data.EnemyIDs[i].ToString());
 		if (const FEnemyData* EnemyData = EnemyDataMap.Find(Data.EnemyIDs[i]))
 		{
 			EnemyHeights[Slot] = EnemyData->Height;
