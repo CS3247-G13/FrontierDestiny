@@ -15,15 +15,6 @@ void UCoreManagerSubsystem::RegisterCore(ACoreActor* Core)
 	Core->OnCoreDestroyed.AddDynamic(this, &UCoreManagerSubsystem::HandleCoreDestroyed);
 }
 
-void UCoreManagerSubsystem::ActivateCore(int32 CoreIndex)
-{
-	if (ACoreActor** Found = CoreMap.Find(CoreIndex))
-	{
-		(*Found)->ActivateCore();
-		isCoreCaptured[CoreIndex] = true;
-	}
-}
-
 bool UCoreManagerSubsystem::IsCoreCaptured(int32 CoreIndex) const
 {
 	return isCoreCaptured[CoreIndex];
@@ -85,6 +76,7 @@ ACoreActor* UCoreManagerSubsystem::GetNearestActiveCore(FVector FromLocation) co
 void UCoreManagerSubsystem::HandleCoreActivated(ACoreActor* Core)
 {
 	CapturedCoreCount++;
+	isCoreCaptured[Core->CoreIndex] = true;
 	OnCapturedCoreCountChanged.Broadcast(CapturedCoreCount);
 }
 
