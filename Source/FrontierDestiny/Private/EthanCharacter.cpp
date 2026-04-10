@@ -94,9 +94,10 @@ void AEthanCharacter::Tick(float DeltaTime)
 		{
 			SetActorLocation(HoveredCore->GetTeleportPoint());
 			if (ZipTeleportSound)
-			{
+			{	
 				UGameplayStatics::PlaySoundAtLocation(this, ZipTeleportSound, GetActorLocation());
 			}
+			OnZip(HoveredCore->CoreIndex);
 			OnZipEnded();
 			return;
 		}

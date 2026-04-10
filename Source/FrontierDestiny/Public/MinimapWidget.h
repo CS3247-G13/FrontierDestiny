@@ -39,6 +39,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Minimap")
 	float ViewRadius = 10000.0f;
 
+	/** World-unit radius within which enemy blips are shown. Enemies beyond ViewRadius but within this range are clamped to the minimap edge. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Minimap")
+	float EnemyBlipRadius = 20000.0f;
+
 	virtual void NativeConstruct() override;
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 

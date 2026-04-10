@@ -75,6 +75,9 @@ protected:
 	UFUNCTION()
 	void OnZipEnded();
 
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnZip(int CoreIndex);
+
 public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
