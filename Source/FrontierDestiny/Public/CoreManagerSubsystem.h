@@ -25,10 +25,6 @@ public:
 	/** Called by each CoreActor in BeginPlay to register itself. */
 	void RegisterCore(ACoreActor* Core);
 
-	/** Activates the core with the given index. No-op if the index doesn't exist. */
-	UFUNCTION(BlueprintCallable)
-	void ActivateCore(int32 CoreIndex);
-
 	/** Returns the number of cores that are currently active (captured). */
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	int32 GetCapturedCoreCount() const;

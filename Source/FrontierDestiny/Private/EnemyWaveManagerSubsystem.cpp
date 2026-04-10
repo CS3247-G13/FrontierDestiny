@@ -208,30 +208,45 @@ void UEnemyWaveManagerSubsystem::HandleHordeEnemyDeath(FName HordeID)
 		HordeEnemiesRemaining.Remove(HordeID);
 		UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: Horde '%s' cleared!"), *HordeID.ToString());
 
-		if (const FHordeDataRow* HordeData = HordeDataMap.Find(HordeID))
-		{
-			// if (UCoreManagerSubsystem* CoreManager = GetGameInstance()->GetWorld()->GetSubsystem<UCoreManagerSubsystem>()) 
-			// {
-				if (UEconomySubsystem* Economy = GetGameInstance()->GetSubsystem<UEconomySubsystem>())
-				{
-					// if (!CoreManager->isCoreCaptured(0))
-					// {
-					// 	HordeData->Reward.Cryxite = 0;
-					// }
-					// if (!CoreManager->isCoreCaptured(1))
-					// {
-					// 	HordeData->Reward.Nullsteel = 0;
-					// }
-					// if (!CoreManager->isCoreCaptured(2))
-					// {
-					// 	HordeData->Reward.Gravstone = 0;
-					// }
-
-					Economy->AddFunds(HordeData->Reward);
-				}
-			// }
-		}
-
 		OnHordeFinished.Broadcast(HordeID);
+
+		const FHordeDataRow* HordeData = HordeDataMap.Find(HordeID);
+		if (!HordeData)
+		{
+			UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: Horde '%s' not found!"), *HordeID.ToString());
+			return;
+		}
+		UCoreManagerSubsystem* CoreManager = GetGameInstance()->GetWorld()->GetSubsystem<UCoreManagerSubsystem>();
+		if (!CoreManager)
+		{
+			UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: Core Manager not found!"));
+			return;
+		}
+		UEconomySubsystem* Economy = GetGameInstance()->GetSubsystem<UEconomySubsystem>();
+		if (!Economy)
+		{
+			UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: Economy Manager not found!"));
+			return;
+		}
+		FResourceAmount TotalRewards;
+		for (int i = 0; i < TOTALCORECOUNT; i++)
+		{
+			if (CoreManager->IsCoreCaptured(i))
+			{
+				UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: Core %d is unlocked!"), i);
+				if (i < HordeData->PerCoreReward.Num())
+				{
+					UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: Core %d has an entry"), i);
+					TotalRewards += HordeData->PerCoreReward[i];
+				}
+			}
+			else
+			{
+				UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: Core %d not unlocked!"), i);
+			}
+		}
+		Economy->AddFunds(TotalRewards);
+		
+
 	}
 }
