@@ -236,7 +236,7 @@ void ATowerDemoPlayerController::ClosePauseMenu()
     ModeMap[Mode]->ActivateMode();
     if (IsValid(PauseMenuWidget))
     {
-        PauseMenuWidget->RemoveFromViewport();
+        PauseMenuWidget->RemoveFromParent();
         LockMouse();
     }
 }
@@ -271,7 +271,7 @@ void ATowerDemoPlayerController::CloseControlMenu()
 {
     if (IsValid(ControlMenuWidget))
     {
-        ControlMenuWidget->RemoveFromViewport();
+        ControlMenuWidget->RemoveFromParent();
 		bIsControlMenuOpen = false;
     }
 }

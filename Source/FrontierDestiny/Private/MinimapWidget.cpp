@@ -109,17 +109,7 @@ void UMinimapWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 				BlipPoolZOrders[i] = VisibleBlips[i].ZOrder;
 			}
 
-			FVector2D UV = VisibleBlips[i].MapUV;
-			if (VisibleBlips[i].bClamped)
-			{
-				// Clamp to the circular minimap edge (radius = 0.5 in UV space, center = 0.5)
-				FVector2D Offset = UV - FVector2D(0.5f, 0.5f);
-				const float Dist = Offset.Size();
-				if (Dist > 0.5f)
-					UV = FVector2D(0.5f, 0.5f) + Offset / Dist * 0.5f;
-			}
-
-			const FVector2D RawPos = UV * MinimapSize - VisibleBlips[i].BlipSize * 0.5f;
+			const FVector2D RawPos = VisibleBlips[i].MapUV * MinimapSize - VisibleBlips[i].BlipSize * 0.5f;
 			BlipSlot->SetPosition(FVector2D(FMath::RoundToFloat(RawPos.X), FMath::RoundToFloat(RawPos.Y)));
 			BlipImage->SetVisibility(ESlateVisibility::HitTestInvisible);
 		}
