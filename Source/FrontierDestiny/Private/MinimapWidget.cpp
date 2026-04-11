@@ -84,7 +84,7 @@ void UMinimapWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 	PlayerTransform.Angle = Pawn->GetActorRotation().Yaw;
 	PlayerBlipImage->SetRenderTransform(PlayerTransform);
 
-	MinimapManager->GetVisibleBlips(PlayerPos, ViewRadius, VisibleBlips);
+	MinimapManager->GetVisibleBlips(PlayerPos, ViewRadius, EnemyBlipRadius, VisibleBlips);
 
 	for (int32 i = 0; i < BlipPool.Num(); i++)
 	{
@@ -108,6 +108,7 @@ void UMinimapWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 				BlipSlot->SetZOrder(VisibleBlips[i].ZOrder);
 				BlipPoolZOrders[i] = VisibleBlips[i].ZOrder;
 			}
+
 			const FVector2D RawPos = VisibleBlips[i].MapUV * MinimapSize - VisibleBlips[i].BlipSize * 0.5f;
 			BlipSlot->SetPosition(FVector2D(FMath::RoundToFloat(RawPos.X), FMath::RoundToFloat(RawPos.Y)));
 			BlipImage->SetVisibility(ESlateVisibility::HitTestInvisible);

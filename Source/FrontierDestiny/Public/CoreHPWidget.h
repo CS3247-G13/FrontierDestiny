@@ -7,6 +7,7 @@
 #include "CoreData.h"
 #include "Components/ProgressBar.h"
 #include "Components/Image.h"
+#include "Components/TextBlock.h"
 #include "CoreHPWidget.generated.h"
 
 UCLASS()
@@ -35,4 +36,7 @@ protected:
 
 	UPROPERTY()
 	UMaterialInstanceDynamic* HealthBarMat;
+
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* HP_Text;
 };

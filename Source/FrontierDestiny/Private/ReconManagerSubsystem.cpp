@@ -72,7 +72,7 @@ void UReconManagerSubsystem::HandleUpgradeDeactivated(const FUpgradeData& Upgrad
 	SetReconBoolean(Upgrade.TargetID, false);
 }
 
-void UReconManagerSubsystem::GetVisibleBlips(FVector PlayerPos, float ViewRadius, TArray<FBlipRenderEntry>& OutBlips) const
+void UReconManagerSubsystem::GetVisibleBlips(FVector PlayerPos, float ViewRadius, float EnemyBlipRadius, TArray<FBlipRenderEntry>& OutBlips) const
 {
 	OutBlips.Reset();
 
@@ -83,7 +83,7 @@ void UReconManagerSubsystem::GetVisibleBlips(FVector PlayerPos, float ViewRadius
 	if (!EnemyManager) return;
 
 	TArray<FMassEntityHandle> Handles;
-	EnemyManager->GetEntitiesInRange(PlayerPos, ViewRadius, Handles);
+	EnemyManager->GetEntitiesInRange(PlayerPos, EnemyBlipRadius, Handles);
 
 	const float Diameter = ViewRadius * 2.0f;
 
@@ -97,11 +97,18 @@ void UReconManagerSubsystem::GetVisibleBlips(FVector PlayerPos, float ViewRadius
 		const FName BlipID = bEnhanced ? FName("enemy+") : FName("enemy");
 		TObjectPtr<UMaterialInterface> const* Sprite = bEnhanced ? EnemyEnhancedSprite : EnemySprite;
 
-		FBlipRenderEntry Entry;
-		Entry.MapUV = FVector2D(
-			(EnemyPos.Y - PlayerPos.Y) / Diameter + 0.5f,
-			1.0f - ((EnemyPos.X - PlayerPos.X) / Diameter + 0.5f)
+		FVector2D Offset = FVector2D(EnemyPos.X - PlayerPos.X, EnemyPos.Y - PlayerPos.Y);
+		if (Offset.Length() > ViewRadius)
+		{
+			Offset = Offset / Offset.Length() * ViewRadius;
+		}
+		FVector2D UV = FVector2D(
+			Offset.Y / Diameter + 0.5f,
+			1.0f - (Offset.X / Diameter + 0.5f)
 		);
+
+		FBlipRenderEntry Entry;
+		Entry.MapUV = UV;
 		Entry.Sprite = Sprite ? *Sprite : nullptr;
 		if (const float* Size = ResolvedBlipSizes.Find(BlipID))
 			Entry.BlipSize = *Size;

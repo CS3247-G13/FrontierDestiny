@@ -45,4 +45,5 @@ struct FRONTIERDESTINY_API FBlipRenderEntry
 
 	UPROPERTY(BlueprintReadOnly, Category = "Minimap|Blip")
 	int32 ZOrder = 0;
+
 };
