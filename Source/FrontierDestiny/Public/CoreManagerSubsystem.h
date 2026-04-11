@@ -10,7 +10,7 @@
 #define TOTALCORECOUNT 3
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCapturedCoreCountChanged, int32, NewCount);
-
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCapturedCoreDestroyed, int32, CoreIndex);
 /**
  * Tracks all CoreActors in the current level.
  * Provides a single source of truth for how many cores are captured,
@@ -46,6 +46,8 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FOnCapturedCoreCountChanged OnCapturedCoreCountChanged;
 
+	UPROPERTY(BlueprintAssignable)
+	FOnCapturedCoreDestroyed OnCapturedCoreDestroyed;
 private:
 	/** Map of CoreIndex → CoreActor. Populated at BeginPlay by each CoreActor. */
 	UPROPERTY()
