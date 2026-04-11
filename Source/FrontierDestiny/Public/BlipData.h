@@ -46,7 +46,4 @@ struct FRONTIERDESTINY_API FBlipRenderEntry
 	UPROPERTY(BlueprintReadOnly, Category = "Minimap|Blip")
 	int32 ZOrder = 0;
 
-	/** True when the entity is outside ViewRadius but within EnemyBlipRadius — blip should be clamped to the minimap edge. */
-	UPROPERTY(BlueprintReadOnly, Category = "Minimap|Blip")
-	bool bClamped = false;
 };

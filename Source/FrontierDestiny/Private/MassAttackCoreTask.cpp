@@ -5,6 +5,7 @@
 #include "CoreManagerSubsystem.h"
 #include "CoreActor.h"
 #include "EnemyManagerSubsystem.h"
+#include "HordeIDFragment.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(MassAttackCoreTask)
 
@@ -46,8 +47,14 @@ EStateTreeRunStatus FMassAttackCoreTask::EnterState(FStateTreeExecutionContext& 
 
 	const FMassEntityHandle Entity = MassContext.GetEntity();
 
+	// TODO: death notification logic is duplicated from EnemyDamageMassProcessor — consider a kill fragment
+	// so all death paths go through one place instead of manually mirroring this here.
 	if (UEnemyManagerSubsystem* EnemyManager = World->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>())
 	{
+		if (const FHordeIDFragment* HordeID = MassContext.GetEntityManager().GetFragmentDataPtr<FHordeIDFragment>(Entity))
+		{
+			EnemyManager->NotifyHordeEnemyDeath(HordeID->HordeID);
+		}
 		EnemyManager->NotifyEnemyDeath(Entity);
 	}
 
