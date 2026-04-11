@@ -175,6 +175,7 @@ void UWaterBodyProximtyProcessor::Execute(FMassEntityManager& EntityManager, FMa
                 FWaterBodyQueryResult BestResult;
                 float BestDepth = -FLT_MAX;
                 UWaterBodyComponent* BestBody = nullptr;
+                bool bIsLava = false;
 
                 for (const FLakeData& Lake : CachedLakes)
                 {
@@ -209,6 +210,7 @@ void UWaterBodyProximtyProcessor::Execute(FMassEntityManager& EntityManager, FMa
                         BestDepth = Depth;
                         BestResult = Query.GetValue();
                         BestBody = Body;
+                        bIsLava = Lake.bIsLava;
                     }
                     UE_LOG(LogTemp, Warning,
                         TEXT("Depth: %f | WaterZ: %f | ActorZ: %f"),
@@ -216,11 +218,11 @@ void UWaterBodyProximtyProcessor::Execute(FMassEntityManager& EntityManager, FMa
                         Query.GetValue().GetWaterSurfaceLocation().Z,
                         EntityLocation.Z);
                 }
-
+  
                 // Apply status effect if valid lake found
                 if (BestBody && BestDepth > 10.0f)
                 {
-                    if (BestBody->GetOwner()->ActorHasTag(TEXT("Lava"))) {
+                    if (bIsLava) {
                         auto BurnFragments = ChunkContext.GetMutableFragmentView<FBurnFragment>();
                         if (BurnFragments.Num() > 0) {
                             BurnFragments[i].Duration = 5.0f;
@@ -238,7 +240,7 @@ void UWaterBodyProximtyProcessor::Execute(FMassEntityManager& EntityManager, FMa
                             SlowFragments[i].SpeedMultiplier = 1.0f;
                         }
                         else {
-                            ApplySlow(ChunkContext, ChunkContext.GetEntity(i), 3.0f, 2.0f);
+                            ApplySlow(ChunkContext, ChunkContext.GetEntity(i), 3.0f, 10.0f);
                         }
                     }
 #if WITH_EDITOR
@@ -341,7 +343,7 @@ void UWaterBodyProximtyProcessor::Execute(FMassEntityManager& EntityManager, FMa
                             SlowFragments[i].SpeedMultiplier = 1.0f;
                         }
                         else {
-                            ApplySlow(ChunkContext, ChunkContext.GetEntity(i), 3.0f, 2.0f);
+                            ApplySlow(ChunkContext, ChunkContext.GetEntity(i), 3.0f, 10.0f);
                         }
                     }
 
@@ -463,6 +465,16 @@ void UWaterBodyProximtyProcessor::InitializeInternal(UObject& Owner, const TShar
                 FLakeData LakeData;
                 LakeData.Body = Body;
 
+                // Establish if it is in lava, the alternative is if it is in AntiGrav
+                if (Body->GetWaterBodyType() == EWaterBodyType::Lake &&
+                    Body->GetOwner()->GetActorLabel().Contains("Lava"))
+                {
+                    LakeData.bIsLava = true;
+                }
+                else {
+                    LakeData.bIsLava = false;
+                }
+
                 // Build lake polygon safely
                 BuildLakePolygon(Spline, LakeData.Polygon);
 
@@ -473,11 +485,12 @@ void UWaterBodyProximtyProcessor::InitializeInternal(UObject& Owner, const TShar
 
 #if WITH_EDITOR
                 UE_LOG(LogTemp, Warning,
-                    TEXT("Cached lake: %s | Points: %d | BoundsMin=(%f,%f) | BoundsMax=(%f,%f)"),
+                    TEXT("Cached lake: %s | Points: %d | BoundsMin=(%f,%f) | BoundsMax=(%f,%f) | bIsLava=(%s)"),
                     *Body->GetOwner()->GetActorLabel(),
                     LakeData.Polygon.Num(),
                     LakeData.BoundsMin.X, LakeData.BoundsMin.Y,
-                    LakeData.BoundsMax.X, LakeData.BoundsMax.Y);
+                    LakeData.BoundsMax.X, LakeData.BoundsMax.Y,
+                    LakeData.bIsLava ? TEXT("true") : TEXT("false"));
 #endif
             }
         }
