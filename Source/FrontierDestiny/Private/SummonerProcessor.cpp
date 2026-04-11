@@ -53,7 +53,7 @@ void USummonerProcessor::Execute(FMassEntityManager& EntityManager, FMassExecuti
 
     //FMassCommandBuffer& CommandBuffer = EntityManager.Defer();
 
-    EntityQuery.ForEachEntityChunk(EntityManager, Context, [&](FMassExecutionContext& Context)
+    EntityQuery.ForEachEntityChunk(Context, [&](FMassExecutionContext& Context)
         {
             const int32 NumEntities = Context.GetNumEntities();
 
@@ -113,7 +113,7 @@ void USummonerProcessor::Execute(FMassEntityManager& EntityManager, FMassExecuti
         });
 
     // For each summoner entity that has a summon request
-    EQ2.ForEachEntityChunk(EntityManager, Context, [&](FMassExecutionContext& Context)
+    EQ2.ForEachEntityChunk(Context, [&](FMassExecutionContext& Context)
         {
             const int32 NumEntities = Context.GetNumEntities();
             auto Requests = Context.GetMutableFragmentView<FSummonRequestFragment>();

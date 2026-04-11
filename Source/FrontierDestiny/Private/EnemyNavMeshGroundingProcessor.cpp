@@ -43,7 +43,7 @@ void UEnemyNavMeshGroundingProcessor::Execute(FMassEntityManager& EntityManager,
 		return;
 	}
 
-	EntityQuery.ForEachEntityChunk(EntityManager, Context, [&](FMassExecutionContext& Context)
+	EntityQuery.ForEachEntityChunk(Context, [&](FMassExecutionContext& Context)
 		{
 			const float DeltaTime = Context.GetDeltaTimeSeconds();
 
