@@ -9,7 +9,7 @@
 #include "NiagaraDataInterfaceArrayFunctionLibrary.h"
 #include "NiagaraFunctionLibrary.h"
 #include "MassEntitySubsystem.h"
-
+#include "EconomySubsystem.h"
 #include "MassRepresentationSubsystem.h"
 #include "EnemyDamageMassProcessor.h"
 
@@ -181,7 +181,14 @@ bool UEnemyManagerSubsystem::DestroyEnemyByHit(const FHitResult& Hit)
 
 void UEnemyManagerSubsystem::RewardPlayerForEnemyDeath(FResourceAmount Reward)
 {
-	
+	AsyncTask(ENamedThreads::GameThread, [this, Reward]()
+	{
+		UEconomySubsystem* ES = GetGameInstance()->GetSubsystem<UEconomySubsystem>();
+		if (ES)
+		{
+			ES->AddFunds(Reward);
+		}
+	});
 }
 
 void UEnemyManagerSubsystem::AssignNiagaraComponent(UNiagaraComponent* Component)
