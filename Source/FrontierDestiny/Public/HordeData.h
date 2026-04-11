@@ -19,4 +19,10 @@ struct FRONTIERDESTINY_API FHordeDataRow : public FTableRowBase
 	/** Resources awarded to the player when this horde is fully cleared. Summed up for every core you unlocked.*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Horde")
 	TArray<FResourceAmount> PerCoreReward;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Horde")
+	FName NextHordeID;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Horde")
+	int32 TimeInSecondsToNextHorde = 180;
 };

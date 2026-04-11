@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
+#include "ResourceAmount.h"
 #include "Engine/DataTable.h"
 #include "WaveData.generated.h"
 
@@ -27,6 +28,9 @@ struct FRONTIERDESTINY_API FEnemySpawnEntry
 	/** Modifier tags applied to each spawned enemy. Use Enemy.Modifier.* tags defined in EnemySpawner. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers")
 	FGameplayTagContainer Modifiers;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Wave")
+	FResourceAmount PerEnemyReward;
 
 	// Numeric modifier values — only relevant if the corresponding tag is present
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers") float FastSpeedMultiplier       = 2.f;
