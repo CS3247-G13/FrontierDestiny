@@ -179,6 +179,11 @@ bool UEnemyManagerSubsystem::DestroyEnemyByHit(const FHitResult& Hit)
 	return true;
 }
 
+void UEnemyManagerSubsystem::RewardPlayerForEnemyDeath(FResourceAmount Reward)
+{
+	
+}
+
 void UEnemyManagerSubsystem::AssignNiagaraComponent(UNiagaraComponent* Component)
 {
 	NiagaraComponent = Component;

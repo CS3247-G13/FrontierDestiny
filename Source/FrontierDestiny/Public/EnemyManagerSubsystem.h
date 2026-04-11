@@ -8,6 +8,7 @@
 #include "NiagaraComponent.h"
 #include "MassEntityHandle.h"
 #include "EnemyDamageMassProcessor.h"
+#include "ResourceAmount.h"
 
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -122,6 +123,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	bool DestroyEnemyByHit(const FHitResult& Hit);
+
+	UFUNCTION(BlueprintCallable)
+	void RewardPlayerForEnemyDeath(FResourceAmount Reward);
 
 	UFUNCTION(BlueprintCallable)
 	void AssignNiagaraComponent(UNiagaraComponent* Component);
