@@ -87,5 +87,6 @@ void UCoreManagerSubsystem::HandleCoreDestroyed(ACoreActor* Core)
 	{
 		CapturedCoreCount = FMath::Max(0, CapturedCoreCount - 1);
 		OnCapturedCoreCountChanged.Broadcast(CapturedCoreCount);
+		OnCapturedCoreDestroyed.Broadcast(Core->CoreIndex);
 	}
 }
