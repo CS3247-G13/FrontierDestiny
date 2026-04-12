@@ -64,7 +64,7 @@ void UEnemyDamageMassProcessor::Execute(FMassEntityManager& EntityManager, FMass
 			TArrayView<FCompoundingInjuryFragment>      CompoundingInjuryList = Context.GetMutableFragmentView<FCompoundingInjuryFragment>();
 			TConstArrayView<FDevastatedFragment>        DevastatedList        = Context.GetFragmentView<FDevastatedFragment>();
 			TConstArrayView<FBallisticRecallFragment>   BallisticRecallList   = Context.GetFragmentView<FBallisticRecallFragment>();
-
+			
 			const bool bHasModifiers         = !ModifierList.IsEmpty();
 			const bool bHasVitality          = !VitalityList.IsEmpty();
 			const bool bHasStats             = !StatsList.IsEmpty();
@@ -199,6 +199,8 @@ void UEnemyDamageMassProcessor::Execute(FMassEntityManager& EntityManager, FMass
 							EnemyManager->NotifyHordeEnemyDeath(HordeIDList[EntityIdx].HordeID);
 						}
 						EnemyManager->NotifyEnemyDeath(Entity);
+						FStatsFragment& Stats = StatsList[EntityIdx];
+						EnemyManager->RewardPlayerForEnemyDeath(Stats.RewardAmount);
 					}
 					Context.Defer().DestroyEntity(Entity);
 				}

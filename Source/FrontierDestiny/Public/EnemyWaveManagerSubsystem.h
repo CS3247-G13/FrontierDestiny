@@ -80,9 +80,11 @@ private:
 
 	// Active horde timers. Key = HordeID, Value = one handle per batch.
 	TMap<FName, TArray<FTimerHandle>> ActiveHordeTimers;
+	TMap<FName, FTimerHandle> UpcomingHordeTimers;
 
 	// Remaining enemy count per active horde. Decremented on each horde enemy death.
 	TMap<FName, int32> HordeEnemiesRemaining;
 
 	void HandleHordeEnemyDeath(FName HordeID);
+	void ReadyNextHorde(FName EndedHordeID);
 };

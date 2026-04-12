@@ -83,4 +83,5 @@ private:
 	TArray<float> PendingDamageMultipliers;
 	TArray<float> PendingVitalityAmounts;
 	TArray<FName> PendingEnemyIDs;
+	TArray<FResourceAmount> PendingResourceAmounts;
 };

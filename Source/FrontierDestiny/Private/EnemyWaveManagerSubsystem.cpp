@@ -209,6 +209,7 @@ void UEnemyWaveManagerSubsystem::HandleHordeEnemyDeath(FName HordeID)
 		UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: Horde '%s' cleared!"), *HordeID.ToString());
 
 		OnHordeFinished.Broadcast(HordeID);
+		ReadyNextHorde(HordeID);
 
 		const FHordeDataRow* HordeData = HordeDataMap.Find(HordeID);
 		if (!HordeData)
@@ -246,7 +247,32 @@ void UEnemyWaveManagerSubsystem::HandleHordeEnemyDeath(FName HordeID)
 			}
 		}
 		Economy->AddFunds(TotalRewards);
-		
-
 	}
+}
+
+void UEnemyWaveManagerSubsystem::ReadyNextHorde(FName EndedHordeID)
+{
+	const FHordeDataRow* HordeData = HordeDataMap.Find(EndedHordeID);
+	if (!HordeData || HordeData->NextHordeID == NAME_None)
+	{
+		return;
+	}
+
+	const FName NextHordeID = HordeData->NextHordeID;
+	if (FTimerHandle* ExistingHandle = UpcomingHordeTimers.Find(NextHordeID))
+	{
+		return;
+	}
+
+	FTimerHandle Handle;
+
+	FTimerDelegate Delegate = FTimerDelegate::CreateWeakLambda(this, [this, NextHordeID]()
+	{
+		UpcomingHordeTimers.Remove(NextHordeID);
+		StartHorde(NextHordeID);
+	});
+
+	FTimerManager& TimerManager = GetGameInstance()->GetWorld()->GetTimerManager();
+	TimerManager.SetTimer(Handle, Delegate, HordeData->TimeInSecondsToNextHorde, false);
+	UpcomingHordeTimers.Add(NextHordeID, Handle);
 }
