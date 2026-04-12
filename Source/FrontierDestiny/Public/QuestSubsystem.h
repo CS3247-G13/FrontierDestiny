@@ -75,6 +75,9 @@ public:
 	void PlayMessage();
 	void NextMessage();
 
+	UFUNCTION(BlueprintCallable)
+	void OnLevelChanged(UWorld* World);
+
 	float GetMessageDisplayTime();
 
 	UPROPERTY(BlueprintReadOnly, Category = "QuestMessages")

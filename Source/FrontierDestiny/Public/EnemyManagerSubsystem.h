@@ -224,4 +224,6 @@ public:
 	{
 		RETURN_QUICK_DECLARE_CYCLE_STAT(UEnemyManagerSubsystem, STATGROUP_Tickables);
 	}
+	UFUNCTION(BlueprintCallable)
+	void OnLevelChanged(UWorld* World);
 };

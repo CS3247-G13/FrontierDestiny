@@ -19,6 +19,20 @@ void UEconomySubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	TimerParams.FirstDelay = -1.f;
 
 	GetWorld()->GetTimerManager().SetTimer(TimerHandle, this, &UEconomySubsystem::AddPassiveIncome, 1.f, TimerParams);
+
+	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(
+		this, &UEconomySubsystem::OnLevelChanged
+	);
+}
+
+
+void UEconomySubsystem::OnLevelChanged(UWorld* World)
+{
+	CurrentFunds.Nullsteel = 0;
+	CurrentFunds.Cryxite = 0;
+	CurrentFunds.Gravstone = 0;
+	OnFundsChanged.Broadcast(CurrentFunds, FResourceAmount{ -CurrentFunds.Cryxite, -CurrentFunds.Nullsteel, -CurrentFunds.Gravstone });
+	PlayerManager = GetGameInstance()->GetSubsystem<UPlayerManagerSubsystem>();
 }
 
 void UEconomySubsystem::Deinitialize()
