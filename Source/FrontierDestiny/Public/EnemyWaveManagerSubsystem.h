@@ -71,6 +71,9 @@ public:
 	/** Called by EnemySpawner after DoSpawning() to register how many enemies were spawned for a horde. */
 	void RegisterSpawnedEnemies(FName HordeID, int32 Count);
 
+	UFUNCTION(BlueprintCallable)
+	void OnLevelChanged(UWorld* World);
+
 private:
 	void LoadWaveDataFromDataTable();
 	void LoadHordeDataFromDataTable();

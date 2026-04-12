@@ -19,6 +19,34 @@ void UPlayerManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 			UpgradeManager->OnUpgradeDeactivated.AddDynamic(this, &UPlayerManagerSubsystem::HandleUpgradeDeactivated);
 		}
 	}
+
+	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(
+		this, &UPlayerManagerSubsystem::OnLevelChanged
+	);
+}
+
+
+void UPlayerManagerSubsystem::OnLevelChanged(UWorld* World)
+{
+	PlayerData.bPiercingShots = false;
+	PlayerData.bRuptureRounds = false;
+	PlayerData.bSuppressingFire = false;
+	PlayerData.bCompoundingInjury = false;
+	PlayerData.bArcShots = false;
+	PlayerData.bConduitMarker = false;
+
+	PlayerData.bInfernoCartridge = false;
+	PlayerData.bFlakBarrel = false;
+	PlayerData.bStaggerShells = false;
+	PlayerData.bBallisticRecall = false;
+	PlayerData.bSlugConversion = false;
+	PlayerData.bDevastatingBlow = false;
+
+	PlayerData.bBulletReservoir1 = false;
+	PlayerData.bBulletReservoir2 = false;
+	PlayerData.bBulletReservoir3 = false;
+
+	LoadPlayerDataFromDataTable();
 }
 
 void UPlayerManagerSubsystem::LoadPlayerDataFromDataTable()
