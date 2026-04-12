@@ -365,7 +365,7 @@ void UEnemyManagerSubsystem::NotifyEnemyDeath(FMassEntityHandle Handle)
 		}
 		ConduitMarkedEntities.Remove(Handle);
 
-		OnEnemyDeath.Broadcast(Handle);
+		OnEnemyDeath.Broadcast(Handle); 
 
 		if (UQuestSubsystem* QuestSubsystem = GetGameInstance()->GetSubsystem<UQuestSubsystem>())
 		{

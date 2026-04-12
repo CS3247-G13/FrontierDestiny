@@ -104,4 +104,7 @@ private:
 
 	// Recursively activates all *completed* upgrades starting from UpgradeID downward.
 	void ActivateTree(const FName& UpgradeID);
+
+	UFUNCTION(BlueprintCallable)
+	void OnLevelChanged(UWorld* World);
 };
