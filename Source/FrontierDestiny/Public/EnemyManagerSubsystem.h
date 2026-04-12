@@ -198,4 +198,6 @@ public:
 
 	FEnemyData GetEnemyData(const FName& EnemyID);
 
+	UFUNCTION(BlueprintCallable)
+	void OnLevelChanged(UWorld* World);
 };

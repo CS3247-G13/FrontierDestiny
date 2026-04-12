@@ -44,6 +44,9 @@ public:
 
 	void RestoreBullets(int32 Amount);
 
+	UFUNCTION(BlueprintCallable)
+	void OnLevelChanged(UWorld* World);
+
 protected:
 	void LoadPlayerDataFromDataTable();
 

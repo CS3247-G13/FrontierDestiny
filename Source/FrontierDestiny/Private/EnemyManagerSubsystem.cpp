@@ -28,6 +28,38 @@ void UEnemyManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	InitializeHealthbars();
 
 	OnEnemyDamageTaken.AddUObject(this, &UEnemyManagerSubsystem::SpawnHitEffects);
+
+	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(
+		this, &UEnemyManagerSubsystem::OnLevelChanged
+	);
+}
+
+
+void UEnemyManagerSubsystem::OnLevelChanged(UWorld* World)
+{
+	EnemyHealths.Empty();
+	EnemyMaxHealths.Empty();
+	EnemyPositions.Empty();
+	EnemyVisibilities.Empty();
+	EnemyVitalities.Empty();
+	BurnDurations.Empty();
+	SlowDurations.Empty();
+	StunDurations.Empty();
+	ModifierFlags.Empty();           
+	FragmentedChunkSizes.Empty();
+	MitigatedDamageAmounts.Empty();
+
+	MitigatedDamageFadeTimers.Empty();
+	EnemyHeights.Empty();
+
+	ActiveEntityHandles.Empty();
+	EntitySlotMap.Empty();
+	FreeSlots.Empty();
+
+	EnemyDataMap.Empty();
+
+	LoadEnemyDataFromDataTable();
+	InitializeHealthbars();
 }
 
 void UEnemyManagerSubsystem::InitializeHealthbars()
