@@ -992,7 +992,7 @@ void UEnemyManagerSubsystem::ProcessSpawnQueue()
 			SpawnLocation += FVector(
 				r * FMath::Cos(theta),
 				r * FMath::Sin(theta),
-				0.f);
+				200.f);
 
 
 
