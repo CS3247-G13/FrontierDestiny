@@ -12,6 +12,8 @@
 #include "InputMappingContext.h"
 #include "DamageNumber.h"
 #include "EnemyManagerSubsystem.h"
+#include "GlobalTowerSettings.h"
+#include "NiagaraFunctionLibrary.h"
 
 #include "Engine/DamageEvents.h"
 
@@ -285,11 +287,17 @@ void UCombatComponent::ApplyHit(const FHitResult& Hit)
 	FMassEnemyTarget Target;
 	if (EnemyManager->GetEnemyTargetFromHit(Hit, Target))
 	{
+		SpawnBloodSplatter(Hit.ImpactPoint, Hit.ImpactNormal);
 		switch (CurrentWeapon)
 		{
 		case EWeaponType::Rifle:   ApplyRifleUpgrades(EnemyManager, Target);        break;
 		case EWeaponType::Shotgun: ApplyShotgunUpgrades(EnemyManager, Target, Hit); break;
 		}
+	}
+	else
+	{
+		// PLAY SPARKS
+		SpawnHitImpact(Hit.ImpactPoint, Hit.ImpactNormal);
 	}
 }
 
@@ -388,4 +396,32 @@ void UCombatComponent::OnRestoreBullets(int32 Amount)
 {
 	CurrentBullets = FMath::Min(CurrentBullets + Amount, GetPlayerData().GetMaxBullets());
 	OnCurrentBulletsChange.Broadcast(CurrentBullets, GetPlayerData().GetMaxBullets());
+}
+
+void UCombatComponent::SpawnBloodSplatter(FVector Location, FVector Normal)
+{
+	const UGlobalTowerSettings* Settings = UGlobalTowerSettings::Get();
+
+	if (UNiagaraSystem* BloodSystem = Settings->BloodSplatterEffect.LoadSynchronous())
+	{
+		if (UNiagaraComponent* NiagaraComp = UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			GetWorld(), BloodSystem, Location))
+		{
+			NiagaraComp->SetVariableVec3(FName("DirectionNormal"), Normal);
+		}
+	}
+}
+
+void UCombatComponent::SpawnHitImpact(FVector Location, FVector Normal)
+{
+	const UGlobalTowerSettings* Settings = UGlobalTowerSettings::Get();
+
+	if (UNiagaraSystem* HitImpactSystem = Settings->HitImpactEffect.LoadSynchronous())
+	{
+		if (UNiagaraComponent* NiagaraComp = UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			GetWorld(), HitImpactSystem, Location))
+		{
+			NiagaraComp->SetVariableVec3(FName("DirectionNormal"), Normal);
+		}
+	}
 }

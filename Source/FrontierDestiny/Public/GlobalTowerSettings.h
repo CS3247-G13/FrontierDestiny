@@ -54,6 +54,9 @@ public:
 	TSoftObjectPtr<UNiagaraSystem> BloodSplatterEffect;
 
 	UPROPERTY(Config, EditAnywhere, Category = "Effects")
+	TSoftObjectPtr<UNiagaraSystem> HitImpactEffect;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Effects")
 	TSoftObjectPtr<UNiagaraSystem> ArcLightningEffect;
 
 	UPROPERTY(Config, EditAnywhere, Category = "Minimap")

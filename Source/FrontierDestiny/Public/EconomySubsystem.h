@@ -34,6 +34,9 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Economy")
 	FOnFundsChanged OnFundsChanged;
 
+	UFUNCTION(BlueprintCallable)
+	void OnLevelChanged(UWorld* World);
+
 protected:
 	UPROPERTY(EditAnywhere, Category = "Economy")
 	FResourceAmount CurrentFunds;

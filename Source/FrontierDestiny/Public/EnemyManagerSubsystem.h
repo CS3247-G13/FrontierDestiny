@@ -8,6 +8,7 @@
 #include "NiagaraComponent.h"
 #include "MassEntityHandle.h"
 #include "EnemyDamageMassProcessor.h"
+#include "ResourceAmount.h"
 
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -124,6 +125,9 @@ public:
 	bool DestroyEnemyByHit(const FHitResult& Hit);
 
 	UFUNCTION(BlueprintCallable)
+	void RewardPlayerForEnemyDeath(FResourceAmount Reward);
+
+	UFUNCTION(BlueprintCallable)
 	void AssignNiagaraComponent(UNiagaraComponent* Component);
 
 	/** Data bundle built by HealthbarUpdateProcessor each frame and consumed by UpdateHealthbarInformation. */
@@ -194,4 +198,6 @@ public:
 
 	FEnemyData GetEnemyData(const FName& EnemyID);
 
+	UFUNCTION(BlueprintCallable)
+	void OnLevelChanged(UWorld* World);
 };

@@ -9,7 +9,7 @@
 #include "NiagaraDataInterfaceArrayFunctionLibrary.h"
 #include "NiagaraFunctionLibrary.h"
 #include "MassEntitySubsystem.h"
-
+#include "EconomySubsystem.h"
 #include "MassRepresentationSubsystem.h"
 #include "EnemyDamageMassProcessor.h"
 
@@ -28,6 +28,38 @@ void UEnemyManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	InitializeHealthbars();
 
 	OnEnemyDamageTaken.AddUObject(this, &UEnemyManagerSubsystem::SpawnHitEffects);
+
+	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(
+		this, &UEnemyManagerSubsystem::OnLevelChanged
+	);
+}
+
+
+void UEnemyManagerSubsystem::OnLevelChanged(UWorld* World)
+{
+	EnemyHealths.Empty();
+	EnemyMaxHealths.Empty();
+	EnemyPositions.Empty();
+	EnemyVisibilities.Empty();
+	EnemyVitalities.Empty();
+	BurnDurations.Empty();
+	SlowDurations.Empty();
+	StunDurations.Empty();
+	ModifierFlags.Empty();           
+	FragmentedChunkSizes.Empty();
+	MitigatedDamageAmounts.Empty();
+
+	MitigatedDamageFadeTimers.Empty();
+	EnemyHeights.Empty();
+
+	ActiveEntityHandles.Empty();
+	EntitySlotMap.Empty();
+	FreeSlots.Empty();
+
+	EnemyDataMap.Empty();
+
+	LoadEnemyDataFromDataTable();
+	InitializeHealthbars();
 }
 
 void UEnemyManagerSubsystem::InitializeHealthbars()
@@ -78,10 +110,10 @@ void UEnemyManagerSubsystem::SpawnHitEffects(FVector Location, int32 Damage)
 
 	const UGlobalTowerSettings* Settings = UGlobalTowerSettings::Get();
 
-	if (UNiagaraSystem* Splatter = Settings->BloodSplatterEffect.LoadSynchronous())
-	{
-		UNiagaraFunctionLibrary::SpawnSystemAtLocation(World, Splatter, Location);
-	}
+	//if (UNiagaraSystem* Splatter = Settings->BloodSplatterEffect.LoadSynchronous())
+	//{
+	//	UNiagaraFunctionLibrary::SpawnSystemAtLocation(World, Splatter, Location);
+	//}
 
 	{
 		FActorSpawnParameters Params;
@@ -177,6 +209,18 @@ bool UEnemyManagerSubsystem::DestroyEnemyByHit(const FHitResult& Hit)
 
 	DestroyEnemyByISMC(HitISMC, Hit.Item);
 	return true;
+}
+
+void UEnemyManagerSubsystem::RewardPlayerForEnemyDeath(FResourceAmount Reward)
+{
+	AsyncTask(ENamedThreads::GameThread, [this, Reward]()
+	{
+		UEconomySubsystem* ES = GetGameInstance()->GetSubsystem<UEconomySubsystem>();
+		if (ES)
+		{
+			ES->AddFunds(Reward);
+		}
+	});
 }
 
 void UEnemyManagerSubsystem::AssignNiagaraComponent(UNiagaraComponent* Component)
