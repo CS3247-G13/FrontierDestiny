@@ -712,6 +712,7 @@ void UBuilderComponent::DeleteHoveredTower()
 	UpdateHoveredTower(nullptr);
 	Temp->DestroyTower();
 	UGameplayStatics::PlaySound2D(GetWorld(), DestroyTowerSound);
+	EconomyComponent->AddFunds(Temp->TowerData.Cost);
 	if (IsValid(ClosestGridActor))
 	{
 		ClosestGridActor->UpdateOccupancyTexture(TArray<FTowerPlacementIntent>());
