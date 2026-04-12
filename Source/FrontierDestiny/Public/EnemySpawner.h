@@ -78,6 +78,7 @@ private:
 	TArray<float> PendingBaseHP;
 	TArray<float> PendingBaseSpeed;
 	TArray<float> PendingBaseDamage;
+	TArray<float> PendingHeights;
 	/** Stat multipliers to bake into FStatsFragment at spawn. */
 	TArray<float> PendingSpeedMultipliers;
 	TArray<float> PendingDamageMultipliers;

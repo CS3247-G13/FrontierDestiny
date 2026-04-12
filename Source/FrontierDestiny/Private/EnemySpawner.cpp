@@ -10,6 +10,7 @@
 #include "EnemyDamageMassProcessor.h"
 #include "Kismet/GameplayStatics.h"
 #include <SummonerProcessor.h>
+#include <MassCommonFragments.h>
 
 UE_DEFINE_GAMEPLAY_TAG(TAG_Modifier_Fast,         "Enemy.Modifier.Fast")
 UE_DEFINE_GAMEPLAY_TAG(TAG_Modifier_Strong,       "Enemy.Modifier.Strong")
@@ -150,6 +151,7 @@ void AEnemySpawner::Spawn(const FHordeBatchDetails& Details)
 	PendingBaseHP.Empty();
 	PendingBaseSpeed.Empty();
 	PendingBaseDamage.Empty();
+	PendingHeights.Empty();
 	PendingSpeedMultipliers.Empty();
 	PendingDamageMultipliers.Empty();
 	PendingVitalityAmounts.Empty();
@@ -176,6 +178,7 @@ void AEnemySpawner::Spawn(const FHordeBatchDetails& Details)
 		PendingBaseHP.Add(EnemyData.Attributes.Contains("HP")     ? EnemyData.Attributes["HP"].BaseValue     : 20.f);
 		PendingBaseSpeed.Add(EnemyData.Attributes.Contains("Speed")  ? EnemyData.Attributes["Speed"].BaseValue  : 1.f);
 		PendingBaseDamage.Add(EnemyData.Attributes.Contains("Damage") ? EnemyData.Attributes["Damage"].BaseValue : 10.f);
+		PendingHeights.Add(EnemyData.Height);
 
 		const FModifierFragment ModFrag = BuildModifierFragment(EnemyInfo);
 		PendingModifierFragments.Add(ModFrag);
@@ -225,6 +228,7 @@ void AEnemySpawner::HandleSpawningFinished()
 		const float BaseHP = PendingBaseHP.IsValidIndex(ModIdx) ? PendingBaseHP[ModIdx] : 20.f;
 		const float BaseSpeed = PendingBaseSpeed.IsValidIndex(ModIdx) ? PendingBaseSpeed[ModIdx] : 1.f;
 		const float BaseDamage = PendingBaseDamage.IsValidIndex(ModIdx) ? PendingBaseDamage[ModIdx] : 10.f;
+		const float Height = PendingHeights.IsValidIndex(ModIdx) ? PendingHeights[ModIdx] : 200.f;
 		const float SpeedMultiplier	= PendingSpeedMultipliers.IsValidIndex(ModIdx) ? PendingSpeedMultipliers[ModIdx] : 1.f;
 		const float DamageMultiplier = PendingDamageMultipliers.IsValidIndex(ModIdx) ? PendingDamageMultipliers[ModIdx] : 1.f;
 		const float VitalityAmount = PendingVitalityAmounts.IsValidIndex(ModIdx) ? PendingVitalityAmounts[ModIdx] : 0.f;
@@ -234,7 +238,7 @@ void AEnemySpawner::HandleSpawningFinished()
 		for (const FMassEntityHandle& Entity : AllSpawnedEntities[i].Entities)
 		{
 			CommandBuffer.PushCommand<FMassDeferredSetCommand>(
-				[Entity, HordeID, bApplyModifiers, ModFrag, BaseHP, BaseSpeed, BaseDamage, SpeedMultiplier, DamageMultiplier, VitalityAmount, EnemyID, RewardAmount](FMassEntityManager& Manager)
+				[Entity, HordeID, bApplyModifiers, ModFrag, BaseHP, BaseSpeed, BaseDamage, Height, SpeedMultiplier, DamageMultiplier, VitalityAmount, EnemyID, RewardAmount](FMassEntityManager& Manager)
 				{
 					if (!Manager.IsEntityValid(Entity)) return;
 
@@ -247,8 +251,14 @@ void AEnemySpawner::HandleSpawningFinished()
 					FHealthFragment* Health = Manager.GetFragmentDataPtr<FHealthFragment>(Entity);
 					if (Health)
 					{
-						Health->Value    = BaseHP;
+						Health->Value = BaseHP;
 						Health->MaxValue = BaseHP;
+					}
+					FTransformFragment* Transform = Manager.GetFragmentDataPtr<FTransformFragment>(Entity);
+					if (Transform)
+					{
+						FTransform& T = Transform->GetMutableTransform();
+						T.SetScale3D(FVector(Height / 200.f)); //200 as baseline
 					}
 
 					FStatsFragment* Stats = Manager.GetFragmentDataPtr<FStatsFragment>(Entity);
