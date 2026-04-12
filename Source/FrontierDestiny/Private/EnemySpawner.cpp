@@ -257,8 +257,9 @@ void AEnemySpawner::HandleSpawningFinished()
 					FTransformFragment* Transform = Manager.GetFragmentDataPtr<FTransformFragment>(Entity);
 					if (Transform)
 					{
+						float Scale = pow(Height / 300.f, 0.7);
 						FTransform& T = Transform->GetMutableTransform();
-						T.SetScale3D(FVector(Height / 200.f)); //200 as baseline
+						T.SetScale3D(FVector(Scale)); //200 as baseline
 					}
 
 					FStatsFragment* Stats = Manager.GetFragmentDataPtr<FStatsFragment>(Entity);
