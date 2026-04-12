@@ -18,6 +18,23 @@ void UEnemyWaveManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection
 	{
 		EnemyManager->OnHordeEnemyDeath.AddUObject(this, &UEnemyWaveManagerSubsystem::HandleHordeEnemyDeath);
 	}
+
+	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(
+		this, &UEnemyWaveManagerSubsystem::OnLevelChanged
+	);
+}
+
+void UEnemyWaveManagerSubsystem::OnLevelChanged(UWorld* World)
+{
+	HordeBatchMap.Empty();
+	HordeDataMap.Empty();
+	ActiveHordeTimers.Empty();
+	UpcomingHordeTimers.Empty();
+	HordeEnemiesRemaining.Empty();
+
+
+	LoadWaveDataFromDataTable();
+	LoadHordeDataFromDataTable();
 }
 
 void UEnemyWaveManagerSubsystem::Deinitialize()

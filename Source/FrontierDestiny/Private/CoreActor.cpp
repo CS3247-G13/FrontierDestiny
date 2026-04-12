@@ -48,6 +48,11 @@ void ACoreActor::TickRegen()
 
 void ACoreActor::ApplyDamage(float Damage)
 {
+    if (CoreData.CurrentHP <= 0.f)
+    {
+        return;
+	}
+
     LastDamageTime = GetWorld()->GetTimeSeconds();
 
     CoreData.CurrentHP = FMath::Clamp(
@@ -61,6 +66,7 @@ void ACoreActor::ApplyDamage(float Damage)
     if (CoreData.CurrentHP <= 0.f)
     {
         OnCoreDestroyed.Broadcast(this);
+        GetWorldTimerManager().ClearTimer(RegenTimerHandle);
     }
 }
 

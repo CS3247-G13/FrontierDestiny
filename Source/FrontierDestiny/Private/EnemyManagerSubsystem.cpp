@@ -18,6 +18,8 @@
 
 #include "QuestSubsystem.h"
 #include "Engine/OverlapResult.h"
+#include <MassSpawnerSubsystem.h>
+#include <MassCommonFragments.h>
 
 static constexpr float MitigatedFadeDuration = 1.5f;
 
@@ -28,6 +30,38 @@ void UEnemyManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	InitializeHealthbars();
 
 	OnEnemyDamageTaken.AddUObject(this, &UEnemyManagerSubsystem::SpawnHitEffects);
+
+	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(
+		this, &UEnemyManagerSubsystem::OnLevelChanged
+	);
+}
+
+
+void UEnemyManagerSubsystem::OnLevelChanged(UWorld* World)
+{
+	EnemyHealths.Empty();
+	EnemyMaxHealths.Empty();
+	EnemyPositions.Empty();
+	EnemyVisibilities.Empty();
+	EnemyVitalities.Empty();
+	BurnDurations.Empty();
+	SlowDurations.Empty();
+	StunDurations.Empty();
+	ModifierFlags.Empty();           
+	FragmentedChunkSizes.Empty();
+	MitigatedDamageAmounts.Empty();
+
+	MitigatedDamageFadeTimers.Empty();
+	EnemyHeights.Empty();
+
+	ActiveEntityHandles.Empty();
+	EntitySlotMap.Empty();
+	FreeSlots.Empty();
+
+	EnemyDataMap.Empty();
+
+	LoadEnemyDataFromDataTable();
+	InitializeHealthbars();
 }
 
 void UEnemyManagerSubsystem::InitializeHealthbars()
@@ -333,7 +367,7 @@ void UEnemyManagerSubsystem::NotifyEnemyDeath(FMassEntityHandle Handle)
 		}
 		ConduitMarkedEntities.Remove(Handle);
 
-		OnEnemyDeath.Broadcast(Handle);
+		OnEnemyDeath.Broadcast(Handle); 
 
 		if (UQuestSubsystem* QuestSubsystem = GetGameInstance()->GetSubsystem<UQuestSubsystem>())
 		{
@@ -921,4 +955,143 @@ bool UEnemyManagerSubsystem::IsEnhancedEnemy(FMassEntityHandle Handle) const
 
 	const FEnemyData* Data = EnemyDataMap.Find(EnemyID);
 	return Data && Data->bIsEnhanced;
+}
+
+
+void UEnemyManagerSubsystem::QueueSpawnRequest(const FEnemySpawnRequest& Request)
+{
+	PendingSpawnRequests.Add(Request);
+}
+
+void UEnemyManagerSubsystem::Tick(float DeltaTime)
+{
+	ProcessSpawnQueue();
+	FlushHealthbars();
+
+	UE_LOG(LogTemp, Warning, TEXT("EnemyManagerSubsystem Tick"));
+}
+
+
+void UEnemyManagerSubsystem::ProcessSpawnQueue()
+{
+	if (PendingSpawnRequests.IsEmpty())
+		return;
+
+	UWorld* World = GetWorld();
+	if (!World) return;
+
+	UMassSpawnerSubsystem* Spawner =
+		World->GetSubsystem<UMassSpawnerSubsystem>();
+
+	UMassEntitySubsystem* MassSubsystem =
+		World->GetSubsystem<UMassEntitySubsystem>();
+
+	if (!Spawner || !MassSubsystem)
+		return;
+
+	FMassEntityManager& EntityManager =
+		MassSubsystem->GetMutableEntityManager();
+
+	for (const FEnemySpawnRequest& Req : PendingSpawnRequests)
+	{
+		const FEnemyData EnemyData = GetEnemyData(Req.EnemyID);
+
+		const UMassEntityConfigAsset* Config =
+			EnemyData.EnemyMassEntityAsset.LoadSynchronous();
+
+		if (!Config)
+			continue;
+
+		const FMassEntityTemplate& Template =
+			Config->GetOrCreateEntityTemplate(*World);
+
+		TArray<FMassEntityHandle> Spawned;
+		Spawner->SpawnEntities(Template, Req.Count, Spawned);
+
+		for (FMassEntityHandle Entity : Spawned)
+		{
+			if (!Entity.IsValid())
+				continue;
+
+			// ----------------------------
+			// POSITION
+			// ----------------------------
+			FVector SpawnLocation = Req.BaseTransform.GetLocation();
+
+			float r = Req.Radius * FMath::Sqrt(FMath::FRand());
+			float theta = FMath::FRand() * 2.f * PI;
+
+			SpawnLocation += FVector(
+				r * FMath::Cos(theta),
+				r * FMath::Sin(theta),
+				200.f);
+
+
+
+			if (FTransformFragment* Transform =
+				EntityManager.GetFragmentDataPtr<FTransformFragment>(Entity))
+			{
+				FTransform T = Req.BaseTransform;
+
+				// ----------------------------
+				// SCALE (NEW)
+				// ----------------------------
+				const float Height =
+					EnemyData.Height > 0.f ? EnemyData.Height : 200.f;
+
+				const float Scale = Height / 200.f;
+
+				T.SetScale3D(FVector(Scale));
+				T.SetLocation(SpawnLocation);
+				Transform->SetTransform(T);
+			}
+
+			// ----------------------------
+			//  CRITICAL: MATCH SPAWNER PATH
+			// ----------------------------
+
+			// Health
+			if (FHealthFragment* Health =
+				EntityManager.GetFragmentDataPtr<FHealthFragment>(Entity))
+			{
+				const float BaseHP =
+					EnemyData.Attributes.Contains("HP")
+					? EnemyData.Attributes["HP"].BaseValue
+					: 20.f;
+
+				Health->Value = BaseHP;
+				Health->MaxValue = BaseHP;
+			}
+
+			// Stats (THIS FIXES HEIGHT / NIAGARA)
+			if (FStatsFragment* Stats =
+				EntityManager.GetFragmentDataPtr<FStatsFragment>(Entity))
+			{
+				Stats->EnemyID = Req.EnemyID;
+			}
+		}
+	}
+
+	PendingSpawnRequests.Reset();
+}
+
+void UEnemyManagerSubsystem::FlushHealthbars()
+{
+	if (!NiagaraComponent)
+		return;
+
+	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayPosition(
+		NiagaraComponent,
+		FName("Enemy Positions"),
+		PendingHealthbarData.Positions);
+
+	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
+		NiagaraComponent,
+		FName("Enemy Health"),
+		PendingHealthbarData.Healths);
+
+	UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayFloat(
+		NiagaraComponent,
+		FName("Enemy Max Health"),
+		PendingHealthbarData.MaxHealths);
 }

@@ -118,6 +118,44 @@ void UQuestSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	};
 
 	StartQuest("Onboard_1");
+
+	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(
+		this, &UQuestSubsystem::OnLevelChanged
+	);
+}
+
+void UQuestSubsystem::OnLevelChanged(UWorld* World)
+{
+	const UGlobalTowerSettings* Settings = UGlobalTowerSettings::Get();
+
+	if (!Settings)
+	{
+		return;
+	}
+
+	UDataTable* DataTable = Settings->QuestDataTable.LoadSynchronous();
+	if (!DataTable) return;
+
+	AllQuests.Empty();
+	UnlockedQuests.Empty();
+	CompletedQuests.Empty();
+
+	TArray<FQuestData*> Rows;
+	DataTable->GetAllRows<FQuestData>(TEXT("LoadQuestData"), Rows);
+
+	for (FQuestData* Row : Rows)
+	{
+		if (Row)
+		{
+			AllQuests.Add(Row->QuestID, *Row);
+		}
+	}
+
+	UnlockedQuests = {
+		"Onboard_1"
+	};
+
+	StartQuest("Onboard_1");
 }
 
 void UQuestSubsystem::RegisterEnemyKilled()
