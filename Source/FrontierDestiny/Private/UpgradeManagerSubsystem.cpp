@@ -7,6 +7,17 @@ void UUpgradeManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 	LoadUpgradesFromDataTable();
+
+	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(
+		this, &UUpgradeManagerSubsystem::OnLevelChanged
+	);
+}
+
+
+void UUpgradeManagerSubsystem::OnLevelChanged(UWorld* World)
+{
+	UpgradeMap.Empty();
+	LoadUpgradesFromDataTable();
 }
 
 void UUpgradeManagerSubsystem::Deinitialize()
