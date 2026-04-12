@@ -110,4 +110,7 @@ protected:
 		MuzzleFlashShotgun = Shotgun;
 		MuzzleFlashSniper = Sniper;
 	}
+
+	void SpawnBloodSplatter(FVector Location, FVector Normal);
+	void SpawnHitImpact(FVector Location, FVector Normal);
 };

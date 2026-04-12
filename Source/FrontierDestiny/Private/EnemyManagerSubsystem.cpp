@@ -78,10 +78,10 @@ void UEnemyManagerSubsystem::SpawnHitEffects(FVector Location, int32 Damage)
 
 	const UGlobalTowerSettings* Settings = UGlobalTowerSettings::Get();
 
-	if (UNiagaraSystem* Splatter = Settings->BloodSplatterEffect.LoadSynchronous())
-	{
-		UNiagaraFunctionLibrary::SpawnSystemAtLocation(World, Splatter, Location);
-	}
+	//if (UNiagaraSystem* Splatter = Settings->BloodSplatterEffect.LoadSynchronous())
+	//{
+	//	UNiagaraFunctionLibrary::SpawnSystemAtLocation(World, Splatter, Location);
+	//}
 
 	{
 		FActorSpawnParameters Params;
