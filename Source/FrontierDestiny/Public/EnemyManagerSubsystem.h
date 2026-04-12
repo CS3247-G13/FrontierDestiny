@@ -19,8 +19,17 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnEnemyDeathSignature, FMassEntityHandle);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnHordeEnemyDeathSignature, FName);
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnEnemyDamageTakenSignature, FVector, int32);
 
+struct FEnemySpawnRequest
+{
+	FMassEntityHandle SourceEntity;
+	FName EnemyID;
+	FTransform BaseTransform;
+	int32 Count = 0;
+	float Radius = 0.f;
+};
+
 UCLASS()
-class FRONTIERDESTINY_API UEnemyManagerSubsystem : public UGameInstanceSubsystem
+class FRONTIERDESTINY_API UEnemyManagerSubsystem : public UGameInstanceSubsystem, public FTickableGameObject
 {
 	GENERATED_BODY()
 public:
@@ -198,4 +207,21 @@ public:
 
 	FEnemyData GetEnemyData(const FName& EnemyID);
 
+	// Synchronous spawning request of enemies
+	void QueueSpawnRequest(const FEnemySpawnRequest& Request);
+	void FlushHealthbars();
+	void ProcessSpawnQueue();
+	void Tick(float DeltaTime);
+	TArray<FEnemySpawnRequest> PendingSpawnRequests;
+	FHealthbarFrameData PendingHealthbarData;
+
+	virtual bool IsTickable() const override
+	{
+		return true;
+	}
+
+	virtual TStatId GetStatId() const override
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(UEnemyManagerSubsystem, STATGROUP_Tickables);
+	}
 };

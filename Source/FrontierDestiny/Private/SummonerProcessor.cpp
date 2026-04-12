@@ -112,10 +112,10 @@ void USummonerProcessor::Execute(FMassEntityManager& EntityManager, FMassExecuti
             }
         });
 
-    // For each summoner entity that has a summon request
     EQ2.ForEachEntityChunk(Context, [&](FMassExecutionContext& Context)
         {
             const int32 NumEntities = Context.GetNumEntities();
+
             auto Requests = Context.GetMutableFragmentView<FSummonRequestFragment>();
             auto Transforms = Context.GetFragmentView<FTransformFragment>();
             auto Entities = Context.GetEntities();
@@ -123,63 +123,42 @@ void USummonerProcessor::Execute(FMassEntityManager& EntityManager, FMassExecuti
             UWorld* World = Context.GetWorld();
             if (!World) return;
 
-            UMassSpawnerSubsystem* SpawnerSystem = World->GetSubsystem<UMassSpawnerSubsystem>();
-            UEnemyManagerSubsystem* EnemyManager = World->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
-            if (!SpawnerSystem || !EnemyManager) return;
+            UEnemyManagerSubsystem* Subsystem =
+                World->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>();
+
+            if (!Subsystem) return;
 
             for (int32 i = 0; i < NumEntities; i++)
             {
-                const FMassEntityHandle Entity = Entities[i];
                 FSummonRequestFragment& Request = Requests[i];
-                const FTransform& BaseTransform = Transforms[i].GetTransform();
-
                 if (Request.Count <= 0)
                     continue;
 
-                // Defer the actual spawn to AFTER this processing phase
-                Context.Defer().PushCommand<FMassDeferredSetCommand>(
-                    [Request, BaseTransform, SpawnerSystem, EnemyManager, World](FMassEntityManager& Manager)
-                    {
-                        FEnemyData EnemyData = EnemyManager->GetEnemyData(Request.EnemyID);
-                        const UMassEntityConfigAsset* EntityConfig = EnemyData.EnemyMassEntityAsset.LoadSynchronous();
-                        if (!EntityConfig || !SpawnerSystem) return;
+                const FMassEntityHandle Entity = Entities[i];
+                const FTransform& BaseTransform = Transforms[i].GetTransform();
 
-                        const FMassEntityTemplate& Template = EntityConfig->GetOrCreateEntityTemplate(*SpawnerSystem->GetWorld());
+                // ----------------------------
+                // QUEUE SPAWN ONLY
+                // ----------------------------
+                FEnemySpawnRequest SpawnReq;
+                SpawnReq.SourceEntity = Entity;
+                SpawnReq.EnemyID = Request.EnemyID;
+                SpawnReq.BaseTransform = BaseTransform;
+                SpawnReq.Count = Request.Count;
+                SpawnReq.Radius = Request.Radius;
 
-                        TArray<FMassEntityHandle> SpawnedEntities;
-                        SpawnerSystem->SpawnEntities(Template, Request.Count, SpawnedEntities);
+                Subsystem->QueueSpawnRequest(SpawnReq);
+            }
 
-                        UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
-
-                        for (FMassEntityHandle Spawned : SpawnedEntities)
-                        {
-                            if (!Manager.IsEntityValid(Spawned)) continue;
-
-                            // Uniform Disk Logic: r = Radius * sqrt(Rand) for even spread
-                            float r = Request.Radius * FMath::Sqrt(FMath::FRand());
-                            float theta = FMath::FRand() * 2.0f * PI;
-                            FVector SpawnLocation = BaseTransform.GetLocation() + FVector(r * FMath::Cos(theta), r * FMath::Sin(theta), 0.0f);
-
-                            // NavMesh Snapping
-                            if (NavSys)
-                            {
-                                FNavLocation ProjectedLocation;
-                                if (NavSys->ProjectPointToNavigation(SpawnLocation, ProjectedLocation, FVector(100.f, 100.f, 500.f)))
-                                {
-                                    SpawnLocation = ProjectedLocation.Location;
-                                }
-                            }
-
-                            if (FTransformFragment* TransformFrag = Manager.GetFragmentDataPtr<FTransformFragment>(Spawned))
-                            {
-                                FTransform SpawnTransform = BaseTransform;
-                                SpawnTransform.SetLocation(SpawnLocation);
-                                TransformFrag->SetTransform(SpawnTransform);
-                            }
-                        }
-                    }
-                );
-                 Context.Defer().RemoveFragment<FSummonRequestFragment>(Entity);
+            // ----------------------------
+            // REMOVE REQUEST FRAGMENTS
+            // ----------------------------
+            for (int32 i = 0; i < NumEntities; i++)
+            {
+                if (Requests[i].Count > 0)
+                {
+                    Context.Defer().RemoveFragment<FSummonRequestFragment>(Entities[i]);
+                }
             }
         });
 }
