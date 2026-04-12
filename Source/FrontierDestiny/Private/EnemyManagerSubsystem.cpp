@@ -994,10 +994,22 @@ void UEnemyManagerSubsystem::ProcessSpawnQueue()
 				r * FMath::Sin(theta),
 				0.f);
 
+
+
 			if (FTransformFragment* Transform =
 				EntityManager.GetFragmentDataPtr<FTransformFragment>(Entity))
 			{
 				FTransform T = Req.BaseTransform;
+
+				// ----------------------------
+				// SCALE (NEW)
+				// ----------------------------
+				const float Height =
+					EnemyData.Height > 0.f ? EnemyData.Height : 200.f;
+
+				const float Scale = Height / 200.f;
+
+				T.SetScale3D(FVector(Scale));
 				T.SetLocation(SpawnLocation);
 				Transform->SetTransform(T);
 			}
