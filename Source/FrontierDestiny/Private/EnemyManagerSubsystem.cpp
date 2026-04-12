@@ -60,8 +60,6 @@ void UEnemyManagerSubsystem::OnLevelChanged(UWorld* World)
 
 	LoadEnemyDataFromDataTable();
 	InitializeHealthbars();
-
-	OnEnemyDamageTaken.AddUObject(this, &UEnemyManagerSubsystem::SpawnHitEffects);
 }
 
 void UEnemyManagerSubsystem::InitializeHealthbars()
