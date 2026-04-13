@@ -36,4 +36,7 @@ public:
 	/** Visual height of the enemy mesh. Used to offset targeting and UI positions to the centre of the enemy. */
 	UPROPERTY(EditAnywhere)
 	float Height = 200.f;
+
+	UPROPERTY(EditAnywhere)
+	FVector ModelScale = FVector{ 1.0f, 1.0f, 1.0f };
 };
