@@ -14,7 +14,7 @@
 #include "EnemyManagerSubsystem.h"
 #include "GlobalTowerSettings.h"
 #include "NiagaraFunctionLibrary.h"
-
+#include "Shootable.h"
 #include "Engine/DamageEvents.h"
 
 // For MassEntity damage
@@ -296,6 +296,12 @@ void UCombatComponent::ApplyHit(const FHitResult& Hit)
 	}
 	else
 	{
+		AActor* HitActor = Hit.GetActor();
+		if (HitActor && HitActor->GetClass()->ImplementsInterface(UShootable::StaticClass()))
+		{
+			// Use the Execute_ version to support both C++ and BP implementations
+			IShootable::Execute_Shoot(HitActor, Hit, Damage);
+		}
 		// PLAY SPARKS
 		SpawnHitImpact(Hit.ImpactPoint, Hit.ImpactNormal);
 	}
