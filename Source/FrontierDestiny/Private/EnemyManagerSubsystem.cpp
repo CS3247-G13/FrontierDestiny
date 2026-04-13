@@ -10,6 +10,7 @@
 #include "NiagaraFunctionLibrary.h"
 #include "MassEntitySubsystem.h"
 #include "EconomySubsystem.h"
+#include "UObject/ConstructorHelpers.h"
 #include "MassRepresentationSubsystem.h"
 #include "EnemyDamageMassProcessor.h"
 
@@ -30,6 +31,7 @@ void UEnemyManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	InitializeHealthbars();
 
 	OnEnemyDamageTaken.AddUObject(this, &UEnemyManagerSubsystem::SpawnHitEffects);
+
 
 	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(
 		this, &UEnemyManagerSubsystem::OnLevelChanged
@@ -846,6 +848,11 @@ void UEnemyManagerSubsystem::Rupture(FVector Position, float Damage, float Radiu
 	{
 		TArray<FMassEntityHandle> NearbyHandles;
 		GetEntitiesInRange(Position, Radius, NearbyHandles);
+		const UGlobalTowerSettings* Settings = UGlobalTowerSettings::Get();
+		if (UNiagaraSystem* ExplosionVFX = Settings->ExplosionEffect.LoadSynchronous())
+		{
+			UNiagaraComponent* NiagaraComp = UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(), ExplosionVFX, Position);
+		}
 		for (const FMassEntityHandle& Handle : NearbyHandles)
 		{
 			ApplyDamageToEnemy(Handle, static_cast<int32>(Damage), Position, EDamageType::Kinetic);
@@ -968,7 +975,7 @@ void UEnemyManagerSubsystem::Tick(float DeltaTime)
 	ProcessSpawnQueue();
 	FlushHealthbars();
 
-	UE_LOG(LogTemp, Warning, TEXT("EnemyManagerSubsystem Tick"));
+	//UE_LOG(LogTemp, Warning, TEXT("EnemyManagerSubsystem Tick"));
 }
 
 

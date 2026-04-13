@@ -59,6 +59,9 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Effects")
 	TSoftObjectPtr<UNiagaraSystem> ArcLightningEffect;
 
+	UPROPERTY(Config, EditAnywhere, Category = "Effects")
+	TSoftObjectPtr<UNiagaraSystem> ExplosionEffect;
+
 	UPROPERTY(Config, EditAnywhere, Category = "Minimap")
 	TSoftObjectPtr<UDataTable> BlipDataTable;
 
