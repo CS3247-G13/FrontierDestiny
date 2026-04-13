@@ -968,7 +968,7 @@ void UEnemyManagerSubsystem::Tick(float DeltaTime)
 	ProcessSpawnQueue();
 	FlushHealthbars();
 
-	UE_LOG(LogTemp, Warning, TEXT("EnemyManagerSubsystem Tick"));
+	//UE_LOG(LogTemp, Warning, TEXT("EnemyManagerSubsystem Tick"));
 }
 
 

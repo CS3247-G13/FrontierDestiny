@@ -236,11 +236,11 @@ void UWaterBodyProximtyProcessor::Execute(FMassEntityManager& EntityManager, FMa
                     else {
                         auto SlowFragments = ChunkContext.GetMutableFragmentView<FSlowFragment>();
                         if (SlowFragments.Num() > 0) {
-                            SlowFragments[i].Duration = 5.0f;
-                            SlowFragments[i].SpeedMultiplier = 1.0f;
+                            SlowFragments[i].Duration = SpeedBoostDuration;
+                            SlowFragments[i].SpeedMultiplier = SpeedBoostScale;
                         }
                         else {
-                            ApplySlow(ChunkContext, ChunkContext.GetEntity(i), 3.0f, 10.0f);
+                            ApplySlow(ChunkContext, ChunkContext.GetEntity(i), SpeedBoostDuration, SpeedBoostScale);
                         }
                     }
 #if WITH_EDITOR
@@ -339,11 +339,11 @@ void UWaterBodyProximtyProcessor::Execute(FMassEntityManager& EntityManager, FMa
                     else {
                         auto SlowFragments = ChunkContext.GetMutableFragmentView<FSlowFragment>();
                         if (SlowFragments.Num() > 0) {
-                            SlowFragments[i].Duration = 5.0f;
-                            SlowFragments[i].SpeedMultiplier = 1.0f;
+                            SlowFragments[i].Duration = SpeedBoostDuration;
+                            SlowFragments[i].SpeedMultiplier = SpeedBoostScale;
                         }
                         else {
-                            ApplySlow(ChunkContext, ChunkContext.GetEntity(i), 3.0f, 10.0f);
+                            ApplySlow(ChunkContext, ChunkContext.GetEntity(i), SpeedBoostDuration, SpeedBoostScale);
                         }
                     }
 
@@ -415,8 +415,14 @@ void ApplySlow(FMassExecutionContext& Context, const FMassEntityHandle& Handle, 
                 // Refresh to the longest duration
                 Slow->Duration = FMath::Max(Slow->Duration, Duration);
 
-                // Apply the strongest slow (lowest multiplier wins)
-                Slow->SpeedMultiplier = FMath::Min(Slow->SpeedMultiplier, SpeedMultiplier);
+                // Todo Hacky solution Ignore if Slow is 1, then speedboost instead
+                if (FMath::IsNearlyEqual(Slow->SpeedMultiplier, 1.0f, 0.01f)) {
+                    Slow->SpeedMultiplier = SpeedMultiplier;
+                }
+                else {
+                    // Apply the strongest slow (lowest multiplier wins)
+                    Slow->SpeedMultiplier = FMath::Min(Slow->SpeedMultiplier, SpeedMultiplier);
+                }
             }
             else
             {

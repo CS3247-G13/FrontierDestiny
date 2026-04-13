@@ -21,7 +21,6 @@ UStatusEffectProcessor::UStatusEffectProcessor()
 	ProcessingPhase = EMassProcessingPhase::PrePhysics;
 
 	ExecutionOrder.ExecuteInGroup = UE::Mass::ProcessorGroupNames::Representation;
-	ExecutionOrder.ExecuteAfter.Add(UEnemyDamageMassProcessor::StaticClass()->GetFName());
 }
 
 void UStatusEffectProcessor::ConfigureQueries(const TSharedRef<FMassEntityManager>& EntityManager)
@@ -100,7 +99,7 @@ void UStatusEffectProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 			{
 				FSlowFragment& Slow = SlowList[i];
 				MoveList[i].DesiredSpeed.Set(BaseSpeed * Slow.SpeedMultiplier);
-				DesiredMovementList[i].DesiredVelocity = DesiredMovementList[i].DesiredVelocity.GetSafeNormal() * BaseSpeed * Slow.SpeedMultiplier;
+				//DesiredMovementList[i].DesiredVelocity = DesiredMovementList[i].DesiredVelocity.GetSafeNormal() * BaseSpeed * Slow.SpeedMultiplier;
 				Slow.Duration -= DeltaTime;
 				if (Slow.Duration <= 0.f)
 				{
