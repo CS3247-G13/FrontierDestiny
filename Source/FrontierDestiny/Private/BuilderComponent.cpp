@@ -396,6 +396,11 @@ void UBuilderComponent::OnDeselectTowerAction(const FInputActionValue& Value)
 	SelectedPath.Empty();
 	ChangeTowerSelection(TOptional<FName>());
 	OnTowerSelectionChange.Broadcast();
+
+	if (IsValid(HoveredTower))
+	{
+		DeleteHoveredTower();
+	}
 }
 
 void UBuilderComponent::OnRotateTowerAction(const FInputActionValue& Value)

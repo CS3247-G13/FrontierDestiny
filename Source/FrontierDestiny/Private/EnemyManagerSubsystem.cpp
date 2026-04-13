@@ -1036,12 +1036,10 @@ void UEnemyManagerSubsystem::ProcessSpawnQueue()
 				// ----------------------------
 				// SCALE (NEW)
 				// ----------------------------
-				const float Height =
-					EnemyData.Height > 0.f ? EnemyData.Height : 200.f;
+				const float Height = EnemyData.Height;
+				const FVector Scale = EnemyData.ModelScale;
 
-				const float Scale = Height / 200.f;
-
-				T.SetScale3D(FVector(Scale));
+				T.SetScale3D(Scale);
 				T.SetLocation(SpawnLocation);
 				Transform->SetTransform(T);
 			}
@@ -1063,11 +1061,13 @@ void UEnemyManagerSubsystem::ProcessSpawnQueue()
 				Health->MaxValue = BaseHP;
 			}
 
-			// Stats (THIS FIXES HEIGHT / NIAGARA)
 			if (FStatsFragment* Stats =
 				EntityManager.GetFragmentDataPtr<FStatsFragment>(Entity))
 			{
-				Stats->EnemyID = Req.EnemyID;
+				Stats->EnemyID          = Req.EnemyID;
+				Stats->BaseSpeed        = EnemyData.Attributes.Contains("Speed")  ? EnemyData.Attributes["Speed"].BaseValue  : 1.f;
+				Stats->InitialBaseSpeed = Stats->BaseSpeed;
+				Stats->BaseDamage       = EnemyData.Attributes.Contains("Damage") ? EnemyData.Attributes["Damage"].BaseValue : 10.f;
 			}
 		}
 	}

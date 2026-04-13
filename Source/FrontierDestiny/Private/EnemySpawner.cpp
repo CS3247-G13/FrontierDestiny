@@ -152,6 +152,7 @@ void AEnemySpawner::Spawn(const FHordeBatchDetails& Details)
 	PendingBaseSpeed.Empty();
 	PendingBaseDamage.Empty();
 	PendingHeights.Empty();
+	PendingScales.Empty();
 	PendingSpeedMultipliers.Empty();
 	PendingDamageMultipliers.Empty();
 	PendingVitalityAmounts.Empty();
@@ -179,6 +180,7 @@ void AEnemySpawner::Spawn(const FHordeBatchDetails& Details)
 		PendingBaseSpeed.Add(EnemyData.Attributes.Contains("Speed")  ? EnemyData.Attributes["Speed"].BaseValue  : 1.f);
 		PendingBaseDamage.Add(EnemyData.Attributes.Contains("Damage") ? EnemyData.Attributes["Damage"].BaseValue : 10.f);
 		PendingHeights.Add(EnemyData.Height);
+		PendingScales.Add(EnemyData.ModelScale);
 
 		const FModifierFragment ModFrag = BuildModifierFragment(EnemyInfo);
 		PendingModifierFragments.Add(ModFrag);
@@ -229,6 +231,7 @@ void AEnemySpawner::HandleSpawningFinished()
 		const float BaseSpeed = PendingBaseSpeed.IsValidIndex(ModIdx) ? PendingBaseSpeed[ModIdx] : 1.f;
 		const float BaseDamage = PendingBaseDamage.IsValidIndex(ModIdx) ? PendingBaseDamage[ModIdx] : 10.f;
 		const float Height = PendingHeights.IsValidIndex(ModIdx) ? PendingHeights[ModIdx] : 200.f;
+		const FVector Scale = PendingScales.IsValidIndex(ModIdx) ? PendingScales[ModIdx] : FVector{ 1.f, 1.f, 1.f };
 		const float SpeedMultiplier	= PendingSpeedMultipliers.IsValidIndex(ModIdx) ? PendingSpeedMultipliers[ModIdx] : 1.f;
 		const float DamageMultiplier = PendingDamageMultipliers.IsValidIndex(ModIdx) ? PendingDamageMultipliers[ModIdx] : 1.f;
 		const float VitalityAmount = PendingVitalityAmounts.IsValidIndex(ModIdx) ? PendingVitalityAmounts[ModIdx] : 0.f;
@@ -238,7 +241,7 @@ void AEnemySpawner::HandleSpawningFinished()
 		for (const FMassEntityHandle& Entity : AllSpawnedEntities[i].Entities)
 		{
 			CommandBuffer.PushCommand<FMassDeferredSetCommand>(
-				[Entity, HordeID, bApplyModifiers, ModFrag, BaseHP, BaseSpeed, BaseDamage, Height, SpeedMultiplier, DamageMultiplier, VitalityAmount, EnemyID, RewardAmount](FMassEntityManager& Manager)
+				[Entity, HordeID, bApplyModifiers, ModFrag, BaseHP, BaseSpeed, BaseDamage, Height, Scale, SpeedMultiplier, DamageMultiplier, VitalityAmount, EnemyID, RewardAmount](FMassEntityManager& Manager)
 				{
 					if (!Manager.IsEntityValid(Entity)) return;
 
@@ -257,9 +260,8 @@ void AEnemySpawner::HandleSpawningFinished()
 					FTransformFragment* Transform = Manager.GetFragmentDataPtr<FTransformFragment>(Entity);
 					if (Transform)
 					{
-						float Scale = pow(Height / 300.f, 0.7);
 						FTransform& T = Transform->GetMutableTransform();
-						T.SetScale3D(FVector(Scale)); //200 as baseline
+						T.SetScale3D(Scale); //200 as baseline
 					}
 
 					FStatsFragment* Stats = Manager.GetFragmentDataPtr<FStatsFragment>(Entity);
