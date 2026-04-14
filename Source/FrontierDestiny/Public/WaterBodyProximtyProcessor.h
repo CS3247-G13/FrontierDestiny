@@ -41,6 +41,6 @@ private:
 	bool bWaterCacheInitialized = false;
 
 	TArray<FLakeData> CachedLakes; // runtime-only
-	const float SpeedBoostScale = 5.0f;
-	const float SpeedBoostDuration = 2.0f;
+	const float SpeedBoostScale = 2.0f;
+	const float SpeedBoostDuration = 0.3f;
 };
