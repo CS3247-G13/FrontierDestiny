@@ -6,6 +6,7 @@
 #include "CoreActor.h"
 #include "EnemyManagerSubsystem.h"
 #include "HordeIDFragment.h"
+#include "EnemyDamageMassProcessor.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(MassAttackCoreTask)
 
@@ -43,22 +44,27 @@ EStateTreeRunStatus FMassAttackCoreTask::EnterState(FStateTreeExecutionContext& 
 	else
 	{
 		UE_LOG(LogTemp, Warning, TEXT("MassAttackCoreTask: No active core found"));
-	}
+	} 
 
 	const FMassEntityHandle Entity = MassContext.GetEntity();
 
-	// TODO: death notification logic is duplicated from EnemyDamageMassProcessor — consider a kill fragment
-	// so all death paths go through one place instead of manually mirroring this here.
-	if (UEnemyManagerSubsystem* EnemyManager = World->GetGameInstance()->GetSubsystem<UEnemyManagerSubsystem>())
+	FMassEntityManager& EntityManager = MassContext.GetEntityManager();
+
+	if (FHealthFragment* Health = EntityManager.GetFragmentDataPtr<FHealthFragment>(Entity))
 	{
-		if (const FHordeIDFragment* HordeID = MassContext.GetEntityManager().GetFragmentDataPtr<FHordeIDFragment>(Entity))
-		{
-			EnemyManager->NotifyHordeEnemyDeath(HordeID->HordeID);
-		}
-		EnemyManager->NotifyEnemyDeath(Entity);
+		Health->Value = 0.0f;
 	}
 
-	MassContext.GetEntityManager().Defer().DestroyEntity(Entity);
+	EntityManager.Defer().PushCommand<FMassDeferredSetCommand>(
+		[Entity](FMassEntityManager& Manager)
+		{
+			if (!Manager.IsEntityValid(Entity)) return;
+			Manager.AddFragmentToEntity(Entity, FDamageFragment::StaticStruct(),
+				[](void* Fragment, const UScriptStruct&)
+				{
+					static_cast<FDamageFragment*>(Fragment)->DamageAmount = 9999.f;
+				});
+		});
 
 	return EStateTreeRunStatus::Succeeded;
 }

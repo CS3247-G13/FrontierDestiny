@@ -13,6 +13,15 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnHordeBegin, FName, HordeID);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnHordeBatchBegin, FName, HordeID);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnHordeFinished, FName, HordeID);
 
+/** Fired when the next horde is scheduled. DelaySeconds is the time until it starts. */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnNextHordeScheduled, FName, HordeID, float, DelaySeconds);
+
+/** Fired when a pending next-horde countdown is cancelled before it fires. */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnNextHordeCancelled, FName, HordeID);
+
+/** Fired whenever the remaining enemy count for a horde changes (spawn registered or enemy killed). */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHordeEnemyCountChanged, FName, HordeID, int32, EnemiesRemaining);
+
 /**
  * Loads and owns all wave batch data for the current level.
  * Data is grouped by HordeID for efficient lookup during wave execution.
@@ -67,6 +76,18 @@ public:
 	/** Fired when all enemies belonging to a horde have been killed. */
 	UPROPERTY(BlueprintAssignable)
 	FOnHordeFinished OnHordeFinished;
+
+	/** Fired when the next horde is queued. Widget should store DelaySeconds and count down locally. */
+	UPROPERTY(BlueprintAssignable)
+	FOnNextHordeScheduled OnNextHordeScheduled;
+
+	/** Fired if a pending horde countdown is cancelled (e.g. CancelHorde called mid-wait). */
+	UPROPERTY(BlueprintAssignable)
+	FOnNextHordeCancelled OnNextHordeCancelled;
+
+	/** Fired whenever the remaining enemy count for a horde changes. */
+	UPROPERTY(BlueprintAssignable)
+	FOnHordeEnemyCountChanged OnHordeEnemyCountChanged;
 
 	/** Called by EnemySpawner after DoSpawning() to register how many enemies were spawned for a horde. */
 	void RegisterSpawnedEnemies(FName HordeID, int32 Count);
