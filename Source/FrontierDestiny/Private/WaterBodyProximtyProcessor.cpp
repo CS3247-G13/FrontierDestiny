@@ -326,7 +326,8 @@ void UWaterBodyProximtyProcessor::Execute(FMassEntityManager& EntityManager, FMa
                 if (BestDepth > MinDepthToDestroy)
                 {
                     //if (BestBody->GetOwner()->ActorHasTag(TEXT("Lava"))) {
-                    if (BestBody->GetOwner()->GetActorLabel().Contains("Lava")) {
+                    UWaterSplineComponent* Spline = BestBody->GetWaterSpline();
+                    if (Spline->ComponentHasTag("Lava")) {
                         auto BurnFragments = ChunkContext.GetMutableFragmentView<FBurnFragment>();
                         if (BurnFragments.Num() > 0) {
                             BurnFragments[i].Duration = 5.0f;
@@ -474,7 +475,7 @@ void UWaterBodyProximtyProcessor::InitializeInternal(UObject& Owner, const TShar
 
                 // Establish if it is in lava, the alternative is if it is in AntiGrav
                 if (Body->GetWaterBodyType() == EWaterBodyType::Lake &&
-                    Body->GetOwner()->GetActorLabel().Contains("Lava"))
+                    Spline->ComponentHasTag("Lava"))
                 {
                     LakeData.bIsLava = true;
                 }
