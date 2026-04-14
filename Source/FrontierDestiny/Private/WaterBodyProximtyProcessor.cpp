@@ -325,7 +325,8 @@ void UWaterBodyProximtyProcessor::Execute(FMassEntityManager& EntityManager, FMa
                 constexpr float MinDepthToDestroy = 10.0f;
                 if (BestDepth > MinDepthToDestroy)
                 {
-                    if (BestBody->GetOwner()->ActorHasTag(TEXT("Lava"))) {
+                    //if (BestBody->GetOwner()->ActorHasTag(TEXT("Lava"))) {
+                    if (BestBody->GetOwner()->GetActorLabel().Contains("Lava")) {
                         auto BurnFragments = ChunkContext.GetMutableFragmentView<FBurnFragment>();
                         if (BurnFragments.Num() > 0) {
                             BurnFragments[i].Duration = 5.0f;
