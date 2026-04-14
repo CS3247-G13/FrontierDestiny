@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "MassEntityTypes.h"
+#include "ResourceAmount.h"
 #include "StatusEffectFragments.generated.h"
 
 /** Remaining duration of a burn (DoT) effect. Removed by StatusEffectProcessor when expired. */

@@ -70,5 +70,6 @@ void UEnemyNavMeshGroundingProcessor::Execute(FMassEntityManager& EntityManager,
 				Transform.SetLocation(NewLocation);
 			}
 		});
+		
 
  }

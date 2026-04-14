@@ -9,6 +9,7 @@
 #include "MassCommandBuffer.h"
 #include "MassRepresentationSubsystem.h"
 #include "MassNavigationFragments.h"
+#include <MassMovementFragments.h>
 
 
 UStatusEffectProcessor::UStatusEffectProcessor()
@@ -20,7 +21,6 @@ UStatusEffectProcessor::UStatusEffectProcessor()
 	ProcessingPhase = EMassProcessingPhase::PrePhysics;
 
 	ExecutionOrder.ExecuteInGroup = UE::Mass::ProcessorGroupNames::Representation;
-	ExecutionOrder.ExecuteAfter.Add(UEnemyDamageMassProcessor::StaticClass()->GetFName());
 }
 
 void UStatusEffectProcessor::ConfigureQueries(const TSharedRef<FMassEntityManager>& EntityManager)
@@ -35,6 +35,7 @@ void UStatusEffectProcessor::ConfigureQueries(const TSharedRef<FMassEntityManage
 	SpeedEffectQuery.AddRequirement<FMassMoveTargetFragment>(EMassFragmentAccess::ReadWrite);
 	SpeedEffectQuery.AddRequirement<FSlowFragment>(EMassFragmentAccess::ReadWrite, EMassFragmentPresence::Optional);
 	SpeedEffectQuery.AddRequirement<FStunFragment>(EMassFragmentAccess::ReadWrite, EMassFragmentPresence::Optional);
+    SpeedEffectQuery.AddRequirement<FMassDesiredMovementFragment>(EMassFragmentAccess::ReadWrite);
 	SpeedEffectQuery.RegisterWithProcessor(*this);
 
 	// Only runs on entities that are currently burning
@@ -71,6 +72,7 @@ void UStatusEffectProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 		TArrayView<FMassMoveTargetFragment> MoveList  = Context.GetMutableFragmentView<FMassMoveTargetFragment>();
 		TArrayView<FSlowFragment>           SlowList  = Context.GetMutableFragmentView<FSlowFragment>();
 		TArrayView<FStunFragment>           StunList  = Context.GetMutableFragmentView<FStunFragment>();
+		TArrayView<FMassDesiredMovementFragment> DesiredMovementList = Context.GetMutableFragmentView<FMassDesiredMovementFragment>();
 		const int32 NumEntities = Context.GetNumEntities();
 
 		const bool bHasSlow = !SlowList.IsEmpty();
@@ -97,6 +99,7 @@ void UStatusEffectProcessor::Execute(FMassEntityManager& EntityManager, FMassExe
 			{
 				FSlowFragment& Slow = SlowList[i];
 				MoveList[i].DesiredSpeed.Set(BaseSpeed * Slow.SpeedMultiplier);
+				//DesiredMovementList[i].DesiredVelocity = DesiredMovementList[i].DesiredVelocity.GetSafeNormal() * BaseSpeed * Slow.SpeedMultiplier;
 				Slow.Duration -= DeltaTime;
 				if (Slow.Duration <= 0.f)
 				{
