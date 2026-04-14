@@ -338,8 +338,8 @@ void AEnemySpawner::HandleSpawningFinished()
 							{
 								FSummonerFragment* Summoner = static_cast<FSummonerFragment*>(Fragment);
 
-								Summoner->Cooldown = 5.0f;
-								Summoner->TimeRemaining = 5.0f;
+								Summoner->Cooldown = 12.0f;
+								Summoner->TimeRemaining = 12.0f;
 								Summoner->UnitsPerSummon = 3;
 								Summoner->SpawnRadius = 300.f;
 								Summoner->EnemyID = "Broodling"; // what it summons
