@@ -142,6 +142,14 @@ struct FDevastatedFragment : public FMassFragment
 	UPROPERTY(EditAnywhere) float HPThreshold = 50.f;
 };
 
+/** Maximum time an enemy may exist before being force-killed. Set once at spawn. */
+USTRUCT()
+struct FLifetimeFragment : public FMassFragment
+{
+	GENERATED_BODY()
+	UPROPERTY(EditAnywhere) float RemainingTime = 300.f; // 5 minutes default
+};
+
 /** All modifier flags for an entity. Set once at spawn, never changed. */
 USTRUCT()
 struct FModifierFragment : public FMassFragment

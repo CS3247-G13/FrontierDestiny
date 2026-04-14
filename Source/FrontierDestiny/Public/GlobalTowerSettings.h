@@ -65,6 +65,9 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Minimap")
 	TSoftObjectPtr<UDataTable> BlipDataTable;
 
+	/** Maximum time (seconds) an enemy may live before being force-killed. Default: 300s (5 minutes). */
+	UPROPERTY(Config, EditAnywhere, Category = "Enemies", meta = (ClampMin = "1.0"))
+	float EnemyLifetimeSeconds = 300.f;
 
 	/** Helper to get the settings instance easily */
 	static const UGlobalTowerSettings* Get() { return GetDefault<UGlobalTowerSettings>(); }

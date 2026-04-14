@@ -21,6 +21,8 @@
 #include "Engine/OverlapResult.h"
 #include <MassSpawnerSubsystem.h>
 #include <MassCommonFragments.h>
+#include "NavigationSystem.h"
+#include "EnemyLifetimeProcessor.h"
 
 static constexpr float MitigatedFadeDuration = 1.5f;
 
@@ -1035,47 +1037,71 @@ void UEnemyManagerSubsystem::ProcessSpawnQueue()
 
 
 
+			const FVector Scale = EnemyData.ModelScale;
+			const float BaseHP = EnemyData.Attributes.Contains("HP")     ? EnemyData.Attributes["HP"].BaseValue     : 20.f;
+			const float BaseSpeed  = EnemyData.Attributes.Contains("Speed")  ? EnemyData.Attributes["Speed"].BaseValue  : 1.f;
+			const float BaseDamage = EnemyData.Attributes.Contains("Damage") ? EnemyData.Attributes["Damage"].BaseValue : 10.f;
+
+			FHealthFragment* Health = EntityManager.GetFragmentDataPtr<FHealthFragment>(Entity);
+			if (Health)
+			{
+				Health->Value    = BaseHP;
+				Health->MaxValue = BaseHP;
+			}
+
 			if (FTransformFragment* Transform =
 				EntityManager.GetFragmentDataPtr<FTransformFragment>(Entity))
 			{
 				FTransform T = Req.BaseTransform;
-
-				// ----------------------------
-				// SCALE (NEW)
-				// ----------------------------
-				const float Height = EnemyData.Height;
-				const FVector Scale = EnemyData.ModelScale;
-
 				T.SetScale3D(Scale);
 				T.SetLocation(SpawnLocation);
+
+				UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World);
+				FNavLocation ProjectedLocation;
+				if (NavSys && NavSys->ProjectPointToNavigation(SpawnLocation, ProjectedLocation, FVector(500.f)))
+				{
+					T.SetLocation(ProjectedLocation.Location);
+				}
+				else
+				{
+					// No valid nav — kill immediately so the entity doesn't strand
+					if (Health) Health->Value = 0.f;
+					EntityManager.Defer().PushCommand<FMassDeferredSetCommand>(
+						[Entity](FMassEntityManager& Manager)
+						{
+							if (!Manager.IsEntityValid(Entity)) return;
+							Manager.AddFragmentToEntity(Entity, FDamageFragment::StaticStruct(),
+								[](void* Fragment, const UScriptStruct&)
+								{
+									static_cast<FDamageFragment*>(Fragment)->DamageAmount = 9999.f;
+								});
+						});
+				}
+
 				Transform->SetTransform(T);
-			}
-
-			// ----------------------------
-			//  CRITICAL: MATCH SPAWNER PATH
-			// ----------------------------
-
-			// Health
-			if (FHealthFragment* Health =
-				EntityManager.GetFragmentDataPtr<FHealthFragment>(Entity))
-			{
-				const float BaseHP =
-					EnemyData.Attributes.Contains("HP")
-					? EnemyData.Attributes["HP"].BaseValue
-					: 20.f;
-
-				Health->Value = BaseHP;
-				Health->MaxValue = BaseHP;
 			}
 
 			if (FStatsFragment* Stats =
 				EntityManager.GetFragmentDataPtr<FStatsFragment>(Entity))
 			{
 				Stats->EnemyID          = Req.EnemyID;
-				Stats->BaseSpeed        = EnemyData.Attributes.Contains("Speed")  ? EnemyData.Attributes["Speed"].BaseValue  : 1.f;
-				Stats->InitialBaseSpeed = Stats->BaseSpeed;
-				Stats->BaseDamage       = EnemyData.Attributes.Contains("Damage") ? EnemyData.Attributes["Damage"].BaseValue : 10.f;
+				Stats->BaseSpeed        = BaseSpeed;
+				Stats->InitialBaseSpeed = BaseSpeed;
+				Stats->BaseDamage       = BaseDamage;
 			}
+
+			// Stamp lifetime so the entity is force-killed after the configured duration
+			const float Lifetime = UGlobalTowerSettings::Get()->EnemyLifetimeSeconds;
+			EntityManager.Defer().PushCommand<FMassDeferredSetCommand>(
+				[Entity, Lifetime](FMassEntityManager& Manager)
+				{
+					if (!Manager.IsEntityValid(Entity)) return;
+					Manager.AddFragmentToEntity(Entity, FLifetimeFragment::StaticStruct(),
+						[Lifetime](void* Fragment, const UScriptStruct&)
+						{
+							static_cast<FLifetimeFragment*>(Fragment)->RemainingTime = Lifetime;
+						});
+				});
 		}
 	}
 

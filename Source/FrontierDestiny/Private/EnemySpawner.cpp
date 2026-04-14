@@ -8,6 +8,8 @@
 #include "MassEntitySubsystem.h"
 #include "MassCommandBuffer.h"
 #include "EnemyDamageMassProcessor.h"
+#include "EnemyLifetimeProcessor.h"
+#include "GlobalTowerSettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "NavigationSystem.h"
 
@@ -251,6 +253,13 @@ void AEnemySpawner::HandleSpawningFinished()
 						[HordeID](void* Fragment, const UScriptStruct&)
 						{
 							static_cast<FHordeIDFragment*>(Fragment)->HordeID = HordeID;
+						});
+
+					const float Lifetime = UGlobalTowerSettings::Get()->EnemyLifetimeSeconds;
+					Manager.AddFragmentToEntity(Entity, FLifetimeFragment::StaticStruct(),
+						[Lifetime](void* Fragment, const UScriptStruct&)
+						{
+							static_cast<FLifetimeFragment*>(Fragment)->RemainingTime = Lifetime;
 						});
 
 					FHealthFragment* Health = Manager.GetFragmentDataPtr<FHealthFragment>(Entity);
