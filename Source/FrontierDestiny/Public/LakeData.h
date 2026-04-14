@@ -16,6 +16,8 @@ struct FLakeData
 
     TWeakObjectPtr<UWaterBodyComponent> Body;
 
+    bool bIsLava;
+
     FLakeData()
         : BoundsMin(ForceInitToZero)
         , BoundsMax(ForceInitToZero)

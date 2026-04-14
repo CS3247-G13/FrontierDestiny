@@ -19,6 +19,15 @@ void UTowerManagerSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 			UpgradeManager->OnUpgradePerformed.AddDynamic(this, &UTowerManagerSubsystem::HandleUpgradePerformed);
 		}
 	}
+
+	FCoreUObjectDelegates::PostLoadMapWithWorld.AddUObject(
+		this, &UTowerManagerSubsystem::OnLevelChanged
+	);
+}
+
+void UTowerManagerSubsystem::OnLevelChanged(UWorld* World)
+{
+	UnlockedTowers.Empty();
 }
 
 // Checks if the tower at the very end of the path exists. Does not check along the way

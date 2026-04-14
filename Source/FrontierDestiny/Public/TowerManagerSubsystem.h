@@ -50,4 +50,6 @@ protected:
 
 	UFUNCTION()
 	void HandleUpgradePerformed(const FUpgradeData& Upgrade);
+	UFUNCTION()	
+	void OnLevelChanged(UWorld* World);
 };

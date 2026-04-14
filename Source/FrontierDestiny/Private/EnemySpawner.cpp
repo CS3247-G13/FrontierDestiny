@@ -9,6 +9,8 @@
 #include "MassCommandBuffer.h"
 #include "EnemyDamageMassProcessor.h"
 #include "Kismet/GameplayStatics.h"
+#include "NavigationSystem.h"
+
 #include <SummonerProcessor.h>
 #include <MassCommonFragments.h>
 
@@ -241,7 +243,7 @@ void AEnemySpawner::HandleSpawningFinished()
 		for (const FMassEntityHandle& Entity : AllSpawnedEntities[i].Entities)
 		{
 			CommandBuffer.PushCommand<FMassDeferredSetCommand>(
-				[Entity, HordeID, bApplyModifiers, ModFrag, BaseHP, BaseSpeed, BaseDamage, Height, Scale, SpeedMultiplier, DamageMultiplier, VitalityAmount, EnemyID, RewardAmount](FMassEntityManager& Manager)
+				[this, Entity, HordeID, bApplyModifiers, ModFrag, BaseHP, BaseSpeed, BaseDamage, Height, Scale, SpeedMultiplier, DamageMultiplier, VitalityAmount, EnemyID, RewardAmount](FMassEntityManager& Manager)
 				{
 					if (!Manager.IsEntityValid(Entity)) return;
 
@@ -262,6 +264,22 @@ void AEnemySpawner::HandleSpawningFinished()
 					{
 						FTransform& T = Transform->GetMutableTransform();
 						T.SetScale3D(Scale); //200 as baseline
+
+						FNavLocation ProjectedLocation;
+						UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+						if (NavSys && NavSys->ProjectPointToNavigation(T.GetLocation(), ProjectedLocation, FVector(500.0f)))
+						{
+							T.SetLocation(ProjectedLocation.Location);
+						}
+						else
+						{
+							Health->Value = 0.0f; // If we can't find a valid nav location, kill the enemy immediately to avoid stranding it
+							Manager.AddFragmentToEntity(Entity, FDamageFragment::StaticStruct(),
+								[](void* Fragment, const UScriptStruct&)
+								{
+									static_cast<FDamageFragment*>(Fragment)->DamageAmount = 9999.f;
+								});
+						}
 					}
 
 					FStatsFragment* Stats = Manager.GetFragmentDataPtr<FStatsFragment>(Entity);
