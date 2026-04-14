@@ -327,7 +327,9 @@ void UBuilderComponent::ActivateMode()
 
 	QuestComponent->StartQuest("Onboard_5");
 
-	OnDeselectTowerAction(FInputActionValue());
+	SelectedPath.Empty();
+	ChangeTowerSelection(TOptional<FName>());
+	OnTowerSelectionChange.Broadcast();
 }
 
 void UBuilderComponent::DeactivateMode()
@@ -393,9 +395,19 @@ void UBuilderComponent::OnSelectTowerAction(int32 KeyNumber)
 void UBuilderComponent::OnDeselectTowerAction(const FInputActionValue& Value)
 {
 	OnTowerBuildingNotification.Broadcast("");
-	SelectedPath.Empty();
-	ChangeTowerSelection(TOptional<FName>());
-	OnTowerSelectionChange.Broadcast();
+	if (SelectedPath.Num() > 1)
+	{
+		int32 FirstKey = SelectedPath[0];
+		SelectedPath.Empty();
+		ChangeTowerSelection(TOptional<FName>());
+		OnSelectTowerAction(FirstKey);
+	}
+	else
+	{
+		SelectedPath.Empty();
+		ChangeTowerSelection(TOptional<FName>());
+		OnTowerSelectionChange.Broadcast();
+	}
 
 	if (IsValid(HoveredTower))
 	{
