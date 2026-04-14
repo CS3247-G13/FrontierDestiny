@@ -14,6 +14,7 @@
 #include <StatusEffectFragments.h>
 
 void ApplyBurn(FMassExecutionContext& Context, const FMassEntityHandle& Handle, float Duration, float DamagePerTick, float TickInterval);
+void ApplySlow(FMassExecutionContext& Context, const FMassEntityHandle& Handle, float Duration, float SpeedMultiplier);
 
 /*
 FORCEINLINE bool PointInPolygon(const FVector2D& Point, const TArray<FVector2D>& Poly)
@@ -84,49 +85,43 @@ static void BuildLakePolygon(UWaterSplineComponent* Spline, TArray<FVector2D>& O
 {
     if (!Spline) return;
 
-    const int32 NumPoints = Spline->GetNumberOfSplinePoints();
-    if (NumPoints < 2) return;
+    const float SplineLength = Spline->GetSplineLength();
+    if (SplineLength <= KINDA_SMALL_NUMBER) return;
 
-    const int32 SamplesPerSegment = 8; // fixed sampling
+    // Increase resolution for stability
+    const int32 NumSamples = 128;
 
-    // Step 1: Use a temporary array for all points
     TArray<FVector2D> TempPolygon;
-    TempPolygon.Reserve(NumPoints * SamplesPerSegment + 1);
+    TempPolygon.Reserve(NumSamples + 1);
 
-    for (int32 i = 0; i < NumPoints; i++)
+    for (int32 i = 0; i < NumSamples; i++)
     {
-        const float StartKey = static_cast<float>(i);
-        const float EndKey = (i + 1 == NumPoints) ? 0.f : static_cast<float>(i + 1);
+        const float Dist = (float)i / (float)NumSamples * SplineLength;
 
-        for (int32 s = 0; s < SamplesPerSegment; s++)
+        const FVector Pos = Spline->GetLocationAtDistanceAlongSpline(
+            Dist,
+            ESplineCoordinateSpace::World
+        );
+
+        const FVector2D Point(Pos.X, Pos.Y);
+
+        // Avoid near duplicate consecutive points
+        if (TempPolygon.Num() == 0 || !TempPolygon.Last().Equals(Point, 0.5f))
         {
-            const float Alpha = static_cast<float>(s) / SamplesPerSegment;
-            const float Key = FMath::Lerp(StartKey, EndKey, Alpha);
-
-            const FVector Pos = Spline->GetLocationAtSplineInputKey(Key, ESplineCoordinateSpace::World);
-            const FVector2D Point(Pos.X, Pos.Y);
-
-            // Avoid consecutive duplicates
-            if (TempPolygon.Num() == 0 || !TempPolygon.Last().Equals(Point, 1.0f))
-            {
-                TempPolygon.Add(Point);
-            }
+            TempPolygon.Add(Point);
         }
     }
 
-    /*
-    // Ensure closed polygon safely
-    if (TempPolygon.Num() > 1)
+    // Explicitly close the polygon
+    if (TempPolygon.Num() > 2)
     {
-        FVector2D FirstPoint = TempPolygon[0]; // make a copy
-        if (!TempPolygon.Last().Equals(FirstPoint, 1.0f))
+        const FVector2D First = TempPolygon[0];
+        if (!TempPolygon.Last().Equals(First, 0.5f))
         {
-            TempPolygon.Add(FirstPoint);
+            TempPolygon.Add(First);
         }
     }
-    */
 
-    // Step 2: Move the fully built array into OutPolygon
     OutPolygon = MoveTemp(TempPolygon);
 }
 
@@ -143,6 +138,8 @@ void UWaterBodyProximtyProcessor::ConfigureQueries(const TSharedRef<FMassEntityM
     EntityQuery.Initialize(EntityManager);
 
     EntityQuery.AddRequirement<FTransformFragment>(EMassFragmentAccess::ReadWrite);
+    EntityQuery.AddRequirement<FSlowFragment>(EMassFragmentAccess::ReadWrite, EMassFragmentPresence::Optional);
+    EntityQuery.AddRequirement<FBurnFragment>(EMassFragmentAccess::ReadWrite, EMassFragmentPresence::Optional);
     //EntityQuery.AddRequirement<FMassVelocityFragment>(EMassFragmentAccess::ReadOnly);
 
     EntityQuery.RegisterWithProcessor(*this);
@@ -178,6 +175,7 @@ void UWaterBodyProximtyProcessor::Execute(FMassEntityManager& EntityManager, FMa
                 FWaterBodyQueryResult BestResult;
                 float BestDepth = -FLT_MAX;
                 UWaterBodyComponent* BestBody = nullptr;
+                bool bIsLava = false;
 
                 for (const FLakeData& Lake : CachedLakes)
                 {
@@ -212,14 +210,39 @@ void UWaterBodyProximtyProcessor::Execute(FMassEntityManager& EntityManager, FMa
                         BestDepth = Depth;
                         BestResult = Query.GetValue();
                         BestBody = Body;
+                        bIsLava = Lake.bIsLava;
                     }
+                    UE_LOG(LogTemp, Warning,
+                        TEXT("Depth: %f | WaterZ: %f | ActorZ: %f"),
+                        Depth,
+                        Query.GetValue().GetWaterSurfaceLocation().Z,
+                        EntityLocation.Z);
                 }
-
-                // Apply burn if valid lake found
+  
+                // Apply status effect if valid lake found
                 if (BestBody && BestDepth > 10.0f)
                 {
-                    ApplyBurn(ChunkContext, ChunkContext.GetEntity(i), 5.0f, 1.0f, 1.0f);
-
+                    if (bIsLava) {
+                        auto BurnFragments = ChunkContext.GetMutableFragmentView<FBurnFragment>();
+                        if (BurnFragments.Num() > 0) {
+                            BurnFragments[i].Duration = 5.0f;
+                            BurnFragments[i].DamagePerTick = 1.0f;
+                            BurnFragments[i].TickInterval = 1.0f;
+                        }
+                        else {
+                            ApplyBurn(ChunkContext, ChunkContext.GetEntity(i), 5.0f, 1.0f, 1.0f);
+                        }
+                    }
+                    else {
+                        auto SlowFragments = ChunkContext.GetMutableFragmentView<FSlowFragment>();
+                        if (SlowFragments.Num() > 0) {
+                            SlowFragments[i].Duration = SpeedBoostDuration;
+                            SlowFragments[i].SpeedMultiplier = SpeedBoostScale;
+                        }
+                        else {
+                            ApplySlow(ChunkContext, ChunkContext.GetEntity(i), SpeedBoostDuration, SpeedBoostScale);
+                        }
+                    }
 #if WITH_EDITOR
                     UE_LOG(LogTemp, Warning,
                         TEXT("Lake hit: Entity (%f, %f, %f) | WaterZ: %f | Depth: %f | Lake: %s"),
@@ -302,8 +325,28 @@ void UWaterBodyProximtyProcessor::Execute(FMassEntityManager& EntityManager, FMa
                 constexpr float MinDepthToDestroy = 10.0f;
                 if (BestDepth > MinDepthToDestroy)
                 {
-                    //ChunkContext.Defer().DestroyEntity(ChunkContext.GetEntity(i));
-                    ApplyBurn(ChunkContext, ChunkContext.GetEntity(i), 5.0f, 1.0f, 1.0f);
+                    //if (BestBody->GetOwner()->ActorHasTag(TEXT("Lava"))) {
+                    if (BestBody->GetOwner()->GetActorLabel().Contains("Lava")) {
+                        auto BurnFragments = ChunkContext.GetMutableFragmentView<FBurnFragment>();
+                        if (BurnFragments.Num() > 0) {
+                            BurnFragments[i].Duration = 5.0f;
+                            BurnFragments[i].DamagePerTick = 1.0f;
+                            BurnFragments[i].TickInterval = 1.0f;
+                        }
+                        else {
+                            ApplyBurn(ChunkContext, ChunkContext.GetEntity(i), 5.0f, 1.0f, 1.0f);
+                        }
+                    }
+                    else {
+                        auto SlowFragments = ChunkContext.GetMutableFragmentView<FSlowFragment>();
+                        if (SlowFragments.Num() > 0) {
+                            SlowFragments[i].Duration = SpeedBoostDuration;
+                            SlowFragments[i].SpeedMultiplier = SpeedBoostScale;
+                        }
+                        else {
+                            ApplySlow(ChunkContext, ChunkContext.GetEntity(i), SpeedBoostDuration, SpeedBoostScale);
+                        }
+                    }
 
 
 #if WITH_EDITOR
@@ -360,6 +403,42 @@ void ApplyBurn(FMassExecutionContext& Context, const FMassEntityHandle& Handle, 
         });
 }
 
+void ApplySlow(FMassExecutionContext& Context, const FMassEntityHandle& Handle, float Duration, float SpeedMultiplier)
+{
+    Context.Defer().PushCommand<FMassDeferredSetCommand>(
+        [Handle, Duration, SpeedMultiplier](FMassEntityManager& Manager)
+        {
+            if (!Manager.IsEntityValid(Handle)) return;
+
+            FSlowFragment* Slow = Manager.GetFragmentDataPtr<FSlowFragment>(Handle);
+            if (Slow)
+            {
+                // Refresh to the longest duration
+                Slow->Duration = FMath::Max(Slow->Duration, Duration);
+
+                // Todo Hacky solution Ignore if Slow is 1, then speedboost instead
+                if (FMath::IsNearlyEqual(Slow->SpeedMultiplier, 1.0f, 0.01f)) {
+                    Slow->SpeedMultiplier = SpeedMultiplier;
+                }
+                else {
+                    // Apply the strongest slow (lowest multiplier wins)
+                    Slow->SpeedMultiplier = FMath::Min(Slow->SpeedMultiplier, SpeedMultiplier);
+                }
+            }
+            else
+            {
+                Manager.AddFragmentToEntity(Handle, FSlowFragment::StaticStruct(),
+                    [Duration, SpeedMultiplier](void* Fragment, const UScriptStruct&)
+                    {
+                        auto* Frag = static_cast<FSlowFragment*>(Fragment);
+                        Frag->Duration = Duration;
+                        Frag->SpeedMultiplier = SpeedMultiplier;
+                    });
+            }
+        });
+}
+
+
 
 
 void UWaterBodyProximtyProcessor::InitializeInternal(UObject& Owner, const TSharedRef<FMassEntityManager>& EntityManager)
@@ -393,6 +472,16 @@ void UWaterBodyProximtyProcessor::InitializeInternal(UObject& Owner, const TShar
                 FLakeData LakeData;
                 LakeData.Body = Body;
 
+                // Establish if it is in lava, the alternative is if it is in AntiGrav
+                if (Body->GetWaterBodyType() == EWaterBodyType::Lake &&
+                    Body->GetOwner()->GetActorLabel().Contains("Lava"))
+                {
+                    LakeData.bIsLava = true;
+                }
+                else {
+                    LakeData.bIsLava = false;
+                }
+
                 // Build lake polygon safely
                 BuildLakePolygon(Spline, LakeData.Polygon);
 
@@ -403,11 +492,12 @@ void UWaterBodyProximtyProcessor::InitializeInternal(UObject& Owner, const TShar
 
 #if WITH_EDITOR
                 UE_LOG(LogTemp, Warning,
-                    TEXT("Cached lake: %s | Points: %d | BoundsMin=(%f,%f) | BoundsMax=(%f,%f)"),
+                    TEXT("Cached lake: %s | Points: %d | BoundsMin=(%f,%f) | BoundsMax=(%f,%f) | bIsLava=(%s)"),
                     *Body->GetOwner()->GetActorLabel(),
                     LakeData.Polygon.Num(),
                     LakeData.BoundsMin.X, LakeData.BoundsMin.Y,
-                    LakeData.BoundsMax.X, LakeData.BoundsMax.Y);
+                    LakeData.BoundsMax.X, LakeData.BoundsMax.Y,
+                    LakeData.bIsLava ? TEXT("true") : TEXT("false"));
 #endif
             }
         }
