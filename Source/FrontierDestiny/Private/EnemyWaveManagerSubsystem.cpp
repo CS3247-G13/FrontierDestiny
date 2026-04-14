@@ -152,25 +152,33 @@ void UEnemyWaveManagerSubsystem::StartHorde(FName HordeID)
 		Handles.Add(Handle);
 	}
 
+
 	UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: Started horde '%s' — %d batches scheduled."), *HordeID.ToString(), Batches.Num());
 }
 
 void UEnemyWaveManagerSubsystem::CancelHorde(FName HordeID)
 {
-	TArray<FTimerHandle>* Handles = ActiveHordeTimers.Find(HordeID);
-	if (!Handles)
-	{
-		return;
-	}
-
 	FTimerManager& TimerManager = GetGameInstance()->GetWorld()->GetTimerManager();
-	for (FTimerHandle& Handle : *Handles)
+
+	// Cancel batch timers for the horde itself
+	if (TArray<FTimerHandle>* Handles = ActiveHordeTimers.Find(HordeID))
 	{
-		TimerManager.ClearTimer(Handle);
+		for (FTimerHandle& Handle : *Handles)
+		{
+			TimerManager.ClearTimer(Handle);
+		}
+		ActiveHordeTimers.Remove(HordeID);
+		UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: Cancelled horde '%s'."), *HordeID.ToString());
 	}
 
-	ActiveHordeTimers.Remove(HordeID);
-	UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: Cancelled horde '%s'."), *HordeID.ToString());
+	// If this horde was queued as a next-horde countdown, cancel that too and notify listeners
+	if (FTimerHandle* UpcomingHandle = UpcomingHordeTimers.Find(HordeID))
+	{
+		TimerManager.ClearTimer(*UpcomingHandle);
+		UpcomingHordeTimers.Remove(HordeID);
+		OnNextHordeCancelled.Broadcast(HordeID);
+		UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: Cancelled upcoming horde countdown for '%s'."), *HordeID.ToString());
+	}
 }
 
 void UEnemyWaveManagerSubsystem::LoadHordeDataFromDataTable()
@@ -198,6 +206,7 @@ void UEnemyWaveManagerSubsystem::LoadHordeDataFromDataTable()
 	UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: Loaded %d horde reward entries."), HordeDataMap.Num());
 }
 
+
 void UEnemyWaveManagerSubsystem::RegisterSpawnedEnemies(FName HordeID, int32 Count)
 {
 	if (HordeID.IsNone() || Count <= 0)
@@ -205,9 +214,10 @@ void UEnemyWaveManagerSubsystem::RegisterSpawnedEnemies(FName HordeID, int32 Cou
 		return;
 	}
 
-	HordeEnemiesRemaining.FindOrAdd(HordeID) += Count;
+	const int32 NewTotal = HordeEnemiesRemaining.FindOrAdd(HordeID) += Count;
 	UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: Registered %d enemies for horde '%s' (total now: %d)."),
-		Count, *HordeID.ToString(), HordeEnemiesRemaining[HordeID]);
+		Count, *HordeID.ToString(), NewTotal);
+	OnHordeEnemyCountChanged.Broadcast(HordeID, NewTotal);
 }
 
 void UEnemyWaveManagerSubsystem::HandleHordeEnemyDeath(FName HordeID)
@@ -219,6 +229,7 @@ void UEnemyWaveManagerSubsystem::HandleHordeEnemyDeath(FName HordeID)
 	}
 
 	(*Remaining)--;
+	OnHordeEnemyCountChanged.Broadcast(HordeID, *Remaining);
 
 	if (*Remaining <= 0)
 	{
@@ -289,7 +300,11 @@ void UEnemyWaveManagerSubsystem::ReadyNextHorde(FName EndedHordeID)
 		StartHorde(NextHordeID);
 	});
 
+	const float Delay = HordeData->TimeInSecondsToNextHorde;
+
 	FTimerManager& TimerManager = GetGameInstance()->GetWorld()->GetTimerManager();
-	TimerManager.SetTimer(Handle, Delegate, HordeData->TimeInSecondsToNextHorde, false);
+	TimerManager.SetTimer(Handle, Delegate, Delay, false);
 	UpcomingHordeTimers.Add(NextHordeID, Handle);
+
+	OnNextHordeScheduled.Broadcast(NextHordeID, Delay);
 }

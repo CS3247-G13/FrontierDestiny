@@ -94,6 +94,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void OpenUpgradeMenu();
+
+	UFUNCTION(BlueprintCallable)
+	void UpdateMode(EMode UpdatedMode);
 protected:
 	virtual void BeginPlay() override;
 	void InitializeComponentReferences();
@@ -104,9 +107,6 @@ protected:
 
 	EMode Mode = EMode::Combat;
 	bool bIsUpgradeMenuOpen = false;
-
-	UFUNCTION()
-	void UpdateMode(EMode UpdatedMode);
 	UFUNCTION()
 	void OnOpenUpgradeMenuAction(const FInputActionValue& Value);
 	UFUNCTION()
