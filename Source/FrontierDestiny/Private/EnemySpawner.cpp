@@ -32,6 +32,7 @@ UE_DEFINE_GAMEPLAY_TAG(TAG_Modifier_Fragmented,   "Enemy.Modifier.Fragmented")
 static FModifierFragment BuildModifierFragment(const FEnemySpawnEntry& Entry)
 {
 	const FGameplayTagContainer& Tags = Entry.Modifiers;
+	const UGlobalTowerSettings* Settings = UGlobalTowerSettings::Get();
 	FModifierFragment Mod;
 
 	Mod.bFast        = Tags.HasTag(TAG_Modifier_Fast);
@@ -47,12 +48,12 @@ static FModifierFragment BuildModifierFragment(const FEnemySpawnEntry& Entry)
 	Mod.bDistorted   = Tags.HasTag(TAG_Modifier_Distorted);
 	Mod.bFragmented  = Tags.HasTag(TAG_Modifier_Fragmented);
 
-	Mod.KineticResistance         = Mod.bArmoured    ? 0.5f : Entry.KineticResistance;
-	Mod.LaserResistance           = Mod.bReflective  ? 0.5f : Entry.LaserResistance;
-	Mod.ElectricResistance        = Mod.bInsulated   ? 0.5f : Entry.ElectricResistance;
-	Mod.AmorphicDamageCap         = Mod.bAmorphic   ? Entry.AmorphicDamageCap         : 0.f;
-	Mod.FragmentedChunkSize       = Mod.bFragmented  ? Entry.FragmentedChunkSize        : 0.f;
-	Mod.DistortionSpeedMultiplier = Mod.bDistorted   ? Entry.DistortionSpeedMultiplier  : 1.5f;
+	Mod.KineticResistance         = Mod.bArmoured   ? 0.5f : Settings->KineticResistance;
+	Mod.LaserResistance           = Mod.bReflective  ? 0.5f : Settings->LaserResistance;
+	Mod.ElectricResistance        = Mod.bInsulated   ? 0.5f : Settings->ElectricResistance;
+	Mod.AmorphicDamageCap         = Mod.bAmorphic    ? Settings->AmorphicDamageCap         : 0.f;
+	Mod.FragmentedChunkSize       = Mod.bFragmented  ? Settings->FragmentedChunkSize        : 0.f;
+	Mod.DistortionSpeedMultiplier = Mod.bDistorted   ? Settings->DistortionSpeedMultiplier  : 1.5f;
 
 	return Mod;
 }
@@ -189,9 +190,10 @@ void AEnemySpawner::Spawn(const FHordeBatchDetails& Details)
 		const FModifierFragment ModFrag = BuildModifierFragment(EnemyInfo);
 		PendingModifierFragments.Add(ModFrag);
 		PendingHasModifiers.Add(!EnemyInfo.Modifiers.IsEmpty());
-		PendingSpeedMultipliers.Add(ModFrag.bFast     ? EnemyInfo.FastSpeedMultiplier    : 1.f);
-		PendingDamageMultipliers.Add(ModFrag.bStrong  ? EnemyInfo.StrongDamageMultiplier : 1.f);
-		PendingVitalityAmounts.Add(ModFrag.bVitality  ? EnemyInfo.VitalityAmount         : 0.f);
+		const UGlobalTowerSettings* Settings = UGlobalTowerSettings::Get();
+		PendingSpeedMultipliers.Add(ModFrag.bFast     ? Settings->FastSpeedMultiplier    : 1.f);
+		PendingDamageMultipliers.Add(ModFrag.bStrong  ? Settings->StrongDamageMultiplier : 1.f);
+		PendingVitalityAmounts.Add(ModFrag.bVitality  ? Settings->VitalityAmount         : 0.f);
 		PendingEnemyIDs.Add(EnemyInfo.EnemyID);
 		PendingResourceAmounts.Add(EnemyInfo.PerEnemyReward);
 	}

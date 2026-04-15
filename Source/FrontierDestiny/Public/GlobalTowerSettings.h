@@ -69,6 +69,20 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Enemies", meta = (ClampMin = "1.0"))
 	float EnemyLifetimeSeconds = 300.f;
 
+	// --- Modifier defaults ---
+	// These define what each Enemy.Modifier.* tag means numerically.
+	// Applied whenever the corresponding tag is present on a spawn entry.
+
+	UPROPERTY(Config, EditAnywhere, Category = "Modifier Defaults") float FastSpeedMultiplier       = 2.f;
+	UPROPERTY(Config, EditAnywhere, Category = "Modifier Defaults") float StrongDamageMultiplier    = 2.f;
+	UPROPERTY(Config, EditAnywhere, Category = "Modifier Defaults") float VitalityAmount            = 50.f;
+	UPROPERTY(Config, EditAnywhere, Category = "Modifier Defaults") float KineticResistance         = 1.f;
+	UPROPERTY(Config, EditAnywhere, Category = "Modifier Defaults") float LaserResistance           = 1.f;
+	UPROPERTY(Config, EditAnywhere, Category = "Modifier Defaults") float ElectricResistance        = 1.f;
+	UPROPERTY(Config, EditAnywhere, Category = "Modifier Defaults") float AmorphicDamageCap         = 10.f;
+	UPROPERTY(Config, EditAnywhere, Category = "Modifier Defaults") float FragmentedChunkSize       = 10.f;
+	UPROPERTY(Config, EditAnywhere, Category = "Modifier Defaults") float DistortionSpeedMultiplier = 1.5f;
+
 	/** Helper to get the settings instance easily */
 	static const UGlobalTowerSettings* Get() { return GetDefault<UGlobalTowerSettings>(); }
 };

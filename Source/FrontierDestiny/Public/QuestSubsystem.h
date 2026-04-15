@@ -50,6 +50,12 @@ public:
 	void CompleteQuest();
 
 	UFUNCTION(BlueprintCallable)
+	bool CheckQuestValid(FName QuestID) const
+	{
+		return AllQuests.Contains(QuestID);
+	}
+
+	UFUNCTION(BlueprintCallable)
 	void RegisterEnemyKilled();
 
 	UFUNCTION(BlueprintCallable)

@@ -92,25 +92,12 @@ void UEnemyWaveManagerSubsystem::TriggerBatch(const FWaveBatchRow& Batch)
 	
 	OnHordeBatchBegin.Broadcast(Batch.HordeID);
 
-	UCoreManagerSubsystem* CoreManager = GetGameInstance()->GetWorld()->GetSubsystem<UCoreManagerSubsystem>();
-	const int32 CapturedCount = CoreManager ? CoreManager->GetCapturedCoreCount() : 0;
-
-	UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: CapturedCoreCount = %d"), CapturedCount);
-
 	for (const auto& Pair : Batch.SpawnMap)
 	{
-		const TArray<FHordeBatchDetails>& PerCore = Pair.Value.PerCoreCounts;
-		if (PerCore.IsEmpty())
-		{
-			UE_LOG(LogTemp, Warning, TEXT("EnemyWaveManager: SpawnMap entry '%s' has empty PerCoreCounts — skipping."), *Pair.Key.ToString());
-			continue;
-		}
+		UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: Broadcasting spawn order — Tag '%s', Enemies: %d"),
+			*Pair.Key.ToString(), Pair.Value.Enemies.Num());
 
-		const int32 Index = FMath::Clamp(CapturedCount - 1, 0, PerCore.Num() - 1);
-		UE_LOG(LogTemp, Log, TEXT("EnemyWaveManager: Broadcasting spawn order — Tag '%s', CoreIndex %d, Enemies: %d"),
-			*Pair.Key.ToString(), Index, PerCore[Index].Enemies.Num());
-
-		OnSpawnOrderIssued.Broadcast(Pair.Key, PerCore[Index]);
+		OnSpawnOrderIssued.Broadcast(Pair.Key, Pair.Value);
 	}
 }
 

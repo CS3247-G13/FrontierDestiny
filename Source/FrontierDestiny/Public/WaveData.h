@@ -31,44 +31,19 @@ struct FRONTIERDESTINY_API FEnemySpawnEntry
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Wave")
 	FResourceAmount PerEnemyReward;
-
-	// Numeric modifier values — only relevant if the corresponding tag is present
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers") float FastSpeedMultiplier       = 2.f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers") float StrongDamageMultiplier    = 2.f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers") float VitalityAmount            = 50.f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers") float KineticResistance         = 1.f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers") float LaserResistance          = 1.f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers") float ElectricResistance       = 1.f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers") float AmorphicDamageCap        = 10.f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers") float FragmentedChunkSize      = 10.f;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Modifiers") float DistortionSpeedMultiplier = 1.5f;
 };
 
 /**
- * The set of enemies to spawn at a location for a specific number of captured cores.
- * Index 0 = 1 core captured, Index 1 = 2 cores, Index 2 = 3 cores.
+ * The set of enemies to spawn at a location for a batch.
  */
 USTRUCT(BlueprintType)
 struct FRONTIERDESTINY_API FHordeBatchDetails
 {
 	GENERATED_BODY()
 
-	/** All enemy groups spawned simultaneously when this core-count condition is met. */
+	/** All enemy groups spawned simultaneously at this spawn point. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Wave")
 	TArray<FEnemySpawnEntry> Enemies;
-};
-
-/**
- * Wrapper so TMap can hold TArray<FHordeBatchDetails> as a Blueprint-visible value type.
- */
-USTRUCT(BlueprintType)
-struct FRONTIERDESTINY_API FHordeBatchDetailsByCore
-{
-	GENERATED_BODY()
-
-	/** One entry per possible core-count. Index 0 = 1 core, Index 1 = 2 cores, Index 2 = 3 cores. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Wave")
-	TArray<FHordeBatchDetails> PerCoreCounts;
 };
 
 /**
@@ -79,14 +54,7 @@ struct FRONTIERDESTINY_API FHordeBatchDetailsByCore
  *
  * SpawnMap:
  *   Key   = spawn location tag (e.g. Spawn.Grassy.A)
- *   Value = array of FHordeBatchDetails, one entry per possible core-count
- *           [0] = 1 core captured, [1] = 2 cores, [2] = 3 cores
- *
- * Example from design doc:
- *   GrassyspawnA: [2/6/10]Drones, [3]Broodlings{Fast, Nimble}
- *   →  SpawnMap[Spawn.Grassy.A].PerCoreCounts[0].Enemies = [{Drone,2,[]}, {Broodling,3,[Fast,Nimble]}]
- *      SpawnMap[Spawn.Grassy.A].PerCoreCounts[1].Enemies = [{Drone,6,[]}, {Broodling,3,[Fast,Nimble]}]
- *      SpawnMap[Spawn.Grassy.A].PerCoreCounts[2].Enemies = [{Drone,10,[]},{Broodling,3,[Fast,Nimble]}]
+ *   Value = the enemy groups to spawn simultaneously at that location
  */
 USTRUCT(BlueprintType)
 struct FRONTIERDESTINY_API FWaveBatchRow : public FTableRowBase
@@ -109,10 +77,10 @@ struct FRONTIERDESTINY_API FWaveBatchRow : public FTableRowBase
 	float Delay = 0.f;
 
 	/**
-	 * Spawn location tag → per-core-count enemy groups.
+	 * Spawn location tag → enemy groups to spawn at that location.
 	 * The tag should correspond to a named spawn point actor in the level
 	 * (e.g. Spawn.Grassy.A, Spawn.Volcanic.B, Spawn.Grav.X).
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Wave")
-	TMap<FGameplayTag, FHordeBatchDetailsByCore> SpawnMap;
+	TMap<FGameplayTag, FHordeBatchDetails> SpawnMap;
 };
