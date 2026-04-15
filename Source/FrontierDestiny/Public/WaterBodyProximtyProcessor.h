@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "MassProcessor.h"
+#include "MassEntityQuery.h"
 
 // Temporary water stuff
 //#include "../../../../../../../../Program Files/Epic Games/UE_5.7/Engine/Plugins/Experimental/Water/Source/Runtime/Public/WaterSubsystem.h"
